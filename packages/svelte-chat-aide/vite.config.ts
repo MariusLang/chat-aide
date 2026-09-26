@@ -5,6 +5,8 @@ export default defineConfig({
 	plugins: [sveltekit()],
 	test: {
 		include: ['tests/unit/**/*.test.ts', 'tests/build/**/*.test.ts'],
-		environment: 'node'
+		environment: 'node',
+		// Keep `?raw` CSS imports real in tests (the plain theme inlines its stylesheet).
+		css: { include: [/\/themes\/plain\/plain\.css/] }
 	}
 });
