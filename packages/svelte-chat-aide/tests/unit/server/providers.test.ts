@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect } from 'vitest';
 import { MockLanguageModelV4 } from 'ai/test';
 import {
 	PROVIDERS,
@@ -158,9 +158,17 @@ describe('provider registry', () => {
 			{ name: 'anthropic', model: 'm', apiKey: 'k', headers: { a: 'b' }, options: { x: 1 } },
 			importer
 		);
-		expect(calls[0]!.settings).toEqual({ apiKey: 'k', headers: { a: 'b' }, x: 1 });
+		expect(calls[0]!.settings).toEqual({
+			apiKey: 'k',
+			baseURL: 'https://api.anthropic.com/v1',
+			headers: { a: 'b' },
+			x: 1
+		});
 		await loadProvider({ name: 'amazon-bedrock', model: 'm', region: 'eu-west-1' }, importer);
-		expect(calls[1]!.settings).toEqual({ region: 'eu-west-1' });
+		expect(calls[1]!.settings).toEqual({
+			region: 'eu-west-1',
+			baseURL: 'https://bedrock-runtime.eu-west-1.amazonaws.com'
+		});
 		await loadProvider(
 			{ name: 'openrouter', model: 'm', apiKey: 'k', routing: { data_collection: 'deny' } },
 			importer
@@ -173,6 +181,88 @@ describe('provider registry', () => {
 		for (const row of PROVIDERS) {
 			const expected = row.name === 'anthropic' ? 'anthropic' : row.name === 'amazon-bedrock' ? 'bedrock' : 'none';
 			expect(row.cache, row.name).toBe(expected);
+		}
+	});
+});
+
+describe('adapters never read an endpoint from the environment', () => {
+	const TRAP = 'trap.invalid';
+	/** Every endpoint-shaping variable an adapter reads when its setting is unset. */
+	const VARS = [
+		'ANTHROPIC_BASE_URL',
+		'OPENAI_BASE_URL',
+		'AZURE_RESOURCE_NAME',
+		'AWS_ENDPOINT_URL',
+		'AWS_ENDPOINT_URL_BEDROCK_RUNTIME',
+		'AWS_REGION',
+		'GOOGLE_VERTEX_PROJECT',
+		'GOOGLE_VERTEX_LOCATION'
+	];
+	const saved: Record<string, string | undefined> = {};
+	beforeEach(() => {
+		for (const v of VARS) {
+			saved[v] = process.env[v];
+			process.env[v] = v.endsWith('URL') ? `https://${TRAP}/v1` : TRAP;
+		}
+	});
+	afterEach(() => {
+		for (const v of VARS) {
+			if (saved[v] === undefined) delete process.env[v];
+			else process.env[v] = saved[v];
+		}
+	});
+
+	const rows = PROVIDERS.filter((r) => r.credentials !== 'custom');
+	it.each(rows.map((r) => [r.name, r] as const))('%s sends to its own endpoint', async (_n, row) => {
+		const urls: string[] = [];
+		const trapFetch = (async (input: RequestInfo | URL) => {
+			urls.push(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+			return new Response('{}', { status: 500 });
+		}) as typeof fetch;
+		const cfg = dummyConfig(row);
+		cfg.options = { fetch: trapFetch };
+		const { model } = await loadProvider(cfg);
+		const m = model as unknown as {
+			config?: unknown;
+			doGenerate(o: unknown): Promise<unknown>;
+		};
+		try {
+			await m.doGenerate({ prompt: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }] });
+		} catch {
+			// The 500 (or missing cloud credentials) is expected; only the URL matters.
+		}
+		for (const url of urls) expect(url).not.toContain(TRAP);
+		expect(JSON.stringify(m.config ?? {})).not.toContain(TRAP);
+		if (row.credentials !== 'vertex') expect(urls.length).toBeGreaterThan(0);
+	});
+
+	it('azure requires resourceName or baseURL', async () => {
+		await expect(loadProvider({ name: 'azure', model: 'm', apiKey: 'k' })).rejects.toThrow(
+			/resourceName/
+		);
+		await expect(
+			loadProvider({ name: 'azure', model: 'm', apiKey: 'k', baseURL: 'https://x.openai.azure.com/openai' })
+		).resolves.toBeTruthy();
+	});
+
+	it('amazon-bedrock requires a region', async () => {
+		await expect(
+			loadProvider({ name: 'amazon-bedrock', model: 'm', accessKeyId: 'a', secretAccessKey: 's' })
+		).rejects.toThrow(/region/);
+	});
+
+	it('google-vertex requires project and location', async () => {
+		await expect(loadProvider({ name: 'google-vertex', model: 'm', project: 'p' })).rejects.toThrow(
+			/location/
+		);
+		await expect(loadProvider({ name: 'google-vertex', model: 'm', location: 'us-central1' })).rejects.toThrow(
+			/project/
+		);
+	});
+
+	it('every keyed official row names its default endpoint', () => {
+		for (const row of PROVIDERS) {
+			if (row.credentials === 'apiKey' && !row.preset) expect(row.defaultBaseURL, row.name).toMatch(/^https:\/\//);
 		}
 	});
 });

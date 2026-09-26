@@ -11,6 +11,12 @@ export interface ProviderRow {
 	pkg: string;
 	/** Factory export of `pkg`, e.g. `createAnthropic`. */
 	factory: string;
+	/**
+	 * The adapter's own default endpoint, passed explicitly when the developer gives no
+	 * `baseURL`: some adapters otherwise read one from the environment (`ANTHROPIC_BASE_URL`,
+	 * `OPENAI_BASE_URL`), which could send the key somewhere else.
+	 */
+	defaultBaseURL?: string;
 	/** For `@ai-sdk/openai-compatible` presets. */
 	preset?: { baseURL: string; keyless?: boolean; providerName: string };
 	credentials: 'apiKey' | 'none' | 'azure' | 'vertex' | 'bedrock' | 'openai-compatible' | 'custom';
@@ -21,8 +27,23 @@ export interface ProviderRow {
 
 const API_KEY = 'SVELTE_CHAT_AIDE_API_KEY';
 
-function keyed(name: string, pkg: string, factory: string, extra: Partial<ProviderRow> = {}): ProviderRow {
-	return { name, pkg, factory, credentials: 'apiKey', envRequired: [API_KEY], cache: 'none', ...extra };
+function keyed(
+	name: string,
+	pkg: string,
+	factory: string,
+	defaultBaseURL: string,
+	extra: Partial<ProviderRow> = {}
+): ProviderRow {
+	return {
+		name,
+		pkg,
+		factory,
+		defaultBaseURL,
+		credentials: 'apiKey',
+		envRequired: [API_KEY],
+		cache: 'none',
+		...extra
+	};
 }
 
 function preset(
@@ -46,13 +67,22 @@ function preset(
 /** Every language-model provider the library names: both tables of spec §3.2. */
 export const PROVIDERS: readonly ProviderRow[] = Object.freeze([
 	// Official adapters
-	keyed('anthropic', '@ai-sdk/anthropic', 'createAnthropic', { cache: 'anthropic' }),
-	keyed('openai', '@ai-sdk/openai', 'createOpenAI'),
-	keyed('azure', '@ai-sdk/azure', 'createAzure', {
+	// Default endpoints are copied from each adapter's source.
+	keyed('anthropic', '@ai-sdk/anthropic', 'createAnthropic', 'https://api.anthropic.com/v1', {
+		cache: 'anthropic'
+	}),
+	keyed('openai', '@ai-sdk/openai', 'createOpenAI', 'https://api.openai.com/v1'),
+	{
+		name: 'azure',
+		pkg: '@ai-sdk/azure',
+		factory: 'createAzure',
+		cache: 'none',
 		credentials: 'azure',
 		envRequired: [API_KEY, 'SVELTE_CHAT_AIDE_RESOURCE_NAME']
+	},
+	keyed('google', '@ai-sdk/google', 'createGoogle', 'https://generativelanguage.googleapis.com/v1beta', {
+		aliases: ['gemini']
 	}),
-	keyed('google', '@ai-sdk/google', 'createGoogle', { aliases: ['gemini'] }),
 	{
 		name: 'google-vertex',
 		pkg: '@ai-sdk/google-vertex',
@@ -69,20 +99,20 @@ export const PROVIDERS: readonly ProviderRow[] = Object.freeze([
 		envRequired: ['SVELTE_CHAT_AIDE_REGION'],
 		cache: 'bedrock'
 	},
-	keyed('mistral', '@ai-sdk/mistral', 'createMistral'),
-	keyed('xai', '@ai-sdk/xai', 'createXai'),
-	keyed('groq', '@ai-sdk/groq', 'createGroq'),
-	keyed('deepseek', '@ai-sdk/deepseek', 'createDeepSeek'),
-	keyed('cohere', '@ai-sdk/cohere', 'createCohere'),
-	keyed('togetherai', '@ai-sdk/togetherai', 'createTogetherAI'),
-	keyed('fireworks', '@ai-sdk/fireworks', 'createFireworks'),
-	keyed('deepinfra', '@ai-sdk/deepinfra', 'createDeepInfra'),
-	keyed('cerebras', '@ai-sdk/cerebras', 'createCerebras'),
-	keyed('perplexity', '@ai-sdk/perplexity', 'createPerplexity'),
-	keyed('baseten', '@ai-sdk/baseten', 'createBaseten'),
-	keyed('huggingface', '@ai-sdk/huggingface', 'createHuggingFace'),
+	keyed('mistral', '@ai-sdk/mistral', 'createMistral', 'https://api.mistral.ai/v1'),
+	keyed('xai', '@ai-sdk/xai', 'createXai', 'https://api.x.ai/v1'),
+	keyed('groq', '@ai-sdk/groq', 'createGroq', 'https://api.groq.com/openai/v1'),
+	keyed('deepseek', '@ai-sdk/deepseek', 'createDeepSeek', 'https://api.deepseek.com'),
+	keyed('cohere', '@ai-sdk/cohere', 'createCohere', 'https://api.cohere.com/v2'),
+	keyed('togetherai', '@ai-sdk/togetherai', 'createTogetherAI', 'https://api.together.xyz/v1/'),
+	keyed('fireworks', '@ai-sdk/fireworks', 'createFireworks', 'https://api.fireworks.ai/inference/v1'),
+	keyed('deepinfra', '@ai-sdk/deepinfra', 'createDeepInfra', 'https://api.deepinfra.com/v1'),
+	keyed('cerebras', '@ai-sdk/cerebras', 'createCerebras', 'https://api.cerebras.ai/v1'),
+	keyed('perplexity', '@ai-sdk/perplexity', 'createPerplexity', 'https://api.perplexity.ai'),
+	keyed('baseten', '@ai-sdk/baseten', 'createBaseten', 'https://inference.baseten.co/v1'),
+	keyed('huggingface', '@ai-sdk/huggingface', 'createHuggingFace', 'https://router.huggingface.co/v1'),
 	// Community and compatible
-	keyed('openrouter', '@openrouter/ai-sdk-provider', 'createOpenRouter'),
+	keyed('openrouter', '@openrouter/ai-sdk-provider', 'createOpenRouter', 'https://openrouter.ai/api/v1'),
 	preset('kimi', 'https://api.moonshot.ai/v1', false, { aliases: ['moonshot'] }),
 	preset('ollama', 'http://localhost:11434/v1', true),
 	preset('lmstudio', 'http://localhost:1234/v1', true),
@@ -142,8 +172,53 @@ function defined(entries: Record<string, unknown>): Record<string, unknown> {
 	return out;
 }
 
+// AWS partitions whose endpoints are not under amazonaws.com (from @ai-sdk/amazon-bedrock).
+const AWS_DNS_SUFFIXES: [prefix: string, suffix: string][] = [
+	['cn-', 'amazonaws.com.cn'],
+	['us-iso-', 'c2s.ic.gov'],
+	['us-isob-', 'sc2s.sgov.gov'],
+	['eu-isoe-', 'cloud.adc-e.uk'],
+	['us-isof-', 'csp.hci.ic.gov'],
+	['eusc-', 'amazonaws.eu']
+];
+
+const CLOUD_ID = /^[a-z0-9][a-z0-9-]*$/;
+
+function bedrockBaseURL(region: string): string {
+	const suffix = AWS_DNS_SUFFIXES.find(([p]) => region.startsWith(p))?.[1] ?? 'amazonaws.com';
+	return `https://bedrock-runtime.${region}.${suffix}`;
+}
+
+/**
+ * Every endpoint-shaping setting is given explicitly, so no adapter falls back to an
+ * environment variable (`ANTHROPIC_BASE_URL`, `OPENAI_BASE_URL`, `AZURE_RESOURCE_NAME`,
+ * `AWS_ENDPOINT_URL*`, `AWS_REGION`, `GOOGLE_VERTEX_PROJECT`/`_LOCATION`).
+ */
+function requireEndpoint(row: ProviderRow, cfg: ProviderConfig): void {
+	const need = (what: string) =>
+		new Error(`svelte-chat-aide: provider "${row.name}" needs ${what}.`);
+	switch (row.credentials) {
+		case 'azure':
+			if (!cfg.resourceName && !cfg.baseURL) throw need('provider.resourceName or provider.baseURL');
+			break;
+		case 'bedrock':
+			if (!cfg.region) throw need('provider.region');
+			if (!cfg.baseURL && !CLOUD_ID.test(cfg.region)) throw need('a valid provider.region');
+			break;
+		case 'vertex':
+			if (!cfg.project) throw need('provider.project');
+			if (!cfg.location) throw need('provider.location');
+			if (!CLOUD_ID.test(cfg.location)) throw need('a valid provider.location');
+			break;
+	}
+}
+
 function settingsFor(row: ProviderRow, cfg: ProviderConfig): Record<string, unknown> {
-	const base: Record<string, unknown> = { apiKey: cfg.apiKey, baseURL: cfg.baseURL, headers: cfg.headers };
+	const base: Record<string, unknown> = {
+		apiKey: cfg.apiKey,
+		baseURL: cfg.baseURL ?? row.defaultBaseURL,
+		headers: cfg.headers
+	};
 	switch (row.credentials) {
 		case 'azure':
 			Object.assign(base, { resourceName: cfg.resourceName, apiVersion: cfg.apiVersion });
@@ -162,6 +237,7 @@ function settingsFor(row: ProviderRow, cfg: ProviderConfig): Record<string, unkn
 				secretAccessKey: cfg.secretAccessKey,
 				sessionToken: cfg.sessionToken
 			});
+			if (!cfg.baseURL && cfg.region) base.baseURL = bedrockBaseURL(cfg.region);
 			break;
 	}
 	if (row.preset) {
@@ -203,6 +279,7 @@ export async function loadProvider(
 	if (row.credentials === 'openai-compatible' && !cfg.baseURL) {
 		throw new Error('svelte-chat-aide: provider "openai-compatible" needs provider.baseURL.');
 	}
+	requireEndpoint(row, cfg);
 
 	let mod: Record<string, unknown>;
 	try {
