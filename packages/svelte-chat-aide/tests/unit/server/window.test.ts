@@ -57,11 +57,33 @@ describe('windowHistory', () => {
 		expect(text(out[0]!).startsWith('u3')).toBe(true);
 	});
 
-	it('always keeps the final user message whole, even over the chars cap', () => {
+	it('always keeps the final user message, truncated to historyChars if it alone exceeds it', () => {
 		const t = [msg('user', 'old'), msg('assistant', 'reply'), msg('user', 'x'.repeat(500))];
 		const out = windowHistory(t, { historyTurns: 12, historyChars: 100 });
 		expect(out).toHaveLength(1);
-		expect(text(out[0]!)).toBe('x'.repeat(500));
+		expect(text(out[0]!)).toBe('x'.repeat(100));
+	});
+
+	it('truncates each assistant message to messageChars', () => {
+		const t = [msg('user', 'q'), msg('assistant', 'a'.repeat(30_000)), msg('user', 'q2')];
+		const out = windowHistory(t, { historyTurns: 12, historyChars: 16_000, messageChars: 4_000 });
+		expect(out.map((m) => text(m).length)).toEqual([1, 4_000, 2]);
+	});
+
+	it('truncates across several text parts of one assistant message', () => {
+		const a: UIMessageLike = {
+			role: 'assistant',
+			parts: [
+				{ type: 'text', text: 'a'.repeat(6) },
+				{ type: 'text', text: 'b'.repeat(6) }
+			]
+		};
+		const out = windowHistory([msg('user', 'q'), a, msg('user', 'q')], {
+			historyTurns: 12,
+			historyChars: 1000,
+			messageChars: 8
+		});
+		expect(text(out[1]!)).toBe('aaaaaabb');
 	});
 
 	it('a client sending 500 messages still yields at most 12 turns', () => {
