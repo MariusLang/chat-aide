@@ -85,6 +85,8 @@ export interface WarmupResponse {
 	mapped: boolean;
 	/** The provider's display name (e.g. 'Anthropic'), for the widget's disclosure. */
 	provider?: string;
+	/** The resolved limits the client trims its outgoing body to (thread length, message and page size). */
+	limits?: { messages: number; messageChars: number; pageChars: number };
 }
 
 export interface ErrorResponse {
