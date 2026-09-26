@@ -307,8 +307,8 @@ describe('createChatHandler: read_page', () => {
 				await (await handler(makeEvent(site, { body: chatBody() }))).text();
 				await settle();
 			}
-			// In-process renders only: a 404 also tries the network read of the configured origin once.
-			const renders = site.calls.filter((c) => c.url === route && /text\/html/.test(c.accept));
+			// Mounted directly, every read goes over the network to the configured origin.
+			const renders = site.calls.filter((c) => c.path === route && /text\/html/.test(c.accept));
 			expect(renders).toHaveLength(1);
 		}
 	});
@@ -663,6 +663,38 @@ describe('createChatHandler: forged Host (acceptance #19)', () => {
 		}
 		expect(site.calls.some((c) => c.url.includes('evil'))).toBe(false);
 		expect(handler.cache.routes().some((r) => r.includes('evil'))).toBe(false);
+	});
+});
+
+describe('createChatHandler: mounted directly (not through aide())', () => {
+	it('never adopts event.fetch; reads go over the network to the configured origin', async () => {
+		const { site, handler, settle } = setup();
+		const eventFetch = vi.fn(site.fetch);
+		const event = makeEvent(site, { body: chatBody('hi', { route: '/about' }) });
+		(event as { fetch: unknown }).fetch = eventFetch;
+		const res = await handler(event);
+		expect(res.status).toBe(200);
+		await res.text();
+		await settle();
+		expect(eventFetch).not.toHaveBeenCalled();
+		expect(handler.transport.hasInProcessFetch()).toBe(false);
+		expect(site.calls.length).toBeGreaterThan(0);
+		for (const c of site.calls) expect(c.url.startsWith(ORIGIN + '/')).toBe(true);
+	});
+
+	it('with no origin, warns once that direct mounting needs one', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const { site, handler } = setup({ config: { origin: undefined } });
+		const eventFetch = vi.fn(site.fetch);
+		for (let i = 0; i < 2; i++) {
+			const event = makeEvent(site, { method: 'GET', url: `${ORIGIN}/api/chat?route=/` });
+			(event as { fetch: unknown }).fetch = eventFetch;
+			await handler(event);
+		}
+		expect(eventFetch).not.toHaveBeenCalled();
+		const mine = warn.mock.calls.filter((c) => /mounted directly/.test(String(c[0])));
+		expect(mine).toHaveLength(1);
+		expect(String(mine[0]![0])).toContain('origin');
 	});
 });
 

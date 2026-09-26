@@ -14,7 +14,7 @@ import type { AideConfig } from '../shared/types';
 import { routeForMarkdownPath } from '../site/llms';
 import { INTERNAL_HEADER, INTERNAL_MARKER, SERVED_HEADER, SERVED_MARKER } from '../site/transport';
 import { llmsFullTxt, llmsTxt, pageMarkdown } from '../llms/index';
-import { createChatHandler, type ChatHandler, type ChatHandlerDeps } from './handler';
+import { createChatHandler, markHooked, type ChatHandler, type ChatHandlerDeps } from './handler';
 import { warn } from './warn';
 
 export type AideHandle = Handle & { handler: ChatHandler };
@@ -68,6 +68,7 @@ export function aide(config: AideConfig, deps?: ChatHandlerDeps): AideHandle {
 		}
 		res.body?.cancel().catch(() => {});
 
+		markHooked(event);
 		if (kind === 'endpoint') return handler(event);
 		return answer[kind](event as Parameters<RequestHandler>[0]);
 	}) as AideHandle;

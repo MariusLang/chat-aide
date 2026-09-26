@@ -50,6 +50,24 @@ export interface ChatHandler {
 	cache: PageCache;
 	/** Resolves once the provider's adapter is loaded; rejects with the `pnpm add` line when it is missing. */
 	ready: Promise<void>;
+	/**
+	 * Hands this request's `event.fetch` to the transport for in-process reads — only for a
+	 * request that came through `aide()` and whose origin passes the transport's rule. `ifUnset`
+	 * (the llms paths): only when no fetch has been adopted yet.
+	 */
+	adoptFetch(event: RequestEvent, ifUnset?: boolean): void;
+}
+
+/**
+ * Events `aide()` hands to the chat and llms handlers. Only those may lend their `event.fetch`:
+ * the hook passes the library's reads straight to the app, while a handler mounted directly
+ * (`+server.ts`) would read through the visitor's own request, whose `event.fetch` copies each
+ * read's `Set-Cookie` onto the visitor's response (SvelteKit `fetch.js`, `set_internal`).
+ */
+const hooked = new WeakSet<object>();
+
+export function markHooked(event: RequestEvent): void {
+	hooked.add(event);
 }
 
 export interface ChatHandlerDeps {
@@ -264,6 +282,21 @@ export function createChatHandler(input: AideConfig, deps: ChatHandlerDeps = {})
 		}
 	}
 
+	function adoptFetch(event: RequestEvent, ifUnset = false): void {
+		if (!hooked.has(event)) {
+			if (origin === undefined) {
+				warn(
+					'the chat or llms handler is mounted directly, not through the aide() hook, and no origin is ' +
+						'configured: the site cannot be read. Set config.origin (reads then go over the network to ' +
+						'it), or mount through aide().'
+				);
+			}
+			return;
+		}
+		if (ifUnset && transport.hasInProcessFetch()) return;
+		transport.setInProcessFetch(event.fetch, event.url.origin);
+	}
+
 	function onErrorFor(sessionId: string | null, waitUntil: WaitUntil) {
 		return (error: unknown) =>
 			runCallback(waitUntil, config.onError, { sessionId, error, at: new Date() }, undefined, sessionId);
@@ -451,7 +484,7 @@ export function createChatHandler(input: AideConfig, deps: ChatHandlerDeps = {})
 
 	const handler = (async (event: RequestEvent): Promise<Response> => {
 		const started = now();
-		transport.setInProcessFetch(event.fetch, event.url.origin);
+		adoptFetch(event);
 		const waitUntil = await resolveWaitUntil(event, config.waitUntil);
 		platformWarnings(event);
 
@@ -489,5 +522,6 @@ export function createChatHandler(input: AideConfig, deps: ChatHandlerDeps = {})
 	handler.reader = reader;
 	handler.cache = cache;
 	handler.ready = ready;
+	handler.adoptFetch = adoptFetch;
 	return handler;
 }

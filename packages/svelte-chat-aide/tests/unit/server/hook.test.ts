@@ -289,6 +289,21 @@ describe('aide() hook', () => {
 		expect(handle.handler.transport.hasInProcessFetch()).toBe(true);
 	});
 
+	it('only the chat endpoint replaces the adopted fetch; llms paths adopt one only when none is', async () => {
+		const handle = aide(config());
+		const set = vi.spyOn(handle.handler.transport, 'setInProcessFetch');
+		const app = createApp(handle);
+		await app.request('/llms.txt');
+		expect(set).toHaveBeenCalledTimes(1);
+		await app.request('/llms-full.txt');
+		await app.request('/docs/a.md');
+		expect(set).toHaveBeenCalledTimes(1);
+		await app.request('/api/chat?route=/', { headers: { 'sec-fetch-site': 'same-origin' } });
+		expect(set).toHaveBeenCalledTimes(2);
+		await app.request('/llms.txt');
+		expect(set).toHaveBeenCalledTimes(2);
+	});
+
 	it('composes with sequence()', async () => {
 		const seen: string[] = [];
 		const other: Handle = async ({ event, resolve }) => {
@@ -326,5 +341,51 @@ describe('llms handlers', () => {
 		expect((await app.request('/llms-full.txt')).status).toBe(200);
 		expect((await app.request('/docs/b.md')).status).toBe(200);
 		expect((await app.request('/secret.md')).status).toBe(404);
+	});
+});
+
+describe('mounted by hand (not through aide())', () => {
+	it('never adopts the event’s fetch, so no read’s Set-Cookie reaches the visitor', async () => {
+		const handle = aide(config({ origin: BASE }), {
+			fetch: async () => new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain' } })
+		});
+		const eventFetch = vi.fn(async () => new Response('x', { headers: { 'set-cookie': 'a=b' } }));
+		const event = {
+			request: new Request(BASE + '/llms.txt'),
+			url: new URL(BASE + '/llms.txt'),
+			params: {},
+			fetch: eventFetch,
+			getClientAddress: () => '203.0.113.7',
+			isSubRequest: false,
+			platform: undefined,
+			locals: {}
+		} as unknown as RequestEvent;
+		const res = await llmsTxt(handle.handler)(event as never);
+		expect(res.status).toBe(200);
+		expect(eventFetch).not.toHaveBeenCalled();
+		expect(handle.handler.transport.hasInProcessFetch()).toBe(false);
+	});
+
+	it('with no origin, warns once that direct mounting needs one, and reads nothing', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const handle = aide(config());
+		const eventFetch = vi.fn();
+		const event = (path: string) =>
+			({
+				request: new Request(BASE + path),
+				url: new URL(BASE + path),
+				params: {},
+				fetch: eventFetch,
+				getClientAddress: () => '203.0.113.7',
+				isSubRequest: false,
+				platform: undefined,
+				locals: {}
+			}) as unknown as RequestEvent;
+		expect((await llmsTxt(handle.handler)(event('/llms.txt') as never)).status).toBe(200);
+		expect((await llmsFullTxt(handle.handler)(event('/llms-full.txt') as never)).status).toBe(200);
+		expect(eventFetch).not.toHaveBeenCalled();
+		const mine = warn.mock.calls.filter((c) => /mounted directly|mounted by hand/.test(String(c[0])));
+		expect(mine).toHaveLength(1);
+		expect(String(mine[0]![0])).toContain('origin');
 	});
 });
