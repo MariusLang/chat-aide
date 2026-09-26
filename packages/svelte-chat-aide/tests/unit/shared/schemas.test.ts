@@ -67,6 +67,17 @@ describe('resolveConfig', () => {
 		expect(e.message).toMatch(/routes? (every )?requests? through Vercel/i);
 	});
 
+	it('refuses a gateway model handed in as custom', () => {
+		for (const id of ['gateway', 'Gateway.realtime']) {
+			const instance = { specificationVersion: 'v4', provider: id, modelId: 'anthropic/claude' };
+			const e = failure({ provider: { name: 'custom', model: 'm', instance } });
+			expect(e.path).toBe('provider.instance');
+			expect(e.message).toContain('Vercel AI Gateway is not supported');
+		}
+		const ok = { specificationVersion: 'v4', provider: 'anthropic.messages', modelId: 'claude' };
+		expect(resolveConfig({ provider: { name: 'custom', model: 'm', instance: ok } }).provider.instance).toBe(ok);
+	});
+
 	// 6
 	it('requires salt with store and store with salt', () => {
 		expect(failure({ provider, store }).path).toBe('salt');

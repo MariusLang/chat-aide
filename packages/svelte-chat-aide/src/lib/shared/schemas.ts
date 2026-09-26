@@ -96,6 +96,19 @@ const providerSchema = z.strictObject({
 			{ message: 'must be a LanguageModel instance, not a model-id string' }
 		)
 		.optional()
+}).superRefine((p, ctx) => {
+	// A gateway model handed in as 'custom' is the same third party by another door.
+	const id = (p.instance as { provider?: unknown } | undefined)?.provider;
+	if (
+		p.name.trim().toLowerCase() === 'custom' &&
+		typeof id === 'string' &&
+		id.trim().toLowerCase().startsWith(REFUSED_PROVIDER)
+	)
+		ctx.addIssue({
+			code: 'custom',
+			path: ['instance'],
+			message: `${REFUSED_PROVIDER_MESSAGE} (provider.instance is a '${id}' model.)`
+		});
 });
 
 const limitsShape = Object.fromEntries(
