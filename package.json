@@ -9,7 +9,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test",
-    "check": "pnpm -r check && pnpm -r lint && pnpm -r test && pnpm --filter demo test:e2e && pnpm --filter svelte-chat-aide publint && pnpm audit --prod"
+    "check": "pnpm --filter svelte-chat-aide build && pnpm -r check && pnpm -r lint && pnpm -r test && pnpm --filter demo test:e2e && pnpm --filter svelte-chat-aide publint && pnpm audit --prod"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "schedule:weekly", "group:all"],
+  "ignoreUnstable": true,
+  "rangeStrategy": "bump",
+  "packageRules": [
+    {
+      "description": "Peer ranges stay carets on the major (^7), never pinned to a minor (spec §4.1).",
+      "matchDepTypes": ["peerDependencies"],
+      "rangeStrategy": "widen"
+    },
+    {
+      "description": "TypeScript stays on 6.x until svelte-check accepts 7 (its peer range is ^5 || ^6); lift this rule in the PR that moves to 7 (spec §4.1).",
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<7"
+    }
+  ]
+}

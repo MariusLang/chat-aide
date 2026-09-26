@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: pnpm check (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 24 is the supported line (engines >=24); 22 is tested until its end of life (spec §4.1).
+        node: [24, 22]
+    env:
+      # engines says >=24 and .npmrc sets engine-strict; the Node 22 leg installs anyway.
+      npm_config_engine_strict: ${{ matrix.node == 22 && 'false' || 'true' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      # The pnpm version comes from package.json's packageManager (pnpm 10).
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright's Chromium
+        run: pnpm --filter demo exec playwright install --with-deps chromium
+
+      - run: pnpm check
