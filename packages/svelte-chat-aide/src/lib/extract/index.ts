@@ -1,2 +1,1 @@
-// Stub; filled in by a later task.
-export {};
+export { extract, isThin, hashText, type Extracted } from '../site/extract';
