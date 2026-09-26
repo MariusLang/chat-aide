@@ -132,6 +132,12 @@ function htmlLinks(doc: Document, pageRoute: string): string[] {
 	return out;
 }
 
+/**
+ * Markdown links, `.md` twins (relative or absolute) mapped to their page route. The mapping
+ * works on the URL-encoded path as written and never decodes, so an encoded route such as
+ * `/%61pi/x.md` → `/%61pi/x` is left for the crawler's `acceptHref`, which judges the
+ * SvelteKit-decoded form (`/api/x`) and refuses it.
+ */
 function markdownLinks(markdown: string, pageRoute: string): string[] {
 	const out: string[] = [];
 	for (const m of markdown.matchAll(MD_LINK_RE)) {
@@ -140,7 +146,19 @@ function markdownLinks(markdown: string, pageRoute: string): string[] {
 		if (href.startsWith('/')) {
 			const path = href.replace(/[?#].*$/, '');
 			const route = routeForMarkdownPath(path);
-			out.push(route ?? href);
+			out.push(route === null ? href : route + href.slice(path.length));
+			continue;
+		}
+		let url: URL | null = null;
+		try {
+			url = new URL(href);
+		} catch {
+			/* kept as written */
+		}
+		const route = url && /^https?:$/.test(url.protocol) ? routeForMarkdownPath(url.pathname) : null;
+		if (url && route !== null) {
+			url.pathname = route;
+			out.push(url.href);
 		} else out.push(href);
 	}
 	return out;

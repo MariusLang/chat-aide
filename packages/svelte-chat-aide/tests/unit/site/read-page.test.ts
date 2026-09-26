@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createReader } from '../../../src/lib/site/read-page';
 import { createTransport } from '../../../src/lib/site/transport';
 import { createPageCache } from '../../../src/lib/site/cache';
+import { acceptHref } from '../../../src/lib/site/route';
 import { LIMIT_DEFAULTS, type Limits } from '../../../src/lib/shared/limits';
 import { createFakeSite, htmlPage, type FakePage } from '../../fixtures/site';
 
@@ -198,5 +199,30 @@ describe('reader.links', () => {
 		);
 		await reader.readPage('/a');
 		expect(reader.links('/a')).toEqual(['/b', '/c', '/']);
+	});
+
+	it('maps encoded and absolute .md links to routes that the route rule then judges decoded', async () => {
+		const { reader } = setup(
+			{
+				'/a.md': md(
+					'# A\n\n[1](/%61pi/secret.md) [2](/docs/%6cogout.md) [3](/docs/%zz.md) [4](/docs/%C3%BCber.md)' +
+						' [5](https://site.example/abs.md?x#y) [6](https://site.example/index.html.md) [7](https://evil.example/e.md)'
+				)
+			},
+			{ preferMarkdown: true }
+		);
+		await reader.readPage('/a');
+		const links = reader.links('/a');
+		expect(links).toEqual([
+			'/%61pi/secret',
+			'/docs/%6cogout',
+			'/docs/%zz',
+			'/docs/%C3%BCber',
+			'https://site.example/abs?x#y',
+			'https://site.example/',
+			'https://evil.example/e'
+		]);
+		const site = { origin: 'https://site.example', base: 'https://site.example/a', exclude: [] };
+		expect(links.map((l) => acceptHref(l, site))).toEqual([null, null, null, '/docs/%C3%BCber', '/abs', '/', null]);
 	});
 });
