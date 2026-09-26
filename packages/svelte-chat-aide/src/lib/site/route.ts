@@ -2,6 +2,14 @@
  * The one route rule (spec §3.6). Every route the library touches — `aide.route`, `GET ?route=`,
  * `read_page`'s argument, crawled links, sitemap `<loc>`s, `llms.txt` links and redirect
  * targets — goes through this file and nowhere else.
+ *
+ * Encoded vs decoded: the route this file returns is the WHATWG-normalized, percent-encoded
+ * pathname (`/über` → `/%C3%BCber`), which is what the library fetches and caches under. Every
+ * check that decides *what page that is* — excludes, side-effect segments, the extension rule,
+ * control characters — runs on the pathname as SvelteKit decodes it for routing
+ * (`decodeSveltePathname`), so `/%61pi/x` is `/api/x` and `/feed.%6Ason` is `/feed.json`. A
+ * pathname SvelteKit cannot decode (malformed `%`) is refused. `%25` stays literal, as in
+ * SvelteKit, so double-encoding (`%252e`) is inert.
  */
 import { normalizeOrigin } from '../shared/schemas';
 
@@ -22,6 +30,18 @@ const ENCODED_SEPARATOR = /%(2f|5c|2e)/i;
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHAR = /[\u0000-\u001f\u007f]/;
 const EXTENSION = /\.[a-z0-9]{1,8}$/i;
+
+/**
+ * SvelteKit's `decode_pathname` (`@sveltejs/kit/src/utils/url.js`): decodeURI per `%25`-split
+ * part. Returns null where SvelteKit would throw.
+ */
+export function decodeSveltePathname(pathname: string): string | null {
+	try {
+		return pathname.split('%25').map(decodeURI).join('%25');
+	} catch {
+		return null;
+	}
+}
 
 function resolveOrigin(origin: string | undefined): string | null {
 	return origin === undefined ? IN_PROCESS_ORIGIN : normalizeOrigin(origin);
@@ -44,6 +64,8 @@ export function normalizeRoute(input: unknown, origin?: string): string | null {
 		return null;
 	}
 	if (url.origin !== base) return null;
+	const decoded = decodeSveltePathname(url.pathname);
+	if (decoded === null || CONTROL_CHAR.test(decoded) || decoded.includes('\\')) return null;
 	return url.pathname;
 }
 
@@ -75,18 +97,28 @@ function matchSegments(path: string[], pi: number, pattern: string[], qi: number
 	return segmentMatches(path[pi] as string, head) && matchSegments(path, pi + 1, pattern, qi + 1);
 }
 
-/** Glob: `*` one segment, `**` any depth, exact otherwise. */
+/** Glob: `*` one segment, `**` any depth, exact otherwise. Matches the strings as given. */
 export function matchesPattern(pathname: string, pattern: string): boolean {
 	return matchSegments(segments(pathname), 0, segments(pattern), 0);
 }
 
-/** User excludes + defaults (including the extension rule). */
+/**
+ * User excludes + defaults (including the extension rule), matched against the SvelteKit-decoded
+ * pathname; an undecodable pathname counts as excluded. A pattern written percent-encoded is
+ * decoded the same way, so `/über/**` and `/%C3%BCber/**` are equivalent.
+ */
 export function isExcluded(pathname: string, exclude: string[]): boolean {
-	const parts = segments(pathname);
+	const decoded = decodeSveltePathname(pathname);
+	if (decoded === null) return true;
+	const parts = segments(decoded);
 	const last = parts[parts.length - 1] ?? '';
 	if (EXTENSION.test(last)) return true;
-	for (const pattern of DEFAULT_EXCLUDES) if (matchesPattern(pathname, pattern)) return true;
-	for (const pattern of exclude) if (matchesPattern(pathname, pattern)) return true;
+	for (const pattern of DEFAULT_EXCLUDES) if (matchesPattern(decoded, pattern)) return true;
+	for (const pattern of exclude) {
+		if (matchesPattern(decoded, pattern)) return true;
+		const decodedPattern = decodeSveltePathname(pattern);
+		if (decodedPattern !== null && decodedPattern !== pattern && matchesPattern(decoded, decodedPattern)) return true;
+	}
 	return false;
 }
 

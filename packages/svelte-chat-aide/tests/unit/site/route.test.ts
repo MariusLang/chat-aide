@@ -36,7 +36,20 @@ describe('route rule', () => {
 		'/newsletter/unsubscribe/',
 		'/files/report.pdf',
 		'/api/chat',
-		'/api'
+		'/api',
+		// percent-encoded forms: SvelteKit routes on the decoded pathname
+		'/%61pi/secret',
+		'/%6cogout',
+		'/account/%73ign-out',
+		'/feed.%6Ason',
+		'/files/report.%70df',
+		'/a%00b',
+		'/a%0ab',
+		'/a%7fb',
+		// malformed percent-encoding: SvelteKit's decode throws
+		'/%',
+		'/a%zz',
+		'/%E0%A4%A'
 	])('refuses %j', (input) => {
 		expect(acceptRoute(input, opts)).toBeNull();
 		expect(acceptRoute(input, { origin: 'https://site.dev', exclude: [] })).toBeNull();
@@ -62,7 +75,14 @@ describe('route rule', () => {
 		['/docs/intro?x=1#h', '/docs/intro'],
 		['/docs/./a', '/docs/a'],
 		['/a/b/../c', '/a/c'],
-		['/' + 'a'.repeat(511), '/' + 'a'.repeat(511)]
+		['/' + 'a'.repeat(511), '/' + 'a'.repeat(511)],
+		// returned form stays the URL-encoded pathname; checks run on the decoded form
+		['/über', '/%C3%BCber'],
+		['/%C3%BCber', '/%C3%BCber'],
+		// double-encoding stays inert: SvelteKit keeps %25 literal, so %252e is not a dot
+		['/%252e%252e/api/x', '/%252e%252e/api/x'],
+		['/a%252fb', '/a%252fb'],
+		['/%2561pi/x', '/%2561pi/x']
 	])('accepts %j as %j', (input, out) => {
 		expect(acceptRoute(input, opts)).toBe(out);
 		expect(acceptRoute(input, { origin: 'https://site.dev', exclude: [] })).toBe(out);
@@ -102,6 +122,23 @@ describe('excludes', () => {
 		expect(acceptRoute('/privately', o)).toBe('/privately');
 	});
 
+	it('user excludes match the SvelteKit-decoded pathname', () => {
+		expect(acceptRoute('/%61dmin/users', { exclude: ['/admin/**'] })).toBeNull();
+		expect(acceptRoute('/adm%69n', { exclude: ['/admin/**'] })).toBeNull();
+		expect(acceptRoute('/über/x', { exclude: ['/über/**'] })).toBeNull();
+		expect(acceptRoute('/%C3%BCber/x', { exclude: ['/über/**'] })).toBeNull();
+		expect(acceptRoute('/über/x', { exclude: ['/%C3%BCber/**'] })).toBeNull();
+		expect(acceptRoute('/ueber/x', { exclude: ['/über/**'] })).toBe('/ueber/x');
+	});
+
+	it('isExcluded decodes its input and refuses undecodable paths', () => {
+		expect(isExcluded('/%61pi/x', [])).toBe(true);
+		expect(isExcluded('/x/%6cogout', [])).toBe(true);
+		expect(isExcluded('/feed.%6Ason', [])).toBe(true);
+		expect(isExcluded('/a%zz', [])).toBe(true);
+		expect(isExcluded('/%2561pi/x', [])).toBe(false);
+	});
+
 	it('* matches exactly one segment', () => {
 		expect(matchesPattern('/blog/a', '/blog/*')).toBe(true);
 		expect(matchesPattern('/blog/a/b', '/blog/*')).toBe(false);
@@ -130,6 +167,9 @@ describe('acceptHref', () => {
 		expect(acceptHref('https://site.dev/a.pdf', site)).toBeNull();
 		expect(acceptHref('https://site.dev/%2e%2e/api', site)).toBeNull();
 		expect(acceptHref('mailto:x@site.dev', site)).toBeNull();
+		expect(acceptHref('https://site.dev/%61pi/secret', site)).toBeNull();
+		expect(acceptHref('https://site.dev/%61dmin/x', { ...site, exclude: ['/admin/**'] })).toBeNull();
+		expect(acceptHref('https://site.dev/a%zz', site)).toBeNull();
 		expect(acceptHref('http://[bad', site)).toBeNull();
 		expect(acceptHref('/p', { ...site, exclude: ['/p'] })).toBeNull();
 	});
