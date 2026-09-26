@@ -304,6 +304,31 @@ describe('aide() hook', () => {
 		expect(set).toHaveBeenCalledTimes(2);
 	});
 
+	it('llms paths charge the warm-up rate-limit bucket and answer 429 rate_limited past it', async () => {
+		const onRefused = vi.fn();
+		const handle = aide(config({ rateLimit: { warmups: 2 }, onRefused }));
+		const app = createApp(handle);
+		expect((await app.request('/llms.txt')).status).toBe(200);
+		expect((await app.request('/docs/a.md')).status).toBe(200);
+		const third = await app.request('/llms-full.txt');
+		expect(third.status).toBe(429);
+		expect(third.headers.get('content-type')).toMatch(/^application\/json/);
+		expect(await third.json()).toEqual({ error: 'rate_limited', message: expect.any(String) });
+		expect(onRefused).toHaveBeenCalledWith(expect.objectContaining({ code: 'rate_limited' }));
+		// The warm-up GET shares the bucket.
+		const warm = await app.request('/api/chat?route=/', { headers: { 'sec-fetch-site': 'same-origin' } });
+		expect(warm.status).toBe(429);
+	});
+
+	it('a rate-limited llms request does not start the crawl', async () => {
+		const handle = aide(config({ rateLimit: { warmups: 1 } }));
+		const app = createApp(handle);
+		await app.request('/api/chat?route=/', { headers: { 'sec-fetch-site': 'same-origin' } });
+		const start = vi.spyOn(handle.handler.siteMap, 'ensureStarted');
+		expect((await app.request('/llms.txt')).status).toBe(429);
+		expect(start).not.toHaveBeenCalled();
+	});
+
 	it('composes with sequence()', async () => {
 		const seen: string[] = [];
 		const other: Handle = async ({ event, resolve }) => {

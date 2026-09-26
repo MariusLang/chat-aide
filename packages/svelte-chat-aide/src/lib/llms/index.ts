@@ -10,7 +10,7 @@
  */
 import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
 import type { ChatHandler } from '../server/handler';
-import { resolveWaitUntil } from '../server/background';
+import { resolveWaitUntil, type WaitUntil } from '../server/background';
 import {
 	renderLlmsFull,
 	renderLlmsTxt,
@@ -48,21 +48,25 @@ function answerable(event: RequestEvent): boolean {
 }
 
 /**
- * The map is started and given its crawl budget. This request's `event.fetch` is lent to the
+ * Every answered request can start the crawl, so it is counted in the visitor's warm-up bucket
+ * first (`429 rate_limited` past it, nothing started). The map is started and given its crawl budget. This request's `event.fetch` is lent to the
  * reads only when none is adopted yet (the chat endpoint's is preferred) and only through `aide()`.
  */
-async function prepare(handler: ChatHandler, event: RequestEvent) {
+async function prepare(handler: ChatHandler, event: RequestEvent): Promise<{ limited: Response } | { waitUntil: WaitUntil }> {
+	const limited = await handler.limitWarmup(event);
+	if (limited) return { limited };
 	handler.adoptFetch(event, true);
 	const waitUntil = await resolveWaitUntil(event, handler.config.waitUntil);
 	handler.siteMap.ensureStarted(waitUntil);
 	await handler.siteMap.waitFor(handler.config.limits.crawlBudgetMs);
-	return waitUntil;
+	return { waitUntil };
 }
 
 export function llmsTxt(handler: ChatHandler): RequestHandler {
 	return async (event) => {
 		if (!answerable(event)) return notFound();
-		await prepare(handler, event);
+		const ready = await prepare(handler, event);
+		if ('limited' in ready) return ready.limited;
 		const body = renderLlmsTxt(handler.siteMap.site(), handler.siteMap.pages(), serveOptions(handler));
 		return document(handler, body, TEXT, event.request.method.toUpperCase() === 'HEAD');
 	};
@@ -71,7 +75,8 @@ export function llmsTxt(handler: ChatHandler): RequestHandler {
 export function llmsFullTxt(handler: ChatHandler): RequestHandler {
 	return async (event) => {
 		if (!answerable(event)) return notFound();
-		await prepare(handler, event);
+		const ready = await prepare(handler, event);
+		if ('limited' in ready) return ready.limited;
 		const body = renderLlmsFull(handler.siteMap.site(), handler.siteMap.pages(), serveOptions(handler));
 		return document(handler, body, MARKDOWN, event.request.method.toUpperCase() === 'HEAD');
 	};
@@ -95,7 +100,9 @@ export function pageMarkdown(handler: ChatHandler): RequestHandler {
 	return async (event) => {
 		if (!answerable(event)) return notFound();
 		if (routeForMarkdownPath(event.url.pathname) === null) return notFound();
-		const waitUntil = await prepare(handler, event);
+		const ready = await prepare(handler, event);
+		if ('limited' in ready) return ready.limited;
+		const { waitUntil } = ready;
 		let page = lookup(handler, event.url.pathname);
 		if (!page) return notFound();
 		// A page known only from the site's own llms.txt has no text yet: read it now.

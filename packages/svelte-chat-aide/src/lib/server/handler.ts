@@ -56,6 +56,11 @@ export interface ChatHandler {
 	 * (the llms paths): only when no fetch has been adopted yet.
 	 */
 	adoptFetch(event: RequestEvent, ifUnset?: boolean): void;
+	/**
+	 * Counts one request in the visitor's warm-up bucket (the llms paths share it with `GET`
+	 * warm-ups, since both start the crawl): `null` when allowed, else the `429 rate_limited` answer.
+	 */
+	limitWarmup(event: RequestEvent): Promise<Response | null>;
 }
 
 /**
@@ -344,6 +349,12 @@ export function createChatHandler(input: AideConfig, deps: ChatHandlerDeps = {})
 		transport.setInProcessFetch(event.fetch, event.url.origin);
 	}
 
+	async function limitWarmup(event: RequestEvent): Promise<Response | null> {
+		const id = await clientId(event, { salt, clientKey: config.clientKey });
+		if (await guards.rate('warmup', id)) return null;
+		return refuse('rate_limited', await resolveWaitUntil(event, config.waitUntil), null);
+	}
+
 	function onErrorFor(sessionId: string | null, waitUntil: WaitUntil) {
 		return (error: unknown) =>
 			runCallback(waitUntil, config.onError, { sessionId, error, at: new Date() }, undefined, sessionId);
@@ -576,5 +587,6 @@ export function createChatHandler(input: AideConfig, deps: ChatHandlerDeps = {})
 	handler.cache = cache;
 	handler.ready = ready;
 	handler.adoptFetch = adoptFetch;
+	handler.limitWarmup = limitWarmup;
 	return handler;
 }
