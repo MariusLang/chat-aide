@@ -35,7 +35,7 @@
 	const uid = $props.id();
 	const windowId = $derived(id ?? `aide-window-${uid}`);
 	const titleId = `aide-title-${uid}`;
-	const line = $derived(disclosure ?? chat.strings.disclosure("the site's AI provider"));
+	const line = $derived(disclosure ?? chat.strings.disclosure(chat.provider ?? "the site's AI provider"));
 
 	function onkeydown(event: KeyboardEvent): void {
 		if (modal && event.key === 'Escape') {

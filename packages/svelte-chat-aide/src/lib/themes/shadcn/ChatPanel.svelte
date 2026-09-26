@@ -28,7 +28,7 @@
 		disclosure?: string;
 	} = $props();
 
-	const line = $derived(disclosure ?? chat.strings.disclosure("the site's AI provider"));
+	const line = $derived(disclosure ?? chat.strings.disclosure(chat.provider ?? "the site's AI provider"));
 	const titleClass = 'aide:flex-1 aide:truncate aide:text-sm aide:font-semibold aide:text-foreground';
 </script>
 

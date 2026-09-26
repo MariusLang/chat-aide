@@ -52,6 +52,8 @@ export interface ChatStore {
 	readonly suggestions: string[];
 	readonly strings: Strings;
 	readonly route: string;
+	/** The provider's name from the warm-up, or `null` before one answered. */
+	readonly provider: string | null;
 	readonly answerLinks: AnswerLinks;
 	send(text: string): Promise<void>;
 	stop(): void;
@@ -173,6 +175,7 @@ export function createChat(options: ChatOptions = {}): ChatStore {
 	let route = $state(currentPath());
 	let pageSource: WarmupResponse['pageSource'] = 'server';
 	let serverSuggestions = $state<string[]>([]);
+	let provider = $state<string | null>(null);
 	let error = $state<ChatError | null>(null);
 	/** The refusal body of the last non-2xx POST, read by the fetch wrapper before the SDK throws. */
 	let refusal: { error: string; message: string } | null = null;
@@ -292,6 +295,7 @@ export function createChat(options: ChatOptions = {}): ChatStore {
 			serverSuggestions = Array.isArray(body.suggestions)
 				? body.suggestions.filter((s): s is string => typeof s === 'string')
 				: [];
+			if (typeof body.provider === 'string' && body.provider) provider = body.provider;
 		} catch {
 			// The warm-up is an optimisation; a failure leaves the defaults.
 		}
@@ -334,6 +338,9 @@ export function createChat(options: ChatOptions = {}): ChatStore {
 		},
 		get route() {
 			return route;
+		},
+		get provider() {
+			return provider;
 		},
 		get answerLinks() {
 			return answerLinks;

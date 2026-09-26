@@ -118,6 +118,14 @@ describe('createChat', () => {
 		expect(dom).not.toContain('Menu');
 	});
 
+	it('takes the provider name from the warm-up', async () => {
+		const f = fakeFetch({ warmup: { pageSource: 'server', suggestions: [], mapped: true, provider: 'Anthropic' } });
+		const chat = createChat({ fetch: f.fetch });
+		expect(chat.provider).toBeNull();
+		await chat.warmup('/');
+		expect(chat.provider).toBe('Anthropic');
+	});
+
 	it('caps DOM text at 12 000 characters', async () => {
 		document.body.innerHTML = `<main><p>${'x'.repeat(20_000)}</p></main>`;
 		const f = fakeFetch({ warmup: { pageSource: 'dom', suggestions: [], mapped: true } });
