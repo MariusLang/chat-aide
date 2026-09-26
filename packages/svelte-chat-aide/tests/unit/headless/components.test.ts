@@ -141,6 +141,15 @@ describe('Markdown (server render)', () => {
 		expect(any).not.toContain('javascript:');
 	});
 
+	it('turns SvelteKit preloading off on answer links (no credentialed load without a click)', () => {
+		const { body } = render(Markdown, {
+			props: { text: 'See [privacy](/privacy).', origin: 'https://site.test' }
+		});
+		expect(body).toContain('href="/privacy"');
+		expect(body).toContain('data-sveltekit-preload-data="off"');
+		expect(body).toContain('data-sveltekit-preload-code="off"');
+	});
+
 	it('renders nested lists and headings', () => {
 		const { body } = render(Markdown, {
 			props: { text: '## Title\n\n1. one\n   - inner\n2. two', origin: 'https://site.test' }

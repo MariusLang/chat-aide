@@ -1,6 +1,7 @@
 <!--
   Inline answer nodes (spec §3.6). Text only ever reaches the DOM as text nodes; links are the
-  already-filtered ones of `parseAnswer`. Same-origin links navigate with `goto`.
+  already-filtered ones of `parseAnswer`. Same-origin links navigate with `goto`, and only on a
+  click: SvelteKit's hover/tap preloading (a credentialed request running `load`) is turned off.
 -->
 <script lang="ts">
 	/* eslint-disable svelte/no-navigation-without-resolve -- hrefs come from answers, already
@@ -31,7 +32,11 @@
 				href={node.href}
 				target="_blank"
 				rel="noopener noreferrer"><Self nodes={node.c} /></a
-			>{:else}<a data-part="link" href={node.href} onclick={(e) => navigate(e, node.href)}
-				><Self nodes={node.c} /></a
+			>{:else}<a
+				data-part="link"
+				href={node.href}
+				data-sveltekit-preload-data="off"
+				data-sveltekit-preload-code="off"
+				onclick={(e) => navigate(e, node.href)}><Self nodes={node.c} /></a
 			>{/if}{/if}
 {/each}
