@@ -293,29 +293,83 @@ export interface AideBody {
 	aide: AideRequestMeta;
 }
 
+/** Parts per user message; the widget sends one. */
+export const USER_MAX_PARTS = 20;
+/** Parts per assistant message (text, reasoning, tool and step parts of a multi-step answer). */
+export const ASSISTANT_MAX_PARTS = 50;
+/**
+ * An assistant message may carry up to this many times `messageChars` of text: a
+ * `maxOutputTokens` answer can be longer than `messageChars`, and a long answer must not make
+ * the next request fail. The history window truncates it to `messageChars` anyway.
+ */
+export const ASSISTANT_CHARS_FACTOR = 8;
+/** Sanity cap on the serialised `messages` array: `messages` x `messageChars` x this. */
+export const BODY_CHARS_FACTOR = 10;
+
+const textChars = (parts: { type: string; text?: string }[]): number => {
+	let n = 0;
+	for (const p of parts) if (p.type === 'text' && typeof p.text === 'string') n += p.text.length;
+	return n;
+};
+
 /**
  * The POST body (spec §6). Checks shape and size only; the route rule is applied by the handler.
- * Extra AI SDK fields (trigger, messageId, part metadata) are tolerated.
+ * Extra AI SDK fields (trigger, messageId, part metadata, non-text parts) are tolerated.
+ *
+ * Sizes: a user message's text parts together hold at most `limits.messageChars` in at most
+ * `USER_MAX_PARTS` parts; an assistant message's at most `messageChars x ASSISTANT_CHARS_FACTOR`
+ * in at most `ASSISTANT_MAX_PARTS`. Non-text parts are not counted, only bounded by the
+ * whole-array sanity cap. `aide.dom` is accepted up to `ceilings.pageChars` (the handler
+ * truncates it to `limits.pageChars`); without `ceilings`, up to `limits.pageChars`.
  */
-export function createBodySchema(limits: Limits): z.ZodType<AideBody> {
+export function createBodySchema(
+	limits: Pick<Limits, 'messages' | 'messageChars' | 'pageChars'>,
+	ceilings?: Partial<Pick<Limits, 'pageChars'>>
+): z.ZodType<AideBody> {
 	const part = z.looseObject({
 		type: z.string().min(1),
-		text: z.string().max(limits.messageChars).optional()
+		text: z.string().optional()
 	});
-	const message = z.looseObject({
-		id: z.string().max(256).optional(),
-		role: z.enum(['user', 'assistant']),
-		parts: z.array(part)
-	});
+	const message = z
+		.looseObject({
+			id: z.string().max(256).optional(),
+			role: z.enum(['user', 'assistant']),
+			parts: z.array(part)
+		})
+		.superRefine((m, ctx) => {
+			const user = m.role === 'user';
+			const maxParts = user ? USER_MAX_PARTS : ASSISTANT_MAX_PARTS;
+			const maxChars = user ? limits.messageChars : limits.messageChars * ASSISTANT_CHARS_FACTOR;
+			if (m.parts.length > maxParts)
+				ctx.addIssue({
+					code: 'custom',
+					path: ['parts'],
+					message: `a ${m.role} message has at most ${maxParts} parts`
+				});
+			else if (textChars(m.parts) > maxChars)
+				ctx.addIssue({
+					code: 'custom',
+					path: ['parts'],
+					message: `a ${m.role} message's text is at most ${maxChars} characters`
+				});
+		});
+	const bodyChars = limits.messages * limits.messageChars * BODY_CHARS_FACTOR;
 	return z.looseObject({
 		id: z.string().max(256).optional(),
-		messages: z.array(message).min(1).max(limits.messages),
+		messages: z
+			.array(message)
+			.min(1)
+			.max(limits.messages)
+			.superRefine((messages, ctx) => {
+				if (JSON.stringify(messages).length > bodyChars)
+					ctx.addIssue({ code: 'custom', message: `messages exceed ${bodyChars} characters` });
+			}),
 		aide: z.object({
 			route: z.string().min(1).max(MAX_ROUTE_LENGTH).startsWith('/'),
 			sessionId: z.string().min(1).max(256),
 			dom: z
 				.string()
-				.max(limits.pageChars)
+				.max(Math.max(limits.pageChars, ceilings?.pageChars ?? 0))
 				.nullable()
 				.optional()
 				.transform((v) => v ?? null)

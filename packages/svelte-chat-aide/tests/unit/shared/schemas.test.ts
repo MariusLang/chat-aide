@@ -132,7 +132,45 @@ describe('createBodySchema', () => {
 		expect(failPath(body({ messages: [msg('a'), msg('b'), msg('c'), msg('d')] }))).toBe('messages');
 	});
 	it('rejects a text part longer than messageChars', () => {
-		expect(failPath(body({ messages: [msg('x'.repeat(11))] }))).toBe('messages.0.parts.0.text');
+		expect(failPath(body({ messages: [msg('x'.repeat(11))] }))).toBe('messages.0.parts');
+	});
+	it('rejects a user message whose parts together exceed messageChars', () => {
+		const parts = Array.from({ length: 5 }, () => ({ type: 'text', text: 'x'.repeat(10) }));
+		expect(failPath(body({ messages: [{ role: 'user', parts }] }))).toBe('messages.0.parts');
+	});
+	it('rejects a user message with too many parts', () => {
+		const parts = Array.from({ length: 21 }, () => ({ type: 'text', text: '' }));
+		expect(failPath(body({ messages: [{ role: 'user', parts }] }))).toBe('messages.0.parts');
+	});
+	it('accepts a long assistant message, up to 8x messageChars', () => {
+		const long = { role: 'assistant', parts: [{ type: 'text', text: 'y'.repeat(80) }] };
+		expect(schema.safeParse(body({ messages: [msg('q'), long, msg('q')] })).success).toBe(true);
+		const tooLong = { role: 'assistant', parts: [{ type: 'text', text: 'y'.repeat(81) }] };
+		expect(failPath(body({ messages: [msg('q'), tooLong, msg('q')] }))).toBe('messages.1.parts');
+	});
+	it('does not count non-text parts (reasoning, tool, step-start) toward messageChars', () => {
+		const a = {
+			role: 'assistant',
+			parts: [
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: 'r'.repeat(50) },
+				{ type: 'tool-readPage', toolCallId: 't', state: 'output-available', input: {}, output: 'o' },
+				{ type: 'text', text: 'ok' }
+			]
+		};
+		const roomy = createBodySchema({ ...limits, messages: 10 });
+		expect(roomy.safeParse(body({ messages: [msg('q'), a, msg('q')] })).success).toBe(true);
+	});
+	it('caps the whole messages array', () => {
+		const a = { role: 'assistant', parts: [{ type: 'reasoning', text: 'r'.repeat(3 * 10 * 10) }] };
+		expect(failPath(body({ messages: [msg('q'), a, msg('q')] }))).toBe('messages');
+	});
+	it('accepts dom up to the pageChars ceiling when given', () => {
+		const s = createBodySchema(limits, { pageChars: 40 });
+		const ok = s.safeParse(body({ aide: { route: '/', sessionId: 's', dom: 'x'.repeat(40) } }));
+		expect(ok.success).toBe(true);
+		const r = s.safeParse(body({ aide: { route: '/', sessionId: 's', dom: 'x'.repeat(41) } }));
+		expect(r.error!.issues[0]!.path.join('.')).toBe('aide.dom');
 	});
 	it('rejects role system', () => {
 		expect(failPath(body({ messages: [msg('hi', 'system')] }))).toBe('messages.0.role');
