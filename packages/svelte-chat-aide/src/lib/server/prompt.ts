@@ -1,11 +1,10 @@
 import type { ModelMessage, SystemModelMessage } from 'ai';
 import type { Persona, PromptContext } from '../shared/types';
 
-/**
- * How a provider marks a cacheable prefix. Mirrors `CacheMarker` in `providers.ts` (Task 4);
- * defined here too so prompt assembly does not depend on the registry.
- */
-export type CacheMarker = 'anthropic' | 'bedrock' | 'none';
+import type { CacheMarker } from './providers';
+
+/** How a provider marks a cacheable prefix; the registry's type. */
+export type { CacheMarker };
 
 /** The library's system prompt (spec §3.3, part 1). */
 export const defaultSystemPrompt = [

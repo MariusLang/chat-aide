@@ -83,6 +83,8 @@ export interface WarmupResponse {
 	pageSource: 'server' | 'dom';
 	suggestions: string[];
 	mapped: boolean;
+	/** The provider's display name (e.g. 'Anthropic'), for the widget's disclosure. */
+	provider?: string;
 }
 
 export interface ErrorResponse {
