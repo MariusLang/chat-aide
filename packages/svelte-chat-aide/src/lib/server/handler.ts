@@ -127,6 +127,50 @@ function json(body: unknown, status = 200, headers: Record<string, string> = {})
 	});
 }
 
+/** Headroom in a chat body for JSON syntax, ids and the `aide` fields. */
+const BODY_SLACK_BYTES = 64 * 1024;
+
+/**
+ * The request body as JSON, read at most `cap` bytes: a declared `content-length` over the cap is
+ * refused unread, a body that grows past it is cancelled. `undefined` for too large or not JSON.
+ */
+async function readJson(request: Request, cap: number): Promise<unknown> {
+	const declared = Number(request.headers.get('content-length'));
+	if (declared > cap) {
+		request.body?.cancel().catch(() => {});
+		return undefined;
+	}
+	if (!request.body) return undefined;
+	const reader = request.body.getReader();
+	const chunks: Uint8Array[] = [];
+	let size = 0;
+	try {
+		for (;;) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			size += value.byteLength;
+			if (size > cap) {
+				reader.cancel().catch(() => {});
+				return undefined;
+			}
+			chunks.push(value);
+		}
+	} catch {
+		return undefined;
+	}
+	const all = new Uint8Array(size);
+	let at = 0;
+	for (const c of chunks) {
+		all.set(c, at);
+		at += c.byteLength;
+	}
+	try {
+		return JSON.parse(new TextDecoder().decode(all));
+	} catch {
+		return undefined;
+	}
+}
+
 function randomSalt(): string {
 	const bytes = crypto.getRandomValues(new Uint8Array(32));
 	return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
@@ -253,7 +297,10 @@ export function createChatHandler(input: AideConfig, deps: ChatHandlerDeps = {})
 	});
 	const reader = createReader({ transport, cache, limits, preferMarkdown: config.llms.preferMarkdown, now });
 	const siteMap = createSiteMap({ reader, transport, cache, config, now });
-	const bodySchema = createBodySchema(limits);
+	// The DOM text may be up to the pageChars ceiling; it is truncated to pageChars below.
+	const bodySchema = createBodySchema(limits, config.limitCeilings);
+	// Every message at its longest, escaped, plus the DOM text at its ceiling (UTF-8), plus slack.
+	const bodyCap = limits.messages * limits.messageChars * 10 + config.limitCeilings.pageChars * 3 + BODY_SLACK_BYTES;
 	const provider = displayName(config, row);
 
 	let checkedPlatform = false;
@@ -324,7 +371,8 @@ export function createChatHandler(input: AideConfig, deps: ChatHandlerDeps = {})
 			pageSource: wantsDom ? 'dom' : 'server',
 			suggestions: suggestionsFor(config, route),
 			mapped: siteMap.isMapped(route),
-			provider
+			provider,
+			limits: { messages: limits.messages, messageChars: limits.messageChars, pageChars: limits.pageChars }
 		};
 		return json(body);
 	}
@@ -339,12 +387,8 @@ export function createChatHandler(input: AideConfig, deps: ChatHandlerDeps = {})
 	}
 
 	async function chat(event: RequestEvent, waitUntil: WaitUntil, id: string, started: number): Promise<Response> {
-		let raw: unknown;
-		try {
-			raw = await event.request.json();
-		} catch {
-			return refuse('invalid_request', waitUntil, null, { path: '' });
-		}
+		const raw = await readJson(event.request, bodyCap);
+		if (raw === undefined) return refuse('invalid_request', waitUntil, null, { path: '' });
 		const parsed = bodySchema.safeParse(raw);
 		if (!parsed.success) {
 			const issue = parsed.error.issues[0];
@@ -376,7 +420,8 @@ export function createChatHandler(input: AideConfig, deps: ChatHandlerDeps = {})
 		siteMap.ensureStarted(waitUntil);
 		await siteMap.waitFor(limits.crawlBudgetMs);
 		const entry = await reader.readPage(route, { waitUntil });
-		const page = currentPage(route, entry, body.aide.dom);
+		const dom = body.aide.dom === null ? null : body.aide.dom.slice(0, limits.pageChars);
+		const page = currentPage(route, entry, dom);
 
 		let history;
 		try {

@@ -394,7 +394,7 @@ describe('createChatHandler: refusals', () => {
 
 		const tooLong = await handler(makeEvent(site, { body: chatBody('x'.repeat(5000)) }));
 		expect(tooLong.status).toBe(400);
-		expect((await tooLong.json()).path).toBe('messages.0.parts.0.text');
+		expect((await tooLong.json()).path).toBe('messages.0.parts');
 
 		const noUser = await handler(
 			makeEvent(site, { body: chatBody('', {}, [{ role: 'assistant', parts: [{ type: 'text', text: 'hi' }] }]) })
@@ -643,6 +643,74 @@ describe('createChatHandler: current page and DOM text (acceptance #14)', () => 
 	});
 });
 
+describe('createChatHandler: DOM text over pageChars', () => {
+	it('truncates the DOM text to the configured pageChars instead of refusing', async () => {
+		const { site, model, handler } = setup({ config: { pageContext: 'dom', limits: { pageChars: 1000 } } });
+		const dom = 'A'.repeat(1000) + 'B'.repeat(4000);
+		const res = await handler(makeEvent(site, { body: chatBody('hi', { route: '/about', dom }) }));
+		expect(res.status).toBe(200);
+		await res.text();
+		expect(promptText(model)).toContain('A'.repeat(1000));
+		expect(promptText(model)).not.toContain('B');
+	});
+
+	it('still refuses DOM text above the pageChars ceiling', async () => {
+		const { site, handler } = setup({ config: { pageContext: 'dom', limits: { pageChars: 1000 } } });
+		const res = await handler(makeEvent(site, { body: chatBody('hi', { route: '/about', dom: 'x'.repeat(50_001) }) }));
+		expect(res.status).toBe(400);
+		expect((await res.json()).path).toBe('aide.dom');
+	});
+});
+
+describe('createChatHandler: raw body size', () => {
+	const small = { limits: { messages: 2, messageChars: 10 } };
+
+	it('refuses a declared content-length over the cap without reading the body', async () => {
+		const { site, handler } = setup({ config: small });
+		let pulled = 0;
+		const body = new ReadableStream<Uint8Array>({
+			pull(c) {
+				pulled++;
+				c.enqueue(new Uint8Array(1024));
+			}
+		});
+		const event = makeEvent(site, { body: chatBody() });
+		(event as { request: Request }).request = new Request(ORIGIN + '/api/chat', {
+			method: 'POST',
+			headers: { 'sec-fetch-site': 'same-origin', 'content-type': 'application/json', 'content-length': '999999999' },
+			body,
+			duplex: 'half'
+		} as RequestInit);
+		const res = await handler(event);
+		expect(res.status).toBe(400);
+		expect((await res.json()).error).toBe('invalid_request');
+		expect(pulled).toBeLessThanOrEqual(1);
+	});
+
+	it('refuses a streamed body that grows past the cap', async () => {
+		const { site, handler } = setup({ config: small });
+		let sent = 0;
+		const body = new ReadableStream<Uint8Array>({
+			pull(c) {
+				sent += 64 * 1024;
+				if (sent > 4 * 1024 * 1024) c.close();
+				else c.enqueue(new TextEncoder().encode(' '.repeat(64 * 1024)));
+			}
+		});
+		const event = makeEvent(site, { body: chatBody() });
+		(event as { request: Request }).request = new Request(ORIGIN + '/api/chat', {
+			method: 'POST',
+			headers: { 'sec-fetch-site': 'same-origin', 'content-type': 'application/json' },
+			body,
+			duplex: 'half'
+		} as RequestInit);
+		const res = await handler(event);
+		expect(res.status).toBe(400);
+		expect((await res.json()).error).toBe('invalid_request');
+		expect(sent).toBeLessThan(4 * 1024 * 1024);
+	});
+});
+
 describe('createChatHandler: forged Host (acceptance #19)', () => {
 	it('reads only the configured origin, whatever Host and URL the request carries', async () => {
 		const model = toolThenTextModel('/nowhere');
@@ -712,12 +780,19 @@ describe('createChatHandler: GET warm-up', () => {
 			pageSource: 'server',
 			suggestions: ['Who are you?'],
 			mapped: expect.any(Boolean),
-			provider: 'mock-provider'
+			provider: 'mock-provider',
+			limits: { messages: 60, messageChars: 4000, pageChars: 12000 }
 		});
 		await settle();
 		expect(await get('/app')).toMatchObject({ pageSource: 'dom', suggestions: ['What is this?'], mapped: true });
 		expect(await get('/about')).toMatchObject({ mapped: true });
 		expect(await get('/nope')).toMatchObject({ pageSource: 'dom', mapped: false });
+	});
+
+	it('answers the resolved limits the client trims its body to', async () => {
+		const { site, handler } = setup({ config: { limits: { messages: 7, messageChars: 300, pageChars: 900 } } });
+		const res = await handler(makeEvent(site, { method: 'GET', url: `${ORIGIN}/api/chat?route=/` }));
+		expect((await res.json()).limits).toEqual({ messages: 7, messageChars: 300, pageChars: 900 });
 	});
 
 	it('under server always answers server', async () => {
