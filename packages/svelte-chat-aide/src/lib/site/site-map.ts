@@ -7,7 +7,15 @@ import type { PageEntry, ResolvedConfig } from '../shared/types';
 import type { WaitUntil } from '../server/background';
 import type { PageCache } from './cache';
 import { hashText, isThin } from './extract';
-import { outlineFrom, parseLlmsTxt, splitLlmsFull, type LlmsDoc, type MapPage, type SiteInfo } from './llms';
+import {
+	outlineFrom,
+	parseLlmsTxt,
+	routeForMarkdownPath,
+	splitLlmsFull,
+	type LlmsDoc,
+	type MapPage,
+	type SiteInfo
+} from './llms';
 import { pageFromMarkdown, toEntry, type Reader } from './read-page';
 import { IN_PROCESS_ORIGIN, acceptHref, acceptRoute } from './route';
 import type { Transport } from './transport';
@@ -17,7 +25,7 @@ export interface SiteMap {
 	ensureStarted(waitUntil: WaitUntil): void;
 	/** Resolves when the map is complete, or after `ms`. */
 	waitFor(ms: number): Promise<void>;
-	/** True once the outline is whole: the first crawl finished, or the site's llms.txt was read. */
+	/** True once the outline is whole: the first crawl finished, or the site's llms.txt was read and has at least one usable link. */
 	complete(): boolean;
 	site(): SiteInfo;
 	/** Mapped pages, in crawl / llms.txt order. */
@@ -36,7 +44,13 @@ const noop = () => {};
 /** Per-crawl state; the first crawl is published live, a revisit is swapped in when it ends. */
 interface MapState {
 	order: Map<string, MapPage>;
+	/** The site's own llms.txt, its links narrowed to accepted routes (possibly none). */
 	llms?: LlmsDoc;
+}
+
+/** The site's llms.txt is the outline base only when at least one of its links survived. */
+function usableLlms(state: MapState): LlmsDoc | undefined {
+	return state.llms && state.llms.links.length > 0 ? state.llms : undefined;
 }
 
 function decodeXml(s: string): string {
@@ -92,6 +106,24 @@ export function createSiteMap(opts: {
 
 	const href = (h: string) => acceptHref(h, { origin, base, exclude });
 
+	/**
+	 * A link from llms.txt / llms-full.txt: resolved against the site, a `.md` twin
+	 * (`/docs/intro.md`, `/index.html.md`) mapped to its page route, then the route rule.
+	 * Absolute links on another origin — including the site's own when no origin is configured,
+	 * which cannot be verified — are dropped.
+	 */
+	const llmsHref = (h: string): string | null => {
+		let url: URL;
+		try {
+			url = new URL(h, base);
+		} catch {
+			return null;
+		}
+		const route = routeForMarkdownPath(url.pathname);
+		if (route !== null) url.pathname = route;
+		return href(url.href);
+	};
+
 	// ------------------------------------------------------------ pages.source
 
 	async function loadSource(): Promise<Map<string, PageEntry>> {
@@ -145,7 +177,7 @@ export function createSiteMap(opts: {
 				const links = [];
 				const later: string[] = [];
 				for (const link of doc.links) {
-					const route = href(link.url);
+					const route = llmsHref(link.url);
 					if (route === null) continue;
 					links.push({ ...link, url: route });
 					(link.optional ? later : seeds).push(route);
@@ -164,7 +196,7 @@ export function createSiteMap(opts: {
 		if (full.ok && (full.contentType === 'text' || full.contentType === 'markdown')) {
 			for (const chunk of splitLlmsFull(full.body, [...state.order.keys()])) {
 				if (!chunk.route) continue;
-				const route = href(chunk.route);
+				const route = llmsHref(chunk.route);
 				if (route === null) continue;
 				const entry = toEntry(route, pageFromMarkdown(chunk.text, chunk.title), 'llms-full', limits, now());
 				entry.title = chunk.title || entry.title;
@@ -191,8 +223,8 @@ export function createSiteMap(opts: {
 
 	async function crawl(state: MapState, first: boolean, waitUntil: WaitUntil): Promise<void> {
 		const llmsSeeds = await readLlms(state);
-		// A site with its own llms.txt has a whole outline before any page is rendered.
-		if (first && state.llms) markComplete();
+		// A site with its own usable llms.txt has a whole outline before any page is rendered.
+		if (first && usableLlms(state)) markComplete();
 
 		const seeds = ['/', ...(await readSitemap())];
 		for (const r of config.pages.include) {
@@ -304,7 +336,7 @@ export function createSiteMap(opts: {
 		pages,
 
 		outline(maxChars) {
-			const { text } = outlineFrom(siteInfo(), pages(), { maxChars, withHeadings: true }, current.llms);
+			const { text } = outlineFrom(siteInfo(), pages(), { maxChars, withHeadings: true }, usableLlms(current));
 			return { text, partial: !isComplete };
 		},
 

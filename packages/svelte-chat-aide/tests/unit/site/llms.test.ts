@@ -248,12 +248,29 @@ describe('outlineFrom', () => {
 
 	it('uses a site-provided llms.txt verbatim as the base', () => {
 		const base = parseLlmsTxt(EXAMPLE);
-		const out = outlineFrom(site, mapped, { maxChars: 10_000, withHeadings: true }, base);
+		const out = outlineFrom(site, [], { maxChars: 10_000, withHeadings: true }, base);
 		expect(out.cut).toBe(false);
 		expect(out.text).toContain('# FastHTML');
 		expect(out.text).toContain('Important notes:');
-		expect(out.text).not.toContain('/docs/a');
 		expect(parseLlmsTxt(out.text)).toEqual(base);
+	});
+
+	it('appends mapped pages missing from the base after its links, Optional still last', () => {
+		const base = parseLlmsTxt(EXAMPLE);
+		const first = base.links[0]!.url;
+		const withDup = [...mapped, page(first, 'Dup')];
+		const out = outlineFrom(site, withDup, { maxChars: 10_000, withHeadings: true }, base);
+		expect(out.cut).toBe(false);
+		const urls = parseLlmsTxt(out.text).links.map((l) => l.url);
+		expect(urls.filter((u) => u === first)).toHaveLength(1);
+		expect(urls).toEqual(expect.arrayContaining(['/', '/docs/a', '/docs/b']));
+		// base links keep their author order and come before any appended page
+		const baseUrls = base.links.filter((l) => !l.optional).map((l) => l.url);
+		expect(urls.filter((u) => baseUrls.includes(u))).toEqual(baseUrls);
+		expect(out.text.indexOf(first)).toBeLessThan(out.text.indexOf('(/docs/a)'));
+		expect(out.text.trimEnd().split('\n').at(-1)).toContain('Starlette full documentation');
+		expect(out.text).not.toContain('Dup');
+		expect(out.text).toContain('- [A](/docs/a): Doc A\n  - Setup\n');
 	});
 
 	it('cuts Optional first, then at the last whole link line', () => {

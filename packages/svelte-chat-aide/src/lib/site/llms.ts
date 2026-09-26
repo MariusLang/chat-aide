@@ -174,9 +174,11 @@ export function routeForMarkdownPath(path: string): string | null {
 }
 
 /**
- * The outline for the prompt: the llms.txt rendering of the map (or the site's own
- * llms.txt, verbatim, as `base`), with page headings beneath links while `maxChars`
- * allows. Over `maxChars` it is cut at the last whole link line, `## Optional` first.
+ * The outline for the prompt: the llms.txt rendering of the map, with page headings beneath
+ * links while `maxChars` allows. With the site's own llms.txt as `base`, its header and links
+ * come verbatim in author order, followed by mapped pages the base does not list (grouped by
+ * section as in the generated rendering), and the base's `## Optional` links last. Over
+ * `maxChars` it is cut at the last whole link line, `## Optional` first.
  */
 export function outlineFrom(
 	site: SiteInfo,
@@ -186,33 +188,43 @@ export function outlineFrom(
 ): { text: string; cut: boolean } {
 	let header: string;
 	let items: Item[];
+	/** The pages whose headings may go beneath their link, with their item. */
+	let withPage: { item: Item; page: MapPage }[];
 	if (base) {
 		header = siteHeader({ title: base.title, summary: base.summary });
 		if (base.details) header += `\n\n${base.details}`;
-		items = base.links.map((l) => ({
+		const listed = new Set(base.links.map((l) => l.url));
+		const baseItem = (l: LlmsLink): Item => ({
 			section: l.section,
 			optional: l.optional,
 			line: linkLine(l.title, l.url, l.description),
 			sub: []
-		}));
+		});
+		withPage = pages.filter((p) => !listed.has(p.route)).map((page) => ({ item: pageItem(page), page }));
+		items = [
+			...base.links.filter((l) => !l.optional).map(baseItem),
+			...withPage.map((w) => w.item),
+			...base.links.filter((l) => l.optional).map(baseItem)
+		];
 	} else {
 		header = siteHeader(site);
-		items = pages.map(pageItem);
+		withPage = pages.map((page) => ({ item: pageItem(page), page }));
+		items = withPage.map((w) => w.item);
 	}
 
 	const max = Math.max(0, Math.floor(opts.maxChars));
 	let text = assemble(header, items);
 	if (text.length <= max) {
-		if (!base && opts.withHeadings) {
+		if (opts.withHeadings && withPage.length) {
 			let length = text.length;
-			pages.forEach((p, i) => {
-				const sub = headingLines(p);
+			for (const { item, page } of withPage) {
+				const sub = headingLines(page);
 				const add = sub.reduce((n, s) => n + s.length + 1, 0);
 				if (sub.length && length + add <= max) {
-					items[i]!.sub = sub;
+					item.sub = sub;
 					length += add;
 				}
-			});
+			}
 			text = assemble(header, items);
 		}
 		return { text, cut: false };

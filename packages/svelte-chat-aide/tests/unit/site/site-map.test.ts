@@ -250,6 +250,110 @@ describe('site map: llms.txt', () => {
 		expect(site.paths()).not.toContain('/x');
 	});
 
+	it('maps .md twin links to their routes and stays complete before any render (acceptance #16)', async () => {
+		const twins = [
+			'# Twin Docs',
+			'',
+			'## Docs',
+			'',
+			'- [Home](/index.html.md)',
+			'- [Intro](/docs/intro.md): Start',
+			'- [Guides](/guides/index.html.md)',
+			'- [Api](/api/x.md)',
+			'- [Bad](/docs/%zz.md)',
+			'- [Encoded](/docs/%6cogout.md)',
+			'- [Abs](https://site.example/docs/abs.md)',
+			''
+		].join('\n');
+		const ref = {} as { map: ReturnType<typeof setup>['map'] };
+		const completeAtRender: boolean[] = [];
+		const page = (title: string): FakePage => ({
+			body: () => {
+				completeAtRender.push(ref.map.complete());
+				return htmlPage({ title });
+			}
+		});
+		const s = setup(
+			{
+				'/llms.txt': text(twins),
+				'/': page('Home'),
+				'/docs/intro': page('Intro'),
+				'/guides/': page('Guides'),
+				'/docs/abs': page('Abs')
+			},
+			{ origin: 'https://site.example' }
+		);
+		ref.map = s.map;
+		s.map.ensureStarted(s.waitUntil);
+		await s.map.waitFor(1000);
+		expect(s.map.complete()).toBe(true);
+		const outline = s.map.outline(6000);
+		expect(outline.partial).toBe(false);
+		expect(outline.text).toContain('- [Home](/)');
+		expect(outline.text).toContain('- [Intro](/docs/intro): Start');
+		expect(outline.text).toContain('- [Guides](/guides/)');
+		expect(outline.text).toContain('- [Abs](/docs/abs)');
+		expect(outline.text).not.toContain('.md)');
+		expect(outline.text).not.toContain('/api/');
+		expect(outline.text).not.toContain('%zz');
+		expect(outline.text).not.toContain('ogout');
+		await Promise.all(s.handed);
+		expect(completeAtRender.length).toBeGreaterThan(0);
+		expect(completeAtRender.every(Boolean)).toBe(true);
+		expect(s.map.isMapped('/docs/intro')).toBe(true);
+	});
+
+	it('does not use an llms.txt without usable links as the outline, nor mark it complete early', async () => {
+		const absolute = [
+			'# Abs Docs',
+			'',
+			'> Summary.',
+			'',
+			'## Docs',
+			'',
+			'- [Guide](https://site.example/guide)',
+			''
+		].join('\n');
+		const ref = {} as { map: ReturnType<typeof setup>['map'] };
+		const completeAtRender: boolean[] = [];
+		const s = setup({
+			'/llms.txt': text(absolute),
+			'/': {
+				body: () => {
+					completeAtRender.push(ref.map.complete());
+					return htmlPage({ title: 'Home', links: ['/guide'] });
+				}
+			},
+			'/guide': { body: htmlPage({ title: 'Guide' }) }
+		});
+		ref.map = s.map;
+		await s.crawl();
+		expect(completeAtRender).toEqual([false]);
+		expect(s.map.complete()).toBe(true);
+		const outline = s.map.outline(6000).text;
+		expect(outline).toContain('[Home](/)');
+		expect(outline).toContain('[Guide](/guide)');
+		expect(outline).not.toContain('https://site.example');
+		expect(s.map.site().title).toBe('Abs Docs');
+	});
+
+	it('appends crawled pages missing from the site llms.txt after its links', async () => {
+		const { map, crawl } = setup({
+			'/llms.txt': text(llms),
+			'/': { body: htmlPage({ title: 'Home', links: ['/extra'] }) },
+			'/guide': { body: htmlPage({ title: 'Guide page' }) },
+			'/changelog': { body: htmlPage({ title: 'Changelog page' }) },
+			'/extra': { body: htmlPage({ title: 'Extra page' }) }
+		});
+		await crawl();
+		const outline = map.outline(6000).text;
+		expect(outline).toContain('- [Guide](/guide): How to start');
+		expect(outline).toContain('[Extra page](/extra)');
+		expect(outline.indexOf('(/guide)')).toBeLessThan(outline.indexOf('(/extra)'));
+		expect(outline.match(/\(\/guide\)/g)).toHaveLength(1);
+		expect(outline.match(/\(\/changelog\)/g)).toHaveLength(1);
+	});
+
 	it('uses a .md twin for a page and never requests its HTML', async () => {
 		const { site, map, crawl } = setup({
 			'/': { body: htmlPage({ title: 'Home', links: ['/guide'] }) },
