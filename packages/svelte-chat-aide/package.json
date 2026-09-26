@@ -1,0 +1,209 @@
+{
+  "name": "svelte-chat-aide",
+  "version": "0.0.0",
+  "description": "An AI chat and llms.txt for your own SvelteKit site, derived from the site at run time.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "svelte": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "svelte": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "browser": "./dist/server/browser-guard.js",
+      "default": "./dist/server/index.js"
+    },
+    "./headless": {
+      "types": "./dist/headless/index.d.ts",
+      "svelte": "./dist/headless/index.js",
+      "default": "./dist/headless/index.js"
+    },
+    "./themes/plain": {
+      "types": "./dist/themes/plain/index.d.ts",
+      "svelte": "./dist/themes/plain/index.js",
+      "default": "./dist/themes/plain/index.js"
+    },
+    "./themes/plain/plain.css": "./dist/themes/plain/plain.css",
+    "./themes/shadcn": {
+      "types": "./dist/themes/shadcn/index.d.ts",
+      "svelte": "./dist/themes/shadcn/index.js",
+      "default": "./dist/themes/shadcn/index.js"
+    },
+    "./llms": {
+      "types": "./dist/llms/index.d.ts",
+      "default": "./dist/llms/index.js"
+    },
+    "./extract": {
+      "types": "./dist/extract/index.d.ts",
+      "default": "./dist/extract/index.js"
+    }
+  },
+  "scripts": {
+    "dev": "vite dev",
+    "build": "node scripts/build-css.mjs && svelte-kit sync && svelte-package && publint",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "lint": "eslint .",
+    "pretest": "test -d dist || pnpm build",
+    "test": "vitest run",
+    "publint": "publint"
+  },
+  "dependencies": {
+    "@ai-sdk/svelte": "^5.0.116",
+    "@lucide/svelte": "^1.48.0",
+    "bits-ui": "^2.19.3",
+    "clsx": "^2.1.1",
+    "linkedom": "^0.18.13",
+    "marked": "^18.0.14",
+    "tailwind-merge": "^3.7.0",
+    "tailwind-variants": "^3.3.1",
+    "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "@ai-sdk/amazon-bedrock": "^5",
+    "@ai-sdk/anthropic": "^4",
+    "@ai-sdk/azure": "^4",
+    "@ai-sdk/baseten": "^2",
+    "@ai-sdk/cerebras": "^3",
+    "@ai-sdk/cohere": "^4",
+    "@ai-sdk/deepinfra": "^3",
+    "@ai-sdk/deepseek": "^3",
+    "@ai-sdk/fireworks": "^3",
+    "@ai-sdk/google": "^4",
+    "@ai-sdk/google-vertex": "^5",
+    "@ai-sdk/groq": "^4",
+    "@ai-sdk/huggingface": "^2",
+    "@ai-sdk/mistral": "^4",
+    "@ai-sdk/openai": "^4",
+    "@ai-sdk/openai-compatible": "^3",
+    "@ai-sdk/perplexity": "^5",
+    "@ai-sdk/togetherai": "^3",
+    "@ai-sdk/xai": "^5",
+    "@openrouter/ai-sdk-provider": "^3",
+    "@sveltejs/kit": "^2",
+    "@vercel/functions": "^3",
+    "ai": "^7",
+    "svelte": "^5"
+  },
+  "peerDependenciesMeta": {
+    "@ai-sdk/amazon-bedrock": {
+      "optional": true
+    },
+    "@ai-sdk/anthropic": {
+      "optional": true
+    },
+    "@ai-sdk/azure": {
+      "optional": true
+    },
+    "@ai-sdk/baseten": {
+      "optional": true
+    },
+    "@ai-sdk/cerebras": {
+      "optional": true
+    },
+    "@ai-sdk/cohere": {
+      "optional": true
+    },
+    "@ai-sdk/deepinfra": {
+      "optional": true
+    },
+    "@ai-sdk/deepseek": {
+      "optional": true
+    },
+    "@ai-sdk/fireworks": {
+      "optional": true
+    },
+    "@ai-sdk/google": {
+      "optional": true
+    },
+    "@ai-sdk/google-vertex": {
+      "optional": true
+    },
+    "@ai-sdk/groq": {
+      "optional": true
+    },
+    "@ai-sdk/huggingface": {
+      "optional": true
+    },
+    "@ai-sdk/mistral": {
+      "optional": true
+    },
+    "@ai-sdk/openai": {
+      "optional": true
+    },
+    "@ai-sdk/openai-compatible": {
+      "optional": true
+    },
+    "@ai-sdk/perplexity": {
+      "optional": true
+    },
+    "@ai-sdk/togetherai": {
+      "optional": true
+    },
+    "@ai-sdk/xai": {
+      "optional": true
+    },
+    "@openrouter/ai-sdk-provider": {
+      "optional": true
+    },
+    "@vercel/functions": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@ai-sdk/amazon-bedrock": "^5.0.97",
+    "@ai-sdk/anthropic": "^4.0.65",
+    "@ai-sdk/azure": "^4.0.82",
+    "@ai-sdk/baseten": "^2.1.35",
+    "@ai-sdk/cerebras": "^3.0.57",
+    "@ai-sdk/cohere": "^4.0.50",
+    "@ai-sdk/deepinfra": "^3.0.57",
+    "@ai-sdk/deepseek": "^3.0.54",
+    "@ai-sdk/fireworks": "^3.0.60",
+    "@ai-sdk/google": "^4.0.82",
+    "@ai-sdk/google-vertex": "^5.0.95",
+    "@ai-sdk/groq": "^4.0.50",
+    "@ai-sdk/huggingface": "^2.0.57",
+    "@ai-sdk/mistral": "^4.0.52",
+    "@ai-sdk/openai": "^4.0.78",
+    "@ai-sdk/openai-compatible": "^3.0.57",
+    "@ai-sdk/perplexity": "^5.0.0",
+    "@ai-sdk/togetherai": "^3.0.58",
+    "@ai-sdk/xai": "^5.0.10",
+    "@eslint/js": "^10.0.1",
+    "@openrouter/ai-sdk-provider": "^3.1.0",
+    "@sveltejs/adapter-auto": "^7.0.1",
+    "@sveltejs/kit": "^2.70.3",
+    "@sveltejs/package": "^2.5.8",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@tailwindcss/cli": "^4.3.3",
+    "@types/node": "^24.19.0",
+    "@vercel/functions": "^3.9.9",
+    "ai": "^7.0.116",
+    "eslint": "^10.11.0",
+    "eslint-plugin-svelte": "^3.23.0",
+    "globals": "^17.12.0",
+    "happy-dom": "^20.14.5",
+    "publint": "^0.3.24",
+    "shadcn-svelte": "^1.7.0",
+    "svelte": "^5.57.1",
+    "svelte-check": "^4.7.6",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.70.1",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
+  }
+}
