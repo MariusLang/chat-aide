@@ -103,6 +103,18 @@ describe('transport: content types and status', () => {
 		expect(await t.read('/')).toEqual({ ok: false, status: 200, reason: 'content-type' });
 	});
 
+	it.each(['application/xml', 'text/xml; charset=utf-8'])('%s -> xml only when accept asks for xml', async (ct) => {
+		const { fetch } = spy(() => new Response('<urlset/>', { headers: { 'content-type': ct } }));
+		const t = createTransport({ exclude: [] });
+		t.setInProcessFetch(fetch);
+		expect(await t.read('/sitemap.xml')).toMatchObject({ ok: false, reason: 'content-type' });
+		expect(await t.read('/sitemap.xml', 'application/xml, text/xml')).toMatchObject({
+			ok: true,
+			contentType: 'xml',
+			body: '<urlset/>'
+		});
+	});
+
 	it('missing content-type -> miss content-type', async () => {
 		const { fetch } = spy(() => new Response(new Uint8Array([1])));
 		const t = createTransport({ exclude: [] });

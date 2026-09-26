@@ -16,7 +16,7 @@ export type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Res
 export interface ReadResult {
 	ok: true;
 	status: 200;
-	contentType: 'html' | 'markdown' | 'text';
+	contentType: 'html' | 'markdown' | 'text' | 'xml';
 	body: string;
 	finalRoute: string;
 }
@@ -41,10 +41,14 @@ const CONTENT_TYPES: Record<string, ReadResult['contentType']> = {
 	'text/plain': 'text'
 };
 
-function contentTypeOf(res: Response): ReadResult['contentType'] | null {
+const XML_TYPES = new Set(['application/xml', 'text/xml']);
+
+/** XML (a sitemap) is accepted only when the caller's `accept` asks for it. */
+function contentTypeOf(res: Response, accept: string): ReadResult['contentType'] | null {
 	const raw = res.headers.get('content-type');
 	if (!raw) return null;
 	const mime = raw.split(';')[0]!.trim().toLowerCase();
+	if (XML_TYPES.has(mime)) return /xml/i.test(accept) ? 'xml' : null;
 	return CONTENT_TYPES[mime] ?? null;
 }
 
@@ -128,7 +132,7 @@ export function createTransport(opts: { origin?: string; exclude: string[]; netw
 					return { ok: false, status: res.status, reason: 'status' };
 				}
 
-				const contentType = contentTypeOf(res);
+				const contentType = contentTypeOf(res, accept);
 				if (!contentType) {
 					discard(res);
 					return { ok: false, status: res.status, reason: 'content-type' };
