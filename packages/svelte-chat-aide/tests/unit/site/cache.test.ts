@@ -105,21 +105,29 @@ describe('page cache: memory', () => {
 		expect(await cache.get('/b')).toBeNull();
 	});
 
-	it('counts entries and misses together', async () => {
+	it('keeps misses in their own LRU: misses never evict pages, pages never evict misses', async () => {
 		const c = clock();
 		const cache = createPageCache({ maxPages: 2, ttlSeconds: 3600, now: c.now });
 		await cache.set('/a', entry('/a', c.now()));
+		await cache.set('/b', entry('/b', c.now()));
 		await cache.setMiss('/x');
 		await cache.setMiss('/y');
-		expect(cache.routes()).toEqual(['/x', '/y']);
-		expect(cache.size()).toBe(2);
+		await cache.setMiss('/z');
+		expect(cache.routes()).toEqual(['/a', '/b', '/y', '/z']);
+		expect(cache.size()).toBe(4);
+		await cache.set('/c', entry('/c', c.now()));
+		expect(cache.routes()).toEqual(['/b', '/c', '/y', '/z']);
 	});
 
-	it('10 000 invented misses leave size <= maxPages (acceptance #27)', async () => {
+	it('10 000 invented misses leave every page untouched and misses <= maxPages (acceptance #27)', async () => {
 		const c = clock();
 		const cache = createPageCache({ maxPages: 200, ttlSeconds: 3600, now: c.now });
+		for (let i = 0; i < 200; i++) await cache.set(`/page-${i}`, entry(`/page-${i}`, c.now()));
 		for (let i = 0; i < 10_000; i++) await cache.setMiss(`/invented-${i}`);
-		expect(cache.size()).toBeLessThanOrEqual(200);
+		for (let i = 0; i < 200; i++) expect(cache.peek(`/page-${i}`)?.kind).toBe('page');
+		const misses = cache.routes().filter((r) => cache.peek(r)?.kind === 'miss');
+		expect(misses.length).toBeLessThanOrEqual(200);
+		expect(cache.size()).toBeLessThanOrEqual(400);
 		expect(cache.routes()).toHaveLength(cache.size());
 	});
 

@@ -1,7 +1,8 @@
 /**
- * The page cache (spec §3.4 "What is cached"). Pages and misses share one LRU bounded by
- * `limits.maxPages`, so a stream of invented routes cannot grow it. A stale page is kept until
- * evicted; the stale-while-revalidate decision belongs to `readPage`.
+ * The page cache (spec §3.4 "What is cached"). Pages and misses each have their own LRU bounded
+ * by `limits.maxPages` (at most 2 × maxPages records), so a stream of invented routes can neither
+ * grow the cache nor evict a crawled page. A stale page is kept until evicted; the
+ * stale-while-revalidate decision belongs to `readPage`.
  */
 import { CACHE_DEFAULTS } from '../shared/limits';
 import type { PageEntry, Store } from '../shared/types';
@@ -14,7 +15,7 @@ export interface PageCache {
 	/** Remembered for `missSeconds` (60 s), without a body. */
 	setMiss(route: string): Promise<void>;
 	size(): number;
-	/** Every cached route, pages and misses, in LRU order, most recent last. */
+	/** Every cached route: pages, then misses, each in LRU order, most recent last. */
 	routes(): string[];
 	/** The raw in-memory record, without touching recency or the store. */
 	peek(route: string): CacheRecord | undefined;
@@ -72,15 +73,27 @@ export function createPageCache(opts: {
 	const max = Math.max(1, opts.maxPages);
 	const store = opts.store;
 	// Map iteration order is insertion order: re-inserting on use keeps it LRU, oldest first.
-	const memory = new Map<string, CacheRecord>();
+	const pages = new Map<string, Extract<CacheRecord, { kind: 'page' }>>();
+	const misses = new Map<string, Extract<CacheRecord, { kind: 'miss' }>>();
+
+	function lru<V>(map: Map<string, V>, route: string, value: V): void {
+		map.delete(route);
+		map.set(route, value);
+		while (map.size > max) map.delete(map.keys().next().value as string);
+	}
 
 	function put(route: string, record: CacheRecord): void {
-		memory.delete(route);
-		memory.set(route, record);
-		while (memory.size > max) {
-			const oldest = memory.keys().next().value as string;
-			memory.delete(oldest);
+		if (record.kind === 'page') {
+			misses.delete(route);
+			lru(pages, route, record);
+		} else {
+			pages.delete(route);
+			lru(misses, route, record);
 		}
+	}
+
+	function lookup(route: string): CacheRecord | undefined {
+		return pages.get(route) ?? misses.get(route);
 	}
 
 	function answer(entry: PageEntry) {
@@ -105,7 +118,7 @@ export function createPageCache(opts: {
 
 	return {
 		async get(route) {
-			const record = memory.get(route);
+			const record = lookup(route);
 			if (record) {
 				if (record.kind === 'page') {
 					put(route, record);
@@ -115,7 +128,7 @@ export function createPageCache(opts: {
 					put(route, record);
 					return { miss: true };
 				}
-				memory.delete(route);
+				misses.delete(route);
 			}
 			if (!store) return null;
 
@@ -150,15 +163,15 @@ export function createPageCache(opts: {
 		},
 
 		size() {
-			return memory.size;
+			return pages.size + misses.size;
 		},
 
 		routes() {
-			return [...memory.keys()];
+			return [...pages.keys(), ...misses.keys()];
 		},
 
 		peek(route) {
-			return memory.get(route);
+			return lookup(route);
 		}
 	};
 }
