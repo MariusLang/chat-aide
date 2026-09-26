@@ -11,6 +11,17 @@ export const INTERNAL_HEADER = 'x-aide-internal';
 /** Random per process; the hook recognises the library's own reads by it (spec §3.1). */
 export const INTERNAL_MARKER: string = crypto.randomUUID();
 
+/**
+ * The `aide()` hook stamps its answers to the library's in-process sub-requests with this header
+ * and a second per-process random value that is never sent on a read, so it cannot leak to a
+ * host the read reaches. With no origin configured, an in-process response without the stamp is
+ * refused: SvelteKit's `event.fetch` answers some paths (a route not in the manifest, a rerouted
+ * prerendered path) with a network fetch against `event.url.origin`, which comes from `Host`,
+ * and re-wraps the answer with an empty `url` (`respond.js`).
+ */
+export const SERVED_HEADER = 'x-aide-served';
+export const SERVED_MARKER: string = crypto.randomUUID();
+
 export type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 export interface ReadResult {
@@ -29,7 +40,13 @@ export interface ReadMiss {
 
 export interface Transport {
 	read(path: string, accept?: string): Promise<ReadResult | ReadMiss>;
-	setInProcessFetch(f: FetchLike): void;
+	/**
+	 * Adopts a request's `event.fetch` for in-process reads. With an origin configured, a fetch
+	 * from an event whose `url.origin` differs (a forged `Host`) is refused and `false` returned;
+	 * `eventOrigin` omitted means the caller vouches for it.
+	 */
+	setInProcessFetch(f: FetchLike, eventOrigin?: string): boolean;
+	hasInProcessFetch(): boolean;
 }
 
 const DEFAULT_ACCEPT = 'text/html';
@@ -58,6 +75,14 @@ function discard(res: Response): void {
 
 const networkMiss: ReadMiss = { ok: false, status: 0, reason: 'network' };
 
+function originOf(url: string): string | null {
+	try {
+		return new URL(url).origin;
+	} catch {
+		return null;
+	}
+}
+
 /**
  * In process: the relative path through the last `event.fetch` handed in. Network fallback
  * (only when an origin is configured, and the in-process fetch is missing or answered `404`,
@@ -67,6 +92,17 @@ export function createTransport(opts: { origin?: string; exclude: string[]; netw
 	const origin = opts.origin === undefined ? undefined : (normalizeOrigin(opts.origin) ?? undefined);
 	const configured = opts.origin !== undefined;
 	let inProcess: FetchLike | undefined;
+
+	/**
+	 * An in-process answer is SvelteKit's own (empty `url`) or a network fetch it made (absolute
+	 * `url`). The latter is kept only when it came from the configured origin; with no origin,
+	 * reads are in process only (spec §3.4), so it is refused, as is an answer the hook did not stamp.
+	 */
+	function trusted(res: Response): boolean {
+		if (res.url) return origin !== undefined && originOf(res.url) === origin;
+		if (origin) return true;
+		return res.headers.get(SERVED_HEADER) === SERVED_MARKER;
+	}
 
 	function init(accept: string): RequestInit {
 		return {
@@ -85,6 +121,10 @@ export function createTransport(opts: { origin?: string; exclude: string[]; netw
 			} catch {
 				res = null;
 			}
+			if (res && !trusted(res)) {
+				discard(res);
+				return null;
+			}
 			if (res && (res.status !== 404 || !origin)) return res;
 			if (!origin) return null;
 			if (res) discard(res);
@@ -99,8 +139,14 @@ export function createTransport(opts: { origin?: string; exclude: string[]; netw
 	}
 
 	return {
-		setInProcessFetch(f) {
+		setInProcessFetch(f, eventOrigin) {
+			if (origin !== undefined && eventOrigin !== undefined && eventOrigin !== origin) return false;
 			inProcess = f;
+			return true;
+		},
+
+		hasInProcessFetch() {
+			return inProcess !== undefined;
 		},
 
 		async read(path, accept = DEFAULT_ACCEPT) {

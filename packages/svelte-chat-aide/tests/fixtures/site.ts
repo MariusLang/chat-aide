@@ -3,8 +3,9 @@
  * `path -> page` map, records every call, tracks reads in flight and records a violation
  * whenever a read is not anonymous (missing marker, credentials not omitted, redirects not
  * manual, a cookie or authorization header, any header besides `accept` and the marker).
+ * Responses carry the `aide()` hook's served stamp, as the app's in-process answers do.
  */
-import { INTERNAL_HEADER, INTERNAL_MARKER, type FetchLike } from '../../src/lib/site/transport';
+import { INTERNAL_HEADER, INTERNAL_MARKER, SERVED_HEADER, SERVED_MARKER, type FetchLike } from '../../src/lib/site/transport';
 
 export interface FakePage {
 	/** Default 200. */
@@ -81,7 +82,11 @@ export function createFakeSite(
 			const nullBody = status === 204 || status === 304 || (status >= 300 && status < 400);
 			return new Response(nullBody ? null : body, {
 				status,
-				headers: { 'content-type': page.type ?? 'text/html; charset=utf-8', ...page.headers }
+				headers: {
+					'content-type': page.type ?? 'text/html; charset=utf-8',
+					[SERVED_HEADER]: SERVED_MARKER,
+					...page.headers
+				}
 			});
 		} finally {
 			inFlight--;

@@ -49,7 +49,7 @@ function answerable(event: RequestEvent): boolean {
 
 /** Reads go through this request's `event.fetch`; the map is started and given its crawl budget. */
 async function prepare(handler: ChatHandler, event: RequestEvent) {
-	handler.transport.setInProcessFetch(event.fetch);
+	handler.transport.setInProcessFetch(event.fetch, event.url.origin);
 	const waitUntil = await resolveWaitUntil(event, handler.config.waitUntil);
 	handler.siteMap.ensureStarted(waitUntil);
 	await handler.siteMap.waitFor(handler.config.limits.crawlBudgetMs);

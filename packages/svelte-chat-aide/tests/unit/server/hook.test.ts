@@ -8,7 +8,7 @@ import { MockLanguageModelV4 } from 'ai/test';
 import { aide } from '../../../src/lib/server/hook';
 import { llmsFullTxt, llmsTxt, pageMarkdown } from '../../../src/lib/llms/index';
 import { parseLlmsTxt } from '../../../src/lib/site/llms';
-import { INTERNAL_HEADER, INTERNAL_MARKER } from '../../../src/lib/site/transport';
+import { INTERNAL_HEADER, INTERNAL_MARKER, SERVED_HEADER, SERVED_MARKER } from '../../../src/lib/site/transport';
 import type { AideConfig } from '../../../src/lib/shared/types';
 import { htmlPage } from '../../fixtures/site';
 
@@ -65,6 +65,7 @@ function createApp(handle: Handle, routes: Record<string, Route> = defaultRoutes
 			route: { id: null },
 			fetch: (i: string | URL, o?: RequestInit) => request(i, o, depth + 1),
 			getClientAddress: () => '203.0.113.7',
+			isSubRequest: depth > 0,
 			platform: undefined,
 			locals: {}
 		} as unknown as RequestEvent;
@@ -103,6 +104,28 @@ describe('aide() hook', () => {
 		expect(res.status).toBe(404);
 		expect(app.invocations).toHaveLength(1);
 		expect(app.invocations[0]!.resolves).toBe(1);
+	});
+
+	it('stamps its answers to the library’s in-process sub-requests only', async () => {
+		const handle = aide(config());
+		const app = createApp(handle);
+		const outside = await app.request('/docs/a', { headers: { [INTERNAL_HEADER]: INTERNAL_MARKER } });
+		expect(outside.status).toBe(200);
+		expect(outside.headers.has(SERVED_HEADER)).toBe(false);
+
+		const seen: (string | null)[] = [];
+		const probe = createApp(async ({ event, resolve }) => {
+			if (event.url.pathname === '/probe') {
+				const r = await event.fetch('/docs/a', { headers: { [INTERNAL_HEADER]: INTERNAL_MARKER } });
+				seen.push(r.headers.get(SERVED_HEADER));
+				const plain = await event.fetch('/docs/a');
+				seen.push(plain.headers.get(SERVED_HEADER));
+				return new Response('ok');
+			}
+			return handle({ event, resolve });
+		});
+		await probe.request('/probe');
+		expect(seen).toEqual([SERVED_MARKER, null]);
 	});
 
 	it('passes every other path through untouched', async () => {
@@ -245,6 +268,27 @@ describe('aide() hook', () => {
 		expect(Math.max(...app.invocations.map((i) => i.depth))).toBe(1);
 	});
 
+	it('forged Host: the event’s fetch is not adopted, reads go to the configured origin', async () => {
+		let app: ReturnType<typeof createApp> | undefined = undefined;
+		const network: string[] = [];
+		const handle = aide(config({ origin: BASE }), {
+			fetch: (url, init) => {
+				network.push(String(url));
+				return app!.request(url, init);
+			}
+		});
+		app = createApp(handle);
+		const res = await app.request('http://evil.example/llms.txt');
+		expect(res.status).toBe(200);
+		expect(network.length).toBeGreaterThan(0);
+		for (const u of network) expect(u.startsWith(BASE + '/')).toBe(true);
+		expect(handle.handler.transport.hasInProcessFetch()).toBe(false);
+
+		network.length = 0;
+		await app.request('/api/chat?route=/', { headers: { 'sec-fetch-site': 'same-origin' } });
+		expect(handle.handler.transport.hasInProcessFetch()).toBe(true);
+	});
+
 	it('composes with sequence()', async () => {
 		const seen: string[] = [];
 		const other: Handle = async ({ event, resolve }) => {
@@ -266,9 +310,11 @@ describe('aide() hook', () => {
 
 describe('llms handlers', () => {
 	it('are RequestHandlers bound to a chat handler', async () => {
-		const handle = aide(config());
+		// Mounted by hand, reads go over the network to the configured origin (here: the app).
+		let app: ReturnType<typeof createApp> | undefined = undefined;
+		const handle = aide(config({ origin: BASE }), { fetch: (url, init) => app!.request(url, init) });
 		// A hand-mounted app: its own reads must still reach "the app", so they skip the handlers.
-		const app = createApp(async ({ event, resolve }) => {
+		app = createApp(async ({ event, resolve }) => {
 			if (event.request.headers.get(INTERNAL_HEADER)) return resolve(event);
 			const path = event.url.pathname;
 			if (path === '/llms.txt') return llmsTxt(handle.handler)(event as never);

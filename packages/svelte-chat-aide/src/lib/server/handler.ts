@@ -451,7 +451,7 @@ export function createChatHandler(input: AideConfig, deps: ChatHandlerDeps = {})
 
 	const handler = (async (event: RequestEvent): Promise<Response> => {
 		const started = now();
-		transport.setInProcessFetch(event.fetch);
+		transport.setInProcessFetch(event.fetch, event.url.origin);
 		const waitUntil = await resolveWaitUntil(event, config.waitUntil);
 		platformWarnings(event);
 

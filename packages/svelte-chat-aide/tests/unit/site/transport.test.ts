@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import {
 	INTERNAL_HEADER,
 	INTERNAL_MARKER,
+	SERVED_HEADER,
+	SERVED_MARKER,
 	createTransport,
 	type FetchLike
 } from '../../../src/lib/site/transport';
@@ -13,8 +15,12 @@ interface Call {
 
 type Responder = (url: string) => Response;
 
-/** A fetch spy that records every call and fails on any visitor credential in the request. */
-function spy(respond: Responder, opts: { forwardCookies?: boolean } = {}) {
+/**
+ * A fetch spy that records every call and fails on any visitor credential in the request. Its
+ * responses carry the hook's served stamp (as in-process responses through `aide()` do) unless
+ * `stamp: false`.
+ */
+function spy(respond: Responder, opts: { forwardCookies?: boolean; stamp?: boolean } = {}) {
 	const calls: Call[] = [];
 	const fetch: FetchLike = async (input, init = {}) => {
 		const url = String(input);
@@ -23,9 +29,17 @@ function spy(respond: Responder, opts: { forwardCookies?: boolean } = {}) {
 		if (opts.forwardCookies && init.credentials !== 'omit') headers.set('cookie', 'session=secret');
 		if (headers.has('cookie') || headers.has('authorization')) throw new Error('credential forwarded');
 		calls.push({ url, init });
-		return respond(url);
+		const res = respond(url);
+		if (opts.stamp !== false) res.headers.set(SERVED_HEADER, SERVED_MARKER);
+		return res;
 	};
 	return { fetch, calls };
+}
+
+/** A Response whose `url` is set, as for one fetched over the network. */
+function withUrl(res: Response, url: string): Response {
+	Object.defineProperty(res, 'url', { value: url });
+	return res;
 }
 
 const html = (body = '<p>hi</p>', status = 200) =>
@@ -317,5 +331,83 @@ describe('transport: origin and network fallback (acceptance #19)', () => {
 			expect(await t.read(p)).toMatchObject({ ok: false });
 		}
 		expect(calls).toHaveLength(0);
+	});
+});
+
+describe('transport: forged Host (in-process fetch bound to the configured origin)', () => {
+	it('adopts an event fetch only when no origin is configured or the event origin matches', async () => {
+		const good = spy(() => html('good'));
+		const forged = spy(() => html('forged'));
+		const net = spy(() => html('net'));
+		const t = createTransport({ origin: 'https://site.dev', exclude: [], networkFetch: net.fetch });
+		expect(t.setInProcessFetch(forged.fetch, 'https://evil.example')).toBe(false);
+		expect(t.hasInProcessFetch()).toBe(false);
+		expect(await t.read('/a')).toMatchObject({ ok: true, body: 'net' });
+		expect(forged.calls).toHaveLength(0);
+
+		expect(t.setInProcessFetch(good.fetch, 'https://site.dev')).toBe(true);
+		expect(t.hasInProcessFetch()).toBe(true);
+		// a later forged event does not replace the adopted fetch
+		expect(t.setInProcessFetch(forged.fetch, 'https://evil.example')).toBe(false);
+		expect(await t.read('/a')).toMatchObject({ ok: true, body: 'good' });
+		expect(forged.calls).toHaveLength(0);
+
+		const open = createTransport({ exclude: [] });
+		expect(open.setInProcessFetch(good.fetch, 'https://anything.example')).toBe(true);
+	});
+
+	it('configured origin: an in-process response fetched from another origin is refused', async () => {
+		const { fetch } = spy(() => withUrl(html('attacker'), 'https://evil.example/pre'));
+		const net = spy(() => html('net'));
+		const t = createTransport({ origin: 'https://site.dev', exclude: [], networkFetch: net.fetch });
+		t.setInProcessFetch(fetch, 'https://site.dev');
+		expect(await t.read('/pre')).toEqual({ ok: false, status: 0, reason: 'network' });
+	});
+
+	it('configured origin: an in-process response from the configured origin, or internal (no url), is accepted', async () => {
+		const own = spy(() => withUrl(html('own'), 'https://site.dev/pre'));
+		const t = createTransport({ origin: 'https://site.dev', exclude: [], networkFetch: vi.fn() });
+		t.setInProcessFetch(own.fetch, 'https://site.dev');
+		expect(await t.read('/pre')).toMatchObject({ ok: true, body: 'own' });
+
+		const internal = spy(() => html('internal'), { stamp: false });
+		const u = createTransport({ origin: 'https://site.dev', exclude: [], networkFetch: vi.fn() });
+		u.setInProcessFetch(internal.fetch, 'https://site.dev');
+		expect(await u.read('/x')).toMatchObject({ ok: true, body: 'internal' });
+	});
+
+	it('no origin: any in-process response with a url (a network read) is a network miss', async () => {
+		const { fetch } = spy(() => withUrl(html('attacker'), 'http://localhost:5173/pre'));
+		const t = createTransport({ exclude: [] });
+		t.setInProcessFetch(fetch, 'http://localhost:5173');
+		expect(await t.read('/pre')).toEqual({ ok: false, status: 0, reason: 'network' });
+	});
+
+	it('no origin: an in-process response without the hook’s served stamp is a network miss', async () => {
+		// SvelteKit re-wraps a sub-request's network fallback (unknown route) with an empty url.
+		const { fetch } = spy(() => html('attacker'), { stamp: false });
+		const t = createTransport({ exclude: [] });
+		t.setInProcessFetch(fetch);
+		expect(await t.read('/invented')).toEqual({ ok: false, status: 0, reason: 'network' });
+
+		const forged = spy(() => {
+			const r = html('attacker');
+			r.headers.set(SERVED_HEADER, INTERNAL_MARKER);
+			return r;
+		}, { stamp: false });
+		const u = createTransport({ exclude: [] });
+		u.setInProcessFetch(forged.fetch);
+		expect(await u.read('/invented')).toEqual({ ok: false, status: 0, reason: 'network' });
+	});
+
+	it('the served stamp is a separate random value, never sent on a read', async () => {
+		expect(SERVED_HEADER).toBe('x-aide-served');
+		expect(SERVED_MARKER).toMatch(/^[0-9a-f-]{36}$/);
+		expect(SERVED_MARKER).not.toBe(INTERNAL_MARKER);
+		const { fetch, calls } = spy(() => html());
+		const t = createTransport({ exclude: [] });
+		t.setInProcessFetch(fetch);
+		await t.read('/a');
+		expect(JSON.stringify([...(calls[0]!.init.headers as Headers).entries()])).not.toContain(SERVED_MARKER);
 	});
 });

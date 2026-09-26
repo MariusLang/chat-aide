@@ -12,12 +12,19 @@
 import type { Handle, RequestHandler } from '@sveltejs/kit';
 import type { AideConfig } from '../shared/types';
 import { routeForMarkdownPath } from '../site/llms';
-import { INTERNAL_HEADER, INTERNAL_MARKER } from '../site/transport';
+import { INTERNAL_HEADER, INTERNAL_MARKER, SERVED_HEADER, SERVED_MARKER } from '../site/transport';
 import { llmsFullTxt, llmsTxt, pageMarkdown } from '../llms/index';
 import { createChatHandler, type ChatHandler, type ChatHandlerDeps } from './handler';
 import { warn } from './warn';
 
 export type AideHandle = Handle & { handler: ChatHandler };
+
+/** Marks the app's answer to one of the library's in-process reads (see `SERVED_HEADER`). */
+function stamp(res: Response): Response {
+	const out = new Response(res.body, res);
+	out.headers.set(SERVED_HEADER, SERVED_MARKER);
+	return out;
+}
 
 type Kind = 'endpoint' | 'llms' | 'llms-full' | 'markdown';
 
@@ -40,7 +47,11 @@ export function aide(config: AideConfig, deps?: ChatHandlerDeps): AideHandle {
 	}
 
 	const handle = (async ({ event, resolve }) => {
-		if (event.request.headers.get(INTERNAL_HEADER) === INTERNAL_MARKER) return resolve(event);
+		if (event.request.headers.get(INTERNAL_HEADER) === INTERNAL_MARKER) {
+			const res = await resolve(event);
+			// Only a sub-request's answer goes back to the library; a visitor never sees the stamp.
+			return event.isSubRequest ? stamp(res) : res;
+		}
 		const kind = kindOf(event.url.pathname);
 		if (kind === null || (kind !== 'endpoint' && !llms.serve)) return resolve(event);
 
