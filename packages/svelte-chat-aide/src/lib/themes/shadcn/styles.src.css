@@ -1,0 +1,401 @@
+/*
+ * Source of the shadcn theme's stylesheet (spec §3.9 layer 3). Compiled at package build time by
+ * scripts/build-css.mjs into styles.css, which the components import:
+ *
+ * - Tailwind 4 with `prefix(aide)`: every utility is `aide:*`, so nothing collides with the
+ *   host's Tailwind and the host never needs an `@source` line for node_modules.
+ * - No preflight: only the theme and utilities are imported. A small reset scoped to
+ *   `[data-aide-theme="shadcn"]` stands in for it, so the host page is never restyled.
+ * - Utilities are emitted unlayered, after the scoped reset, so a host stylesheet's element
+ *   rules (`button { … }`) cannot override the widget.
+ * - Every colour reads the host's shadcn-svelte variable with a fallback:
+ *   `var(--primary, var(--aide-fb-primary))`. The fallbacks switch to dark with
+ *   `prefers-color-scheme` and with a `.dark` (or `[data-theme="dark"]`) ancestor.
+ */
+@import 'tailwindcss/theme.css' layer(theme) prefix(aide);
+
+@source './';
+@source not './styles.css';
+
+/* shadcn-svelte's `dark:` is class based; match it so the widget follows the host's toggle. */
+@custom-variant dark (&:where(.dark, .dark *, [data-theme='dark'], [data-theme='dark'] *));
+
+@theme inline {
+	--color-background: var(--background, var(--aide-fb-background));
+	--color-foreground: var(--foreground, var(--aide-fb-foreground));
+	--color-card: var(--card, var(--aide-fb-card));
+	--color-card-foreground: var(--card-foreground, var(--aide-fb-card-foreground));
+	--color-popover: var(--popover, var(--aide-fb-popover));
+	--color-popover-foreground: var(--popover-foreground, var(--aide-fb-popover-foreground));
+	--color-primary: var(--primary, var(--aide-fb-primary));
+	--color-primary-foreground: var(--primary-foreground, var(--aide-fb-primary-foreground));
+	--color-secondary: var(--secondary, var(--aide-fb-secondary));
+	--color-secondary-foreground: var(--secondary-foreground, var(--aide-fb-secondary-foreground));
+	--color-muted: var(--muted, var(--aide-fb-muted));
+	--color-muted-foreground: var(--muted-foreground, var(--aide-fb-muted-foreground));
+	--color-accent: var(--accent, var(--aide-fb-accent));
+	--color-accent-foreground: var(--accent-foreground, var(--aide-fb-accent-foreground));
+	--color-destructive: var(--destructive, var(--aide-fb-destructive));
+	--color-border: var(--border, var(--aide-fb-border));
+	--color-input: var(--input, var(--aide-fb-input));
+	--color-ring: var(--ring, var(--aide-fb-ring));
+
+	--radius-sm: calc(var(--radius, 0.625rem) - 4px);
+	--radius-md: calc(var(--radius, 0.625rem) - 2px);
+	--radius-lg: var(--radius, 0.625rem);
+	--radius-xl: calc(var(--radius, 0.625rem) + 4px);
+	--radius-2xl: calc(var(--radius, 0.625rem) + 8px);
+}
+
+@theme {
+	--animate-pop: aide-pop 200ms cubic-bezier(0.16, 1, 0.3, 1);
+	--animate-slide-in-right: aide-slide-in-right 260ms cubic-bezier(0.16, 1, 0.3, 1);
+	--animate-slide-in-left: aide-slide-in-left 260ms cubic-bezier(0.16, 1, 0.3, 1);
+	--animate-dot: aide-dot 1.1s ease-in-out infinite;
+
+	@keyframes aide-pop {
+		from {
+			opacity: 0;
+			transform: translateY(8px) scale(0.97);
+		}
+	}
+	@keyframes aide-slide-in-right {
+		from {
+			transform: translateX(100%);
+		}
+	}
+	@keyframes aide-slide-in-left {
+		from {
+			transform: translateX(-100%);
+		}
+	}
+	@keyframes aide-dot {
+		0%,
+		80%,
+		100% {
+			opacity: 0.35;
+			transform: translateY(0);
+		}
+		40% {
+			opacity: 1;
+			transform: translateY(-3px);
+		}
+	}
+}
+
+/* ---- Fallback palette: shadcn-svelte's neutral theme ---------------------------------------- */
+
+[data-aide-theme='shadcn'] {
+	--aide-fb-background: oklch(1 0 0);
+	--aide-fb-foreground: oklch(0.145 0 0);
+	--aide-fb-card: oklch(1 0 0);
+	--aide-fb-card-foreground: oklch(0.145 0 0);
+	--aide-fb-popover: oklch(1 0 0);
+	--aide-fb-popover-foreground: oklch(0.145 0 0);
+	--aide-fb-primary: oklch(0.205 0 0);
+	--aide-fb-primary-foreground: oklch(0.985 0 0);
+	--aide-fb-secondary: oklch(0.97 0 0);
+	--aide-fb-secondary-foreground: oklch(0.205 0 0);
+	--aide-fb-muted: oklch(0.97 0 0);
+	--aide-fb-muted-foreground: oklch(0.556 0 0);
+	--aide-fb-accent: oklch(0.97 0 0);
+	--aide-fb-accent-foreground: oklch(0.205 0 0);
+	--aide-fb-destructive: oklch(0.577 0.245 27.325);
+	--aide-fb-border: oklch(0.922 0 0);
+	--aide-fb-input: oklch(0.922 0 0);
+	--aide-fb-ring: oklch(0.708 0 0);
+	--aide-fb-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+	[data-aide-theme='shadcn'] {
+		--aide-fb-background: oklch(0.145 0 0);
+		--aide-fb-foreground: oklch(0.985 0 0);
+		--aide-fb-card: oklch(0.205 0 0);
+		--aide-fb-card-foreground: oklch(0.985 0 0);
+		--aide-fb-popover: oklch(0.205 0 0);
+		--aide-fb-popover-foreground: oklch(0.985 0 0);
+		--aide-fb-primary: oklch(0.922 0 0);
+		--aide-fb-primary-foreground: oklch(0.205 0 0);
+		--aide-fb-secondary: oklch(0.269 0 0);
+		--aide-fb-secondary-foreground: oklch(0.985 0 0);
+		--aide-fb-muted: oklch(0.269 0 0);
+		--aide-fb-muted-foreground: oklch(0.708 0 0);
+		--aide-fb-accent: oklch(0.269 0 0);
+		--aide-fb-accent-foreground: oklch(0.985 0 0);
+		--aide-fb-destructive: oklch(0.704 0.191 22.216);
+		--aide-fb-border: oklch(1 0 0 / 10%);
+		--aide-fb-input: oklch(1 0 0 / 15%);
+		--aide-fb-ring: oklch(0.556 0 0);
+		--aide-fb-scheme: dark;
+	}
+}
+
+/* An explicit light ancestor wins over the OS preference … */
+:where(.light, [data-theme='light']) [data-aide-theme='shadcn'] {
+	--aide-fb-background: oklch(1 0 0);
+	--aide-fb-foreground: oklch(0.145 0 0);
+	--aide-fb-card: oklch(1 0 0);
+	--aide-fb-card-foreground: oklch(0.145 0 0);
+	--aide-fb-popover: oklch(1 0 0);
+	--aide-fb-popover-foreground: oklch(0.145 0 0);
+	--aide-fb-primary: oklch(0.205 0 0);
+	--aide-fb-primary-foreground: oklch(0.985 0 0);
+	--aide-fb-secondary: oklch(0.97 0 0);
+	--aide-fb-secondary-foreground: oklch(0.205 0 0);
+	--aide-fb-muted: oklch(0.97 0 0);
+	--aide-fb-muted-foreground: oklch(0.556 0 0);
+	--aide-fb-accent: oklch(0.97 0 0);
+	--aide-fb-accent-foreground: oklch(0.205 0 0);
+	--aide-fb-destructive: oklch(0.577 0.245 27.325);
+	--aide-fb-border: oklch(0.922 0 0);
+	--aide-fb-input: oklch(0.922 0 0);
+	--aide-fb-ring: oklch(0.708 0 0);
+	--aide-fb-scheme: light;
+}
+
+/* … and so does an explicit dark one (shadcn-svelte / mode-watcher put `.dark` on <html>). */
+:where(.dark, [data-theme='dark']) [data-aide-theme='shadcn'],
+[data-aide-theme='shadcn']:where(.dark) {
+	--aide-fb-background: oklch(0.145 0 0);
+	--aide-fb-foreground: oklch(0.985 0 0);
+	--aide-fb-card: oklch(0.205 0 0);
+	--aide-fb-card-foreground: oklch(0.985 0 0);
+	--aide-fb-popover: oklch(0.205 0 0);
+	--aide-fb-popover-foreground: oklch(0.985 0 0);
+	--aide-fb-primary: oklch(0.922 0 0);
+	--aide-fb-primary-foreground: oklch(0.205 0 0);
+	--aide-fb-secondary: oklch(0.269 0 0);
+	--aide-fb-secondary-foreground: oklch(0.985 0 0);
+	--aide-fb-muted: oklch(0.269 0 0);
+	--aide-fb-muted-foreground: oklch(0.708 0 0);
+	--aide-fb-accent: oklch(0.269 0 0);
+	--aide-fb-accent-foreground: oklch(0.985 0 0);
+	--aide-fb-destructive: oklch(0.704 0.191 22.216);
+	--aide-fb-border: oklch(1 0 0 / 10%);
+	--aide-fb-input: oklch(1 0 0 / 15%);
+	--aide-fb-ring: oklch(0.556 0 0);
+	--aide-fb-scheme: dark;
+}
+
+/* ---- Scoped reset (instead of preflight) --------------------------------------------------- */
+
+[data-aide-theme='shadcn'] {
+	--aide-radius-md: calc(var(--radius, 0.625rem) - 2px);
+	color-scheme: var(--aide-fb-scheme);
+	color: var(--foreground, var(--aide-fb-foreground));
+	font-family: var(
+		--aide-font,
+		var(
+			--font-sans,
+			ui-sans-serif,
+			system-ui,
+			-apple-system,
+			'Segoe UI',
+			Roboto,
+			'Helvetica Neue',
+			Arial,
+			sans-serif
+		)
+	);
+	font-size: 1rem;
+	line-height: 1.5;
+	text-align: start;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	-webkit-tap-highlight-color: transparent;
+}
+
+[data-aide-theme='shadcn'],
+[data-aide-theme='shadcn'] :where(*, ::before, ::after) {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+	border: 0 solid var(--border, var(--aide-fb-border));
+}
+
+[data-aide-theme='shadcn'] :where(button, textarea, input) {
+	font: inherit;
+	letter-spacing: inherit;
+	color: inherit;
+	background-color: transparent;
+	border-radius: 0;
+	text-transform: none;
+	appearance: none;
+}
+
+[data-aide-theme='shadcn'] :where(button) {
+	cursor: pointer;
+}
+
+[data-aide-theme='shadcn'] :where(button:disabled) {
+	cursor: default;
+}
+
+[data-aide-theme='shadcn'] :where(textarea::placeholder) {
+	opacity: 1;
+	color: var(--muted-foreground, var(--aide-fb-muted-foreground));
+}
+
+[data-aide-theme='shadcn'] :where(svg) {
+	display: block;
+	vertical-align: middle;
+}
+
+[data-aide-theme='shadcn'] :where(ul, ol) {
+	list-style: none;
+}
+
+[data-aide-theme='shadcn'] :where(h1, h2, h3, h4, h5, h6) {
+	font-size: inherit;
+	font-weight: inherit;
+}
+
+[data-aide-theme='shadcn'] :where(a) {
+	color: inherit;
+	text-decoration: inherit;
+}
+
+/* ---- Answer markdown (rendered by the headless Markdown component) ---------------------------- */
+
+[data-aide-theme='shadcn'] [data-part='markdown'] {
+	overflow-wrap: anywhere;
+}
+[data-aide-theme='shadcn'] [data-part='markdown'] > * + *,
+[data-aide-theme='shadcn'] [data-part='markdown'] li > * + * {
+	margin-top: 0.625rem;
+}
+[data-aide-theme='shadcn'] [data-part='markdown'] :is(h1, h2, h3, h4, h5, h6) {
+	font-weight: 600;
+	line-height: 1.35;
+}
+[data-aide-theme='shadcn'] [data-part='markdown'] :is(h1, h2) {
+	font-size: 1.0625em;
+}
+[data-aide-theme='shadcn'] [data-part='markdown'] ul {
+	list-style: disc;
+	padding-inline-start: 1.25em;
+}
+[data-aide-theme='shadcn'] [data-part='markdown'] ol {
+	list-style: decimal;
+	padding-inline-start: 1.4em;
+}
+[data-aide-theme='shadcn'] [data-part='markdown'] li + li {
+	margin-top: 0.25rem;
+}
+[data-aide-theme='shadcn'] [data-part='markdown'] li::marker {
+	color: var(--muted-foreground, var(--aide-fb-muted-foreground));
+}
+[data-aide-theme='shadcn'] [data-part='markdown'] strong {
+	font-weight: 600;
+}
+[data-aide-theme='shadcn'] [data-part='markdown'] blockquote {
+	border-inline-start: 2px solid var(--border, var(--aide-fb-border));
+	padding-inline-start: 0.75em;
+	color: var(--muted-foreground, var(--aide-fb-muted-foreground));
+}
+[data-aide-theme='shadcn'] [data-part='markdown'] hr {
+	border-top-width: 1px;
+}
+[data-aide-theme='shadcn'] [data-part='link'] {
+	font-weight: 500;
+	text-decoration: underline;
+	text-decoration-color: color-mix(in oklab, currentColor 35%, transparent);
+	text-underline-offset: 3px;
+	transition: text-decoration-color 150ms;
+}
+[data-aide-theme='shadcn'] [data-part='link']:hover {
+	text-decoration-color: currentColor;
+}
+[data-aide-theme='shadcn'] [data-part='link']:focus-visible,
+[data-aide-theme='shadcn'] [data-part='copy']:focus-visible {
+	outline: 2px solid var(--ring, var(--aide-fb-ring));
+	outline-offset: 2px;
+	border-radius: 3px;
+}
+[data-aide-theme='shadcn'] :is([data-part='inline-code'], [data-part='code'] code) {
+	font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+	font-size: 0.8125em;
+}
+[data-aide-theme='shadcn'] [data-part='inline-code'] {
+	padding: 0.1em 0.35em;
+	border-radius: calc(var(--radius, 0.625rem) - 4px);
+	background: color-mix(in oklab, var(--foreground, var(--aide-fb-foreground)) 8%, transparent);
+}
+[data-aide-theme='shadcn'] [data-part='code'] {
+	position: relative;
+	overflow: hidden;
+	border: 1px solid var(--border, var(--aide-fb-border));
+	border-radius: calc(var(--radius, 0.625rem) - 2px);
+	background: var(--background, var(--aide-fb-background));
+}
+[data-aide-theme='shadcn'] [data-part='code-lang'] {
+	display: block;
+	padding: 0.375rem 4.5rem 0.375rem 0.75rem;
+	border-bottom: 1px solid var(--border, var(--aide-fb-border));
+	font-size: 0.6875rem;
+	line-height: 1rem;
+	letter-spacing: 0.02em;
+	color: var(--muted-foreground, var(--aide-fb-muted-foreground));
+}
+[data-aide-theme='shadcn'] [data-part='code'] pre {
+	margin: 0;
+	padding: 0.625rem 0.75rem;
+	overflow-x: auto;
+	line-height: 1.55;
+}
+[data-aide-theme='shadcn'] [data-part='code']:not(:has([data-part='code-lang'])) pre {
+	padding-top: 2rem;
+}
+[data-aide-theme='shadcn'] [data-part='copy'] {
+	position: absolute;
+	top: 0.25rem;
+	right: 0.25rem;
+	height: 1.5rem;
+	padding: 0 0.5rem;
+	border-radius: calc(var(--radius, 0.625rem) - 4px);
+	font-size: 0.6875rem;
+	font-weight: 500;
+	color: var(--muted-foreground, var(--aide-fb-muted-foreground));
+	transition:
+		background-color 150ms,
+		color 150ms;
+}
+[data-aide-theme='shadcn'] [data-part='copy']:hover {
+	background: var(--muted, var(--aide-fb-muted));
+	color: var(--foreground, var(--aide-fb-foreground));
+}
+[data-aide-theme='shadcn'] [data-part='message'][data-role='user'] [data-part='message-text'] {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+[data-aide-theme='shadcn'] [data-part='message'][data-streaming] [data-part='markdown'] > :last-child::after {
+	content: '';
+	display: inline-block;
+	width: 0.5em;
+	height: 1em;
+	margin-inline-start: 0.15em;
+	vertical-align: -0.15em;
+	border-radius: 1px;
+	background: currentColor;
+	opacity: 0.45;
+	animation: aide-caret 1s steps(2, start) infinite;
+}
+@keyframes aide-caret {
+	to {
+		visibility: hidden;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	[data-aide-theme='shadcn'],
+	[data-aide-theme='shadcn'] :where(*, ::before, ::after) {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}
+
+/* Utilities last and unlayered: they win over the scoped reset and over host element rules. */
+@tailwind utilities;
