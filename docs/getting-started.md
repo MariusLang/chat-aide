@@ -44,6 +44,12 @@ the hook logs one warning at that first request (a hook cannot see the app's rou
 so the warning cannot come earlier) and leaves the app's answer alone. Set `endpoint` to a free
 path in that case, and pass the same path to the widget.
 
+Because the app is asked first, SvelteKit's default `handleError` logs a line such as
+`[404] GET /api/chat` for every warm-up and chat request, and `[404] GET /llms.txt` (or
+`/sitemap.xml`, `<route>.md`) for the library's own reads of files the site does not have.
+These are expected. To silence them, return early in your `handleError` for `404`s whose
+`event.url.pathname` is the endpoint, one of the `llms` paths or ends in `.md`.
+
 ### `origin`
 
 Set `origin` to the site's public origin (`https://example.com`, no path). The library never
