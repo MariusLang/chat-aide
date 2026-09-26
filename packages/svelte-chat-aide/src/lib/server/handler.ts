@@ -521,6 +521,8 @@ export function createChatHandler(input: AideConfig, deps: ChatHandlerDeps = {})
 			stream: toUIMessageStream({
 				stream,
 				tools,
+				// The model's reasoning is not the visitor's to read or to send back in the thread.
+				sendReasoning: false,
 				onError: () => REFUSAL_MESSAGES.provider_error,
 				messageMetadata: ({ part }) => (part.type === 'finish' ? { usage: pickUsage(part.totalUsage) } : undefined)
 			})
