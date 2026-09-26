@@ -110,6 +110,7 @@
 
 {#if enabled}
 	<div
+		data-aide-ignore
 		data-part="widget"
 		data-position={launcher ? undefined : position}
 		data-mode={mode}

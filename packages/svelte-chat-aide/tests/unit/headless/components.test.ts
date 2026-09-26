@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import { createRawSnippet } from 'svelte';
+import { parseHTML } from 'linkedom';
+import { extract } from '../../../src/lib/site/extract';
 import {
 	ChatWidget,
 	ChatWindow,
@@ -167,5 +169,33 @@ describe('no raw HTML', () => {
 			(f) => /\.(svelte|ts|js)$/.test(f) && readFileSync(f, 'utf8').includes('{@html')
 		);
 		expect(offenders).toEqual([]);
+	});
+});
+
+describe('the widget is never extracted as page text', () => {
+	const thread = [
+		{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'TRANSCRIPT-QUESTION' }] },
+		{ id: 'a1', role: 'assistant', parts: [{ type: 'text', text: 'TRANSCRIPT-ANSWER' }] }
+	];
+	const pageText = (widget: string): string =>
+		extract(
+			parseHTML(`<html><body><h1>Pricing</h1><p>Plans start at five euros.</p>${widget}</body></html>`)
+				.document as unknown as Document
+		).text;
+
+	it('inline ChatWidget', () => {
+		const { body } = render(ChatWidget, {
+			props: { mode: 'inline', chat: storeWith(thread), strings: { greeting: 'GREETING' } }
+		});
+		expect(body).toContain('TRANSCRIPT-QUESTION');
+		const text = pageText(body);
+		expect(text).toContain('Plans start at five euros.');
+		expect(text).not.toMatch(/TRANSCRIPT|GREETING/);
+	});
+
+	it('standalone ChatWindow', () => {
+		const { body } = render(ChatWindow, { props: { chat: storeWith(thread) } });
+		expect(body).toContain('TRANSCRIPT-ANSWER');
+		expect(pageText(body)).not.toContain('TRANSCRIPT');
 	});
 });

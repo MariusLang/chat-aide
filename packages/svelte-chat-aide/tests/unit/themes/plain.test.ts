@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { render } from 'svelte/server';
+import { parseHTML } from 'linkedom';
+import { extract } from '../../../src/lib/site/extract';
 import { ChatWidget, ChatWindow, createChat } from '../../../src/lib/themes/plain/index';
 
 const CSS = readFileSync(
@@ -103,5 +105,21 @@ describe('plain theme: stylesheet', () => {
 
 	it('contains no "<" or "&", so the inlined <style> needs no escaping', () => {
 		expect(CSS).not.toMatch(/[<&]/);
+	});
+});
+
+describe('plain theme: the widget is never extracted as page text', () => {
+	it('inline widget and standalone window carry data-aide-ignore', () => {
+		const chat = createChat({ fetch: noFetch, strings: { greeting: 'GREETING' } });
+		for (const { body } of [
+			render(ChatWidget, { props: { mode: 'inline', chat } }),
+			render(ChatWindow, { props: { chat } })
+		]) {
+			expect(body).toContain('GREETING');
+			const { document } = parseHTML(`<html><body><p>Page body.</p>${body}</body></html>`);
+			const text = extract(document as unknown as Document).text;
+			expect(text).toContain('Page body.');
+			expect(text).not.toContain('GREETING');
+		}
 	});
 });

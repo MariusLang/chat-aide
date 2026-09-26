@@ -67,6 +67,6 @@
 				</Button>
 			{/snippet}
 		</Tooltip.Trigger>
-		<Tooltip.Content {side} sideOffset={8} data-aide-theme="shadcn">{chat.strings.open}</Tooltip.Content>
+		<Tooltip.Content {side} sideOffset={8} data-aide-ignore data-aide-theme="shadcn">{chat.strings.open}</Tooltip.Content>
 	</Tooltip.Root>
 </Tooltip.Provider>

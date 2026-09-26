@@ -48,6 +48,7 @@
 
 <section
 	id={windowId}
+	data-aide-ignore
 	data-part="window"
 	data-modal={modal ? '' : undefined}
 	role={modal ? 'dialog' : 'region'}

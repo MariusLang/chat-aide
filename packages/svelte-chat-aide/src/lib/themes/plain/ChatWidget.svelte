@@ -32,6 +32,6 @@
 	{/if}
 </svelte:head>
 
-<div data-aide-theme="plain" data-theme={theme}>
+<div data-aide-ignore data-aide-theme="plain" data-theme={theme}>
 	<HeadlessChatWidget bind:open {...rest} />
 </div>

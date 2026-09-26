@@ -41,6 +41,7 @@
 
 <section
 	id={windowId}
+	data-aide-ignore
 	data-aide-theme="shadcn"
 	data-part="window"
 	data-modal={modal ? '' : undefined}

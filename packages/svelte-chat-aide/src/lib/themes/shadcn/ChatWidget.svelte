@@ -151,6 +151,7 @@
 
 {#if enabled}
 	<div
+		data-aide-ignore
 		data-aide-theme="shadcn"
 		data-part="widget"
 		data-position={launcher ? undefined : position}
@@ -173,6 +174,7 @@
 			<Sheet.Root open={chat.isOpen} onOpenChange={(value) => (value ? chat.open() : chat.close())}>
 				<Sheet.Content
 					id={windowId}
+					data-aide-ignore
 					data-aide-theme="shadcn"
 					data-part="window"
 					data-modal=""

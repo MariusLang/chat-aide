@@ -45,7 +45,7 @@
 	{/if}
 </svelte:head>
 
-<div data-aide-theme="plain" data-theme={theme}>
+<div data-aide-ignore data-aide-theme="plain" data-theme={theme}>
 	<div
 		data-part="widget"
 		data-mode={mode}

@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import { createRawSnippet } from 'svelte';
+import { parseHTML } from 'linkedom';
+import { extract } from '../../../src/lib/site/extract';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const THEME = join(ROOT, 'src/lib/themes/shadcn');
@@ -98,6 +100,24 @@ describe('shadcn theme (server render)', () => {
 		expect(body).toContain('data-part="disclosure"');
 		expect(body).toMatch(/data-part="status"[^>]*class="[^"]*aide:sr-only/);
 		expect(body).not.toContain('<img');
+	});
+
+	it('the inline widget and standalone window are never extracted as page text', async () => {
+		const { ChatWidget, ChatWindow, createChat } = await import('../../../src/lib/themes/shadcn/index');
+		const chat = createChat({
+			fetch: (async () => new Response('{}')) as typeof fetch,
+			strings: { greeting: 'GREETING' }
+		});
+		for (const { body } of [
+			render(ChatWidget, { props: { mode: 'inline', chat } }),
+			render(ChatWindow, { props: { chat } })
+		]) {
+			expect(body).toContain('GREETING');
+			const { document } = parseHTML(`<html><body><p>Page body.</p>${body}</body></html>`);
+			const text = extract(document as unknown as Document).text;
+			expect(text).toContain('Page body.');
+			expect(text).not.toContain('GREETING');
+		}
 	});
 
 	it('the root entry re-exports the shadcn theme', async () => {
