@@ -1,7 +1,9 @@
 /**
  * The one way the library reads the site (spec §3.4 "Reading one page"). Every read is
- * anonymous: `credentials: 'omit'`, a fresh `Headers` holding only `accept` and the internal
- * marker, `redirect: 'manual'`. Redirects are followed only through the route rule.
+ * anonymous: `credentials: 'omit'`, a fresh `Headers` holding only `accept`, `accept-language: *`
+ * and the internal marker, `redirect: 'manual'`. Redirects are followed only through the route
+ * rule. `accept-language` is set because SvelteKit's `event.fetch` copies the visitor's onto a
+ * read that has none (`fetch.js`), which would make a cached page depend on who asked first.
  */
 import { MAX_REDIRECTS } from '../shared/limits';
 import { normalizeOrigin } from '../shared/schemas';
@@ -50,6 +52,7 @@ export interface Transport {
 }
 
 const DEFAULT_ACCEPT = 'text/html';
+const ACCEPT_LANGUAGE = '*';
 
 const CONTENT_TYPES: Record<string, ReadResult['contentType']> = {
 	'text/html': 'html',
@@ -109,7 +112,7 @@ export function createTransport(opts: { origin?: string; exclude: string[]; netw
 			method: 'GET',
 			credentials: 'omit',
 			redirect: 'manual',
-			headers: new Headers({ accept, [INTERNAL_HEADER]: INTERNAL_MARKER })
+			headers: new Headers({ accept, 'accept-language': ACCEPT_LANGUAGE, [INTERNAL_HEADER]: INTERNAL_MARKER })
 		};
 	}
 

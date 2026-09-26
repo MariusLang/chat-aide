@@ -2,7 +2,8 @@
  * An in-memory fake site for the site-map and handler tests. `fetch` answers from a
  * `path -> page` map, records every call, tracks reads in flight and records a violation
  * whenever a read is not anonymous (missing marker, credentials not omitted, redirects not
- * manual, a cookie or authorization header, any header besides `accept` and the marker).
+ * manual, a cookie or authorization header, any header besides `accept`, `accept-language: *`
+ * and the marker).
  * Responses carry the `aide()` hook's served stamp, as the app's in-process answers do.
  */
 import { INTERNAL_HEADER, INTERNAL_MARKER, SERVED_HEADER, SERVED_MARKER, type FetchLike } from '../../src/lib/site/transport';
@@ -67,8 +68,10 @@ export function createFakeSite(
 		if (headers.get(INTERNAL_HEADER) !== marker) violations.push(`${path}: marker missing`);
 		if (init.credentials !== 'omit') violations.push(`${path}: credentials not omitted`);
 		if (init.redirect !== 'manual') violations.push(`${path}: redirect not manual`);
-		for (const [name] of headers) {
-			if (name !== 'accept' && name !== INTERNAL_HEADER) violations.push(`${path}: header ${name}`);
+		for (const [name, value] of headers) {
+			if (name === 'accept' || name === INTERNAL_HEADER) continue;
+			if (name === 'accept-language' && value === '*') continue;
+			violations.push(`${path}: header ${name}`);
 		}
 
 		inFlight++;

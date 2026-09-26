@@ -69,8 +69,23 @@ describe('transport: request shape (acceptance #13)', () => {
 		const entries = [...(init.headers as Headers).entries()].sort();
 		expect(entries).toEqual([
 			['accept', 'text/html'],
+			['accept-language', '*'],
 			[INTERNAL_HEADER, INTERNAL_MARKER]
 		]);
+	});
+
+	it('sets accept-language to * so SvelteKit does not copy the visitor’s onto the read', async () => {
+		const { fetch, calls } = spy(() => html());
+		const net = spy(() => html());
+		const t = createTransport({ origin: 'https://site.dev', exclude: [], networkFetch: net.fetch });
+		t.setInProcessFetch(fetch);
+		await t.read('/a', 'text/markdown');
+		const u = createTransport({ origin: 'https://site.dev', exclude: [], networkFetch: net.fetch });
+		await u.read('/b');
+		for (const c of [...calls, ...net.calls]) {
+			expect((c.init.headers as Headers).get('accept-language')).toBe('*');
+		}
+		expect(calls.length + net.calls.length).toBe(2);
 	});
 
 	it('passes a custom accept header', async () => {
