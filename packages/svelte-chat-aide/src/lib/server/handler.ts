@@ -451,6 +451,7 @@ export function createChatHandler(input: AideConfig, deps: ChatHandlerDeps = {})
 			read_page: createReadPageTool({ origin, exclude, siteMap, pageChars: limits.pageChars })
 		};
 
+		let spent = 0;
 		const result = streamText({
 			model: model.model,
 			instructions: prompt.instructions,
@@ -460,10 +461,12 @@ export function createChatHandler(input: AideConfig, deps: ChatHandlerDeps = {})
 			maxOutputTokens: limits.maxOutputTokens,
 			telemetry: { isEnabled: false },
 			onError: ({ error }) => reportError(error),
+			// Usage is summed per finished step, so a turn that fails in a later step still pays for
+			// the steps it ran; the sum is charged once the stream has settled, however it ended.
+			onStepEnd: (step) => {
+				spent += (step.usage.inputTokens ?? 0) + (step.usage.outputTokens ?? 0);
+			},
 			onEnd: (e) => {
-				const tokens = (e.usage.inputTokens ?? 0) + (e.usage.outputTokens ?? 0);
-				const charge = guards.charge(id, tokens).catch((error: unknown) => reportError(error));
-				waitUntil(charge);
 				runCallback(
 					waitUntil,
 					config.onResponse,
@@ -486,7 +489,10 @@ export function createChatHandler(input: AideConfig, deps: ChatHandlerDeps = {})
 		});
 
 		// Run the turn to its end even when the visitor disconnects, so usage is charged.
-		const consumed = Promise.resolve(result.consumeStream()).catch(() => {});
+		const consumed = Promise.resolve(result.consumeStream())
+			.catch(() => {})
+			.then(() => guards.charge(id, spent))
+			.catch((error: unknown) => reportError(error));
 		waitUntil(consumed);
 
 		// Read up to the model's first output: an error there is a provider error before the stream.

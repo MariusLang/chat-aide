@@ -429,6 +429,33 @@ describe('createChatHandler: refusals', () => {
 		expect(model.doStreamCalls).toHaveLength(1);
 	});
 
+	it('charges the completed steps of a turn that errors in a later step', async () => {
+		const model = new MockLanguageModelV4({
+			doStream: async (options) => {
+				const last = options.prompt[options.prompt.length - 1];
+				if (last?.role === 'tool') throw new Error('step two failed');
+				return { stream: convertArrayToReadableStream(toolParts('/about', 1)) };
+			}
+		});
+		const { site, handler, settle } = setup({ model, config: { budget: { tokensPerDay: 15 } } });
+		await (await handler(makeEvent(site, { body: chatBody() }))).text();
+		await settle();
+		const res = await handler(makeEvent(site, { body: chatBody() }));
+		expect(res.status).toBe(429);
+		expect((await res.json()).error).toBe('budget_exhausted');
+	});
+
+	it('charges a finished turn once, not per step and again at the end', async () => {
+		const model = toolThenTextModel('/about');
+		const { site, handler, settle } = setup({ model, config: { budget: { tokensPerDay: 31 } } });
+		await (await handler(makeEvent(site, { body: chatBody() }))).text();
+		await settle();
+		// two steps x 15 tokens = 30 < 31: still allowed
+		const res = await handler(makeEvent(site, { body: chatBody() }));
+		expect(res.status).toBe(200);
+		await res.text();
+	});
+
 	it('authorize: false is 403 unauthorized, a Response is returned as is', async () => {
 		const deny = setup({ config: { authorize: () => false } });
 		const res = await deny.handler(makeEvent(deny.site, { body: chatBody() }));
@@ -451,6 +478,27 @@ describe('createChatHandler: refusals', () => {
 });
 
 describe('createChatHandler: provider errors', () => {
+	it('never sends reasoning parts to the client', async () => {
+		const model = new MockLanguageModelV4({
+			doStream: async () => ({
+				stream: convertArrayToReadableStream([
+					{ type: 'stream-start', warnings: [] },
+					{ type: 'reasoning-start', id: 'r' },
+					{ type: 'reasoning-delta', id: 'r', delta: 'SECRET-THOUGHT' },
+					{ type: 'reasoning-end', id: 'r' },
+					...textParts('Visible answer.').slice(1)
+				] as Part[])
+			})
+		});
+		const { site, handler } = setup({ model });
+		const res = await handler(makeEvent(site, { body: chatBody() }));
+		expect(res.status).toBe(200);
+		const text = await res.text();
+		expect(text).toContain('Visible answer.');
+		expect(text).not.toContain('SECRET-THOUGHT');
+		expect(text).not.toContain('reasoning');
+	});
+
 	it('answers 502 provider_error without the secret and hands the real error to onError', async () => {
 		const model = new MockLanguageModelV4({
 			doStream: async () => {
