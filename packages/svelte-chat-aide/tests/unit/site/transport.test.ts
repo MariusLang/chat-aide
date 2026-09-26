@@ -7,6 +7,9 @@ import {
 	createTransport,
 	type FetchLike
 } from '../../../src/lib/site/transport';
+import { createReader } from '../../../src/lib/site/read-page';
+import { createPageCache } from '../../../src/lib/site/cache';
+import { LIMIT_DEFAULTS } from '../../../src/lib/shared/limits';
 
 interface Call {
 	url: string;
@@ -424,5 +427,86 @@ describe('transport: forged Host (in-process fetch bound to the configured origi
 		t.setInProcessFetch(fetch);
 		await t.read('/a');
 		expect(JSON.stringify([...(calls[0]!.init.headers as Headers).entries()])).not.toContain(SERVED_MARKER);
+	});
+});
+
+describe('transport: bounded reads', () => {
+	it('a read that never answers is a network miss after the timeout, and its fetch is aborted', async () => {
+		let signal: AbortSignal | undefined;
+		const t = createTransport({ exclude: [], timeoutMs: 30 });
+		t.setInProcessFetch((_input, init) => {
+			signal = init?.signal ?? undefined;
+			return new Promise<Response>(() => {});
+		});
+		expect(await t.read('/hang')).toEqual({ ok: false, status: 0, reason: 'network' });
+		expect(signal?.aborted).toBe(true);
+	});
+
+	it('a hung read does not pin the reader’s in-flight slot: the next read starts afresh', async () => {
+		let calls = 0;
+		const t = createTransport({ exclude: [], timeoutMs: 20 });
+		t.setInProcessFetch(() => {
+			calls++;
+			return new Promise<Response>(() => {});
+		});
+		const cache = createPageCache({ maxPages: 10, ttlSeconds: 60, missSeconds: 0 });
+		const reader = createReader({ transport: t, cache, limits: LIMIT_DEFAULTS, preferMarkdown: false });
+		expect(await reader.readPage('/hang')).toBeNull();
+		expect(await reader.readPage('/hang')).toBeNull();
+		expect(calls).toBe(2);
+	});
+
+	it('times out after 10 s by default, including a body that stalls', async () => {
+		vi.useFakeTimers();
+		try {
+			const stalled = new ReadableStream<Uint8Array>({
+				start(c) {
+					c.enqueue(new TextEncoder().encode('<p>start'));
+				}
+			});
+			const { fetch } = spy(() => new Response(stalled, { headers: { 'content-type': 'text/html' } }));
+			const t = createTransport({ exclude: [] });
+			t.setInProcessFetch(fetch);
+			let settled: unknown;
+			const p = t.read('/slow').then((r) => (settled = r));
+			await vi.advanceTimersByTimeAsync(9_999);
+			expect(settled).toBeUndefined();
+			await vi.advanceTimersByTimeAsync(1);
+			await p;
+			expect(settled).toEqual({ ok: false, status: 0, reason: 'network' });
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('a body over 2 MB is a status miss; exactly 2 MB is read', async () => {
+		const MB2 = 2 * 1024 * 1024;
+		const big = spy(() => new Response('x'.repeat(MB2 + 1), { headers: { 'content-type': 'text/html' } }));
+		const t = createTransport({ exclude: [] });
+		t.setInProcessFetch(big.fetch);
+		expect(await t.read('/big')).toEqual({ ok: false, status: 200, reason: 'status' });
+
+		const fits = spy(() => new Response('x'.repeat(MB2), { headers: { 'content-type': 'text/html' } }));
+		const u = createTransport({ exclude: [] });
+		u.setInProcessFetch(fits.fetch);
+		const res = await u.read('/fits');
+		expect(res.ok && res.body.length).toBe(MB2);
+	});
+
+	it('a declared content-length over the cap is refused without reading the body', async () => {
+		let pulled = 0;
+		const body = new ReadableStream<Uint8Array>({
+			pull(c) {
+				pulled++;
+				c.enqueue(new Uint8Array(10));
+			}
+		});
+		const { fetch } = spy(
+			() => new Response(body, { headers: { 'content-type': 'text/html', 'content-length': String(1e9) } })
+		);
+		const t = createTransport({ exclude: [], maxBytes: 100 });
+		t.setInProcessFetch(fetch);
+		expect(await t.read('/huge')).toEqual({ ok: false, status: 200, reason: 'status' });
+		expect(pulled).toBeLessThanOrEqual(1);
 	});
 });

@@ -52,6 +52,10 @@ export interface Transport {
 }
 
 const DEFAULT_ACCEPT = 'text/html';
+/** One read, redirects and body included, is abandoned after this long. */
+export const READ_TIMEOUT_MS = 10_000;
+/** A body larger than this is a `status` miss. */
+export const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const ACCEPT_LANGUAGE = '*';
 
 const CONTENT_TYPES: Record<string, ReadResult['contentType']> = {
@@ -78,6 +82,43 @@ function discard(res: Response): void {
 
 const networkMiss: ReadMiss = { ok: false, status: 0, reason: 'network' };
 
+/** The body as UTF-8 text, or null when it is larger than `max` bytes (the rest is not read). */
+async function readBody(res: Response, max: number, signal: AbortSignal): Promise<string | null> {
+	const declared = Number(res.headers.get('content-length'));
+	if (declared > max) {
+		discard(res);
+		return null;
+	}
+	if (!res.body) return '';
+	const reader = res.body.getReader();
+	const stop = () => void reader.cancel().catch(() => {});
+	signal.addEventListener('abort', stop, { once: true });
+	try {
+		const chunks: Uint8Array[] = [];
+		let size = 0;
+		for (;;) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			size += value.byteLength;
+			if (size > max) {
+				stop();
+				return null;
+			}
+			chunks.push(value);
+		}
+		if (signal.aborted) throw signal.reason;
+		const all = new Uint8Array(size);
+		let at = 0;
+		for (const c of chunks) {
+			all.set(c, at);
+			at += c.byteLength;
+		}
+		return new TextDecoder().decode(all);
+	} finally {
+		signal.removeEventListener('abort', stop);
+	}
+}
+
 function originOf(url: string): string | null {
 	try {
 		return new URL(url).origin;
@@ -91,9 +132,19 @@ function originOf(url: string): string | null {
  * (only when an origin is configured, and the in-process fetch is missing or answered `404`,
  * as for a prerendered route served outside the handler): `networkFetch(origin + path)`.
  */
-export function createTransport(opts: { origin?: string; exclude: string[]; networkFetch?: FetchLike }): Transport {
+export function createTransport(opts: {
+	origin?: string;
+	exclude: string[];
+	networkFetch?: FetchLike;
+	/** Per-read deadline (default `READ_TIMEOUT_MS`). */
+	timeoutMs?: number;
+	/** Body size cap in bytes (default `MAX_BODY_BYTES`). */
+	maxBytes?: number;
+}): Transport {
 	const origin = opts.origin === undefined ? undefined : (normalizeOrigin(opts.origin) ?? undefined);
 	const configured = opts.origin !== undefined;
+	const timeoutMs = opts.timeoutMs ?? READ_TIMEOUT_MS;
+	const maxBytes = opts.maxBytes ?? MAX_BODY_BYTES;
 	let inProcess: FetchLike | undefined;
 
 	/**
@@ -107,22 +158,27 @@ export function createTransport(opts: { origin?: string; exclude: string[]; netw
 		return res.headers.get(SERVED_HEADER) === SERVED_MARKER;
 	}
 
-	function init(accept: string): RequestInit {
+	function init(accept: string, signal: AbortSignal): RequestInit {
 		return {
 			method: 'GET',
+			signal,
 			credentials: 'omit',
 			redirect: 'manual',
 			headers: new Headers({ accept, 'accept-language': ACCEPT_LANGUAGE, [INTERNAL_HEADER]: INTERNAL_MARKER })
 		};
 	}
 
-	async function fetchOnce(path: string, accept: string): Promise<Response | null> {
+	async function fetchOnce(path: string, accept: string, signal: AbortSignal): Promise<Response | null> {
 		if (inProcess) {
 			let res: Response | null;
 			try {
-				res = await inProcess(path, init(accept));
+				res = await inProcess(path, init(accept, signal));
 			} catch {
 				res = null;
+			}
+			if (res && signal.aborted) {
+				discard(res);
+				return null;
 			}
 			if (res && !trusted(res)) {
 				discard(res);
@@ -135,7 +191,7 @@ export function createTransport(opts: { origin?: string; exclude: string[]; netw
 		if (!origin) return null;
 		const network = opts.networkFetch ?? globalThis.fetch;
 		try {
-			return await network(origin + path, init(accept));
+			return await network(origin + path, init(accept, signal));
 		} catch {
 			return null;
 		}
@@ -155,46 +211,64 @@ export function createTransport(opts: { origin?: string; exclude: string[]; netw
 		async read(path, accept = DEFAULT_ACCEPT) {
 			// A configured origin that failed to normalise refuses every read.
 			if (configured && !origin) return networkMiss;
-			const start = normalizeRoute(path, origin);
-			if (start === null) return networkMiss;
-			let current: string = start;
-			const base = origin ?? IN_PROCESS_ORIGIN;
-
-			for (let hop = 0; ; hop++) {
-				const res = await fetchOnce(current, accept);
-				if (!res) return networkMiss;
-
-				if (res.status >= 300 && res.status < 400) {
-					discard(res);
-					const location = res.headers.get('location');
-					const next: string | null =
-						location === null || hop >= MAX_REDIRECTS
-							? null
-							: acceptHref(location, { origin, base: base + current, exclude: opts.exclude });
-					if (next === null) return { ok: false, status: res.status, reason: 'redirect' };
-					current = next;
-					continue;
-				}
-
-				if (res.status !== 200) {
-					discard(res);
-					return { ok: false, status: res.status, reason: 'status' };
-				}
-
-				const contentType = contentTypeOf(res, accept);
-				if (!contentType) {
-					discard(res);
-					return { ok: false, status: res.status, reason: 'content-type' };
-				}
-
-				let body: string;
-				try {
-					body = await res.text();
-				} catch {
-					return networkMiss;
-				}
-				return { ok: true, status: 200, contentType, body, finalRoute: current };
+			// One deadline per read: a fetch or body that never ends must not hold the caller.
+			const controller = new AbortController();
+			const timer = setTimeout(() => controller.abort(), timeoutMs);
+			const timedOut = new Promise<ReadMiss>((resolve) => {
+				controller.signal.addEventListener('abort', () => resolve(networkMiss), { once: true });
+			});
+			try {
+				return await Promise.race([readWithin(path, accept, controller.signal), timedOut]);
+			} catch {
+				return networkMiss;
+			} finally {
+				clearTimeout(timer);
+				controller.abort();
 			}
 		}
 	};
+
+	async function readWithin(path: string, accept: string, signal: AbortSignal): Promise<ReadResult | ReadMiss> {
+		const start = normalizeRoute(path, origin);
+		if (start === null) return networkMiss;
+		let current: string = start;
+		const base = origin ?? IN_PROCESS_ORIGIN;
+
+		for (let hop = 0; ; hop++) {
+			const res = await fetchOnce(current, accept, signal);
+			if (!res) return networkMiss;
+
+			if (res.status >= 300 && res.status < 400) {
+				discard(res);
+				const location = res.headers.get('location');
+				const next: string | null =
+					location === null || hop >= MAX_REDIRECTS
+						? null
+						: acceptHref(location, { origin, base: base + current, exclude: opts.exclude });
+				if (next === null) return { ok: false, status: res.status, reason: 'redirect' };
+				current = next;
+				continue;
+			}
+
+			if (res.status !== 200) {
+				discard(res);
+				return { ok: false, status: res.status, reason: 'status' };
+			}
+
+			const contentType = contentTypeOf(res, accept);
+			if (!contentType) {
+				discard(res);
+				return { ok: false, status: res.status, reason: 'content-type' };
+			}
+
+			let body: string | null;
+			try {
+				body = await readBody(res, maxBytes, signal);
+			} catch {
+				return networkMiss;
+			}
+			if (body === null) return { ok: false, status: res.status, reason: 'status' };
+			return { ok: true, status: 200, contentType, body, finalRoute: current };
+		}
+	}
 }
