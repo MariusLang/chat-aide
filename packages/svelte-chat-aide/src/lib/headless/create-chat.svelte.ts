@@ -158,6 +158,42 @@ function usageOf(message: UIMessage): Usage | undefined {
 	return undefined;
 }
 
+export type ClientLimits = NonNullable<WarmupResponse['limits']>;
+
+const DEFAULT_CLIENT_LIMITS: ClientLimits = {
+	messages: LIMIT_DEFAULTS.messages,
+	messageChars: LIMIT_DEFAULTS.messageChars,
+	pageChars: LIMIT_DEFAULTS.pageChars
+};
+
+function clientLimits(value: unknown): ClientLimits | null {
+	if (!value || typeof value !== 'object') return null;
+	const v = value as Record<string, unknown>;
+	const ok = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n > 0;
+	return ok(v.messages) && ok(v.messageChars) && ok(v.pageChars)
+		? { messages: v.messages, messageChars: v.messageChars, pageChars: v.pageChars }
+		: null;
+}
+
+/**
+ * The thread as the server may receive it: text parts only (joined, cut to `messageChars`),
+ * the most recent messages that fit `messages`, starting at a user message. The UI keeps the
+ * whole thread; only the request is trimmed, so a long tab never gets stuck on a 400.
+ */
+export function trimForRequest(messages: UIMessage[], limits: ClientLimits): UIMessage[] {
+	const out: UIMessage[] = [];
+	for (const m of messages) {
+		const text = m.parts
+			.map((p) => (p.type === 'text' ? p.text : ''))
+			.join('')
+			.slice(0, limits.messageChars);
+		if (text) out.push({ id: m.id, role: m.role, parts: [{ type: 'text', text }] });
+	}
+	let start = Math.max(0, out.length - Math.max(1, limits.messages));
+	while (start < out.length - 1 && out[start]!.role !== 'user') start++;
+	return out.slice(start);
+}
+
 export function createChat(options: ChatOptions = {}): ChatStore {
 	const endpoint = options.endpoint ?? '/api/chat';
 	const persist = options.persistThread ?? true;
@@ -176,6 +212,7 @@ export function createChat(options: ChatOptions = {}): ChatStore {
 	let pageSource: WarmupResponse['pageSource'] = 'server';
 	let serverSuggestions = $state<string[]>([]);
 	let provider = $state<string | null>(null);
+	let limits: ClientLimits = DEFAULT_CLIENT_LIMITS;
 	let error = $state<ChatError | null>(null);
 	/** The refusal body of the last non-2xx POST, read by the fetch wrapper before the SDK throws. */
 	let refusal: { error: string; message: string } | null = null;
@@ -210,7 +247,7 @@ export function createChat(options: ChatOptions = {}): ChatStore {
 	const domText = (): string | null => {
 		if (typeof document === 'undefined') return null;
 		try {
-			return extract(document).text.slice(0, LIMIT_DEFAULTS.pageChars);
+			return extract(document).text.slice(0, limits.pageChars);
 		} catch {
 			return null;
 		}
@@ -227,7 +264,7 @@ export function createChat(options: ChatOptions = {}): ChatStore {
 				return {
 					body: {
 						id,
-						messages,
+						messages: trimForRequest(messages, limits),
 						trigger,
 						messageId,
 						aide: { route: path, sessionId, dom: pageSource === 'dom' ? domText() : null }
@@ -296,6 +333,7 @@ export function createChat(options: ChatOptions = {}): ChatStore {
 				? body.suggestions.filter((s): s is string => typeof s === 'string')
 				: [];
 			if (typeof body.provider === 'string' && body.provider) provider = body.provider;
+			limits = clientLimits(body.limits) ?? limits;
 		} catch {
 			// The warm-up is an optimisation; a failure leaves the defaults.
 		}

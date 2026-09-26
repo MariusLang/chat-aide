@@ -303,3 +303,61 @@ describe('createChat', () => {
 		expect(f.calls.filter((c) => c.init?.method === 'POST')).toHaveLength(0);
 	});
 });
+
+describe('createChat: the outgoing body fits the server limits', () => {
+	const seed = (pairs: number, answer = 'a') => {
+		const thread = [];
+		for (let i = 0; i < pairs; i++) {
+			thread.push({ id: `u${i}`, role: 'user', parts: [{ type: 'text', text: `q${i}` }] });
+			thread.push({
+				id: `a${i}`,
+				role: 'assistant',
+				parts: [
+					{ type: 'step-start' },
+					{ type: 'reasoning', text: 'thinking' },
+					{ type: 'text', text: answer }
+				]
+			});
+		}
+		sessionStorage.setItem('aide:thread', JSON.stringify(thread));
+	};
+
+	it('sends only the most recent messages that fit limits.messages, starting at a user message', async () => {
+		seed(40); // 80 messages, over the default 60
+		const f = fakeFetch({});
+		const chat = createChat({ fetch: f.fetch });
+		await chat.send('next');
+		await settle(chat);
+		const body = postBody(f.calls);
+		expect(body.messages.length).toBeLessThanOrEqual(60);
+		expect(body.messages[0]!.role).toBe('user');
+		expect(body.messages.at(-1)!.parts[0]!.text).toBe('next');
+		// The UI still holds the whole thread.
+		expect(chat.messages.length).toBe(82);
+	});
+
+	it('uses the warm-up limits, drops non-text parts and truncates text and DOM', async () => {
+		seed(5, 'z'.repeat(50));
+		document.body.innerHTML = `<main><p>${'x'.repeat(500)}</p></main>`;
+		const f = fakeFetch({
+			warmup: {
+				pageSource: 'dom',
+				suggestions: [],
+				mapped: false,
+				limits: { messages: 4, messageChars: 20, pageChars: 100 }
+			}
+		});
+		const chat = createChat({ fetch: f.fetch });
+		await chat.warmup('/privacy');
+		await chat.send('y'.repeat(30));
+		await settle(chat);
+		const body = postBody(f.calls);
+		expect(body.messages.length).toBeLessThanOrEqual(4);
+		expect(body.messages[0]!.role).toBe('user');
+		for (const m of body.messages) {
+			expect(m.parts.every((p) => p.type === 'text')).toBe(true);
+			expect(m.parts.reduce((n, p) => n + (p.text?.length ?? 0), 0)).toBeLessThanOrEqual(20);
+		}
+		expect((body.aide.dom as string).length).toBe(100);
+	});
+});
