@@ -266,3 +266,18 @@ describe('adapters never read an endpoint from the environment', () => {
 		}
 	});
 });
+
+describe('installation', () => {
+	it('installs ai and every registry adapter with the package, so one pnpm add is enough', async () => {
+		const { readFileSync } = await import('node:fs');
+		const pkg = JSON.parse(readFileSync(new URL('../../../package.json', import.meta.url), 'utf8')) as {
+			dependencies: Record<string, string>;
+			peerDependencies: Record<string, string>;
+		};
+		const needed = ['ai', ...new Set(PROVIDERS.map((row) => row.pkg).filter(Boolean))];
+		for (const name of needed) {
+			expect(pkg.dependencies, name).toHaveProperty(name);
+			expect(pkg.peerDependencies, name).not.toHaveProperty(name);
+		}
+	});
+});
