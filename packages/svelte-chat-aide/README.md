@@ -22,7 +22,7 @@ at run time), and it stores nothing on the server.
 ## Quick start
 
 ```sh
-pnpm add svelte-chat-aide ai @ai-sdk/anthropic
+pnpm add svelte-chat-aide
 ```
 
 ```ts
@@ -48,8 +48,8 @@ export const handle = aide({
 <ChatWidget />
 ```
 
-Requirements: Node 24+, `svelte` 5, `@sveltejs/kit` 2, `ai` 7, and the adapter package of the
-provider you use (every adapter is an optional peer).
+Requirements: Node 24+, `svelte` 5, `@sveltejs/kit` 2. The AI SDK (`ai` 7) and every provider
+adapter come with the package, so this one command is the whole install.
 
 ## Documentation
 

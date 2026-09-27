@@ -3,11 +3,13 @@
 ## 1. Install
 
 ```sh
-pnpm add svelte-chat-aide ai @ai-sdk/anthropic
+pnpm add svelte-chat-aide
 ```
 
-Install the adapter of the provider you use; see [Providers](providers.md) for every name and
-its install line. The library needs Node 24+, Svelte 5, SvelteKit 2 and AI SDK 7.
+That is the whole install: the AI SDK (`ai` 7) and the adapter of every provider in
+[Providers](providers.md) are dependencies of the package, so no second `pnpm add` is needed
+whichever provider you pick. The library needs Node 24+, Svelte 5 and SvelteKit 2 (peers). The
+adapters are server-only and loaded on demand, so they never reach the browser bundle.
 
 ## 2. Mount the server hook
 

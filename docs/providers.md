@@ -1,9 +1,10 @@
 # Providers
 
-`provider.name` is one row of the registry below. The adapter package is an optional peer: you
-install the one you use, and it is loaded with a dynamic `import()` when the handler is created.
-A missing one rejects `handle.handler.ready` (and the first request) with the exact
-`pnpm add` line.
+`provider.name` is one row of the registry below. Every adapter package is a dependency of
+`svelte-chat-aide`, installed with it; the one you name is loaded with a dynamic `import()` when
+the handler is created, and the others are never loaded. Should an adapter be missing anyway (a
+pruned install), `handle.handler.ready` and the first request reject with the exact `pnpm add`
+line.
 
 ```ts
 provider: {
@@ -38,37 +39,37 @@ provider: {
 
 ## Official adapters
 
-| `name` | install | credentials | default endpoint passed |
+| `name` | adapter package | credentials | default endpoint passed |
 |---|---|---|---|
-| `anthropic` | `pnpm add @ai-sdk/anthropic` | `apiKey` (required) | `https://api.anthropic.com/v1` |
-| `openai` | `pnpm add @ai-sdk/openai` | `apiKey` (required) | `https://api.openai.com/v1` |
-| `azure` | `pnpm add @ai-sdk/azure` | `apiKey` (required), `resourceName` or `baseURL` (required), `apiVersion` | from `resourceName` |
-| `google` (alias `gemini`) | `pnpm add @ai-sdk/google` | `apiKey` (required) | `https://generativelanguage.googleapis.com/v1beta` |
-| `google-vertex` | `pnpm add @ai-sdk/google-vertex` | `project`, `location` (required); `credentials` (service-account JSON) or Application Default Credentials | from `project`/`location` |
-| `amazon-bedrock` | `pnpm add @ai-sdk/amazon-bedrock` | `region` (required); `accessKeyId`, `secretAccessKey`, `sessionToken`, or the AWS default chain | `https://bedrock-runtime.<region>.<partition suffix>` |
-| `mistral` | `pnpm add @ai-sdk/mistral` | `apiKey` (required) | `https://api.mistral.ai/v1` |
-| `xai` | `pnpm add @ai-sdk/xai` | `apiKey` (required) | `https://api.x.ai/v1` |
-| `groq` | `pnpm add @ai-sdk/groq` | `apiKey` (required) | `https://api.groq.com/openai/v1` |
-| `deepseek` | `pnpm add @ai-sdk/deepseek` | `apiKey` (required) | `https://api.deepseek.com` |
-| `cohere` | `pnpm add @ai-sdk/cohere` | `apiKey` (required) | `https://api.cohere.com/v2` |
-| `togetherai` | `pnpm add @ai-sdk/togetherai` | `apiKey` (required) | `https://api.together.xyz/v1/` |
-| `fireworks` | `pnpm add @ai-sdk/fireworks` | `apiKey` (required) | `https://api.fireworks.ai/inference/v1` |
-| `deepinfra` | `pnpm add @ai-sdk/deepinfra` | `apiKey` (required) | `https://api.deepinfra.com/v1` |
-| `cerebras` | `pnpm add @ai-sdk/cerebras` | `apiKey` (required) | `https://api.cerebras.ai/v1` |
-| `perplexity` | `pnpm add @ai-sdk/perplexity` | `apiKey` (required) | `https://api.perplexity.ai` |
-| `baseten` | `pnpm add @ai-sdk/baseten` | `apiKey` (required) | `https://inference.baseten.co/v1` |
-| `huggingface` | `pnpm add @ai-sdk/huggingface` | `apiKey` (required) | `https://router.huggingface.co/v1` |
+| `anthropic` | `@ai-sdk/anthropic` | `apiKey` (required) | `https://api.anthropic.com/v1` |
+| `openai` | `@ai-sdk/openai` | `apiKey` (required) | `https://api.openai.com/v1` |
+| `azure` | `@ai-sdk/azure` | `apiKey` (required), `resourceName` or `baseURL` (required), `apiVersion` | from `resourceName` |
+| `google` (alias `gemini`) | `@ai-sdk/google` | `apiKey` (required) | `https://generativelanguage.googleapis.com/v1beta` |
+| `google-vertex` | `@ai-sdk/google-vertex` | `project`, `location` (required); `credentials` (service-account JSON) or Application Default Credentials | from `project`/`location` |
+| `amazon-bedrock` | `@ai-sdk/amazon-bedrock` | `region` (required); `accessKeyId`, `secretAccessKey`, `sessionToken`, or the AWS default chain | `https://bedrock-runtime.<region>.<partition suffix>` |
+| `mistral` | `@ai-sdk/mistral` | `apiKey` (required) | `https://api.mistral.ai/v1` |
+| `xai` | `@ai-sdk/xai` | `apiKey` (required) | `https://api.x.ai/v1` |
+| `groq` | `@ai-sdk/groq` | `apiKey` (required) | `https://api.groq.com/openai/v1` |
+| `deepseek` | `@ai-sdk/deepseek` | `apiKey` (required) | `https://api.deepseek.com` |
+| `cohere` | `@ai-sdk/cohere` | `apiKey` (required) | `https://api.cohere.com/v2` |
+| `togetherai` | `@ai-sdk/togetherai` | `apiKey` (required) | `https://api.together.xyz/v1/` |
+| `fireworks` | `@ai-sdk/fireworks` | `apiKey` (required) | `https://api.fireworks.ai/inference/v1` |
+| `deepinfra` | `@ai-sdk/deepinfra` | `apiKey` (required) | `https://api.deepinfra.com/v1` |
+| `cerebras` | `@ai-sdk/cerebras` | `apiKey` (required) | `https://api.cerebras.ai/v1` |
+| `perplexity` | `@ai-sdk/perplexity` | `apiKey` (required) | `https://api.perplexity.ai` |
+| `baseten` | `@ai-sdk/baseten` | `apiKey` (required) | `https://inference.baseten.co/v1` |
+| `huggingface` | `@ai-sdk/huggingface` | `apiKey` (required) | `https://router.huggingface.co/v1` |
 
 ## Community and compatible
 
-| `name` | install | credentials | notes |
+| `name` | adapter package | credentials | notes |
 |---|---|---|---|
-| `openrouter` | `pnpm add @openrouter/ai-sdk-provider` | `apiKey` (required) | default `https://openrouter.ai/api/v1`; `provider.routing` passes OpenRouter's provider preferences (`order`, `allow_fallbacks`, `data_collection`, …) |
-| `kimi` (alias `moonshot`) | `pnpm add @ai-sdk/openai-compatible` | `apiKey` (required) | preset `https://api.moonshot.ai/v1` |
-| `ollama` | `pnpm add @ai-sdk/openai-compatible` | none | preset `http://localhost:11434/v1` |
-| `lmstudio` | `pnpm add @ai-sdk/openai-compatible` | none | preset `http://localhost:1234/v1` |
-| `nvidia-nim` | `pnpm add @ai-sdk/openai-compatible` | `apiKey` (required) | preset `https://integrate.api.nvidia.com/v1` |
-| `openai-compatible` | `pnpm add @ai-sdk/openai-compatible` | `baseURL` (required), `apiKey` and `headers` optional | any OpenAI-shaped endpoint |
+| `openrouter` | `@openrouter/ai-sdk-provider` | `apiKey` (required) | default `https://openrouter.ai/api/v1`; `provider.routing` passes OpenRouter's provider preferences (`order`, `allow_fallbacks`, `data_collection`, …) |
+| `kimi` (alias `moonshot`) | `@ai-sdk/openai-compatible` | `apiKey` (required) | preset `https://api.moonshot.ai/v1` |
+| `ollama` | `@ai-sdk/openai-compatible` | none | preset `http://localhost:11434/v1` |
+| `lmstudio` | `@ai-sdk/openai-compatible` | none | preset `http://localhost:1234/v1` |
+| `nvidia-nim` | `@ai-sdk/openai-compatible` | `apiKey` (required) | preset `https://integrate.api.nvidia.com/v1` |
+| `openai-compatible` | `@ai-sdk/openai-compatible` | `baseURL` (required), `apiKey` and `headers` optional | any OpenAI-shaped endpoint |
 | `custom` | whatever you use | yours | `instance`: a `LanguageModel` object you construct |
 
 A preset's `baseURL` can be overridden like any other.

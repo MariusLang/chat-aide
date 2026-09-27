@@ -49,9 +49,11 @@ limits.
 
 ### 3.1 Installation and wiring
 
-- `pnpm add svelte-chat-aide ai @ai-sdk/<provider>`; peer dependencies are `svelte ^5`,
-  `@sveltejs/kit ^2`, `ai ^7`, and — as optional peers — every adapter of §3.2, of which the
-  developer installs the one they use.
+- `pnpm add svelte-chat-aide` is the whole install. `ai` and every adapter of §3.2 are
+  regular dependencies of the package, so no provider needs a second install; peer
+  dependencies are only `svelte ^5` and `@sveltejs/kit ^2` (and `@vercel/functions`, optional,
+  for `waitUntil` on Vercel). The adapters are server-only and loaded on demand, so they never
+  reach a browser bundle; the cost is install size (about 50 MB of server dependencies).
 - Server: one line in `hooks.server.ts`.
 
   ```ts
@@ -99,9 +101,9 @@ limits.
 **Every language-model provider the Vercel AI SDK has an adapter for is a `provider.name`.**
 The library keeps one registry, `src/lib/server/providers.ts`: name, adapter package, factory,
 the credential shape the factory takes, and whether prompt caching needs a marker. The
-adapter is loaded by dynamic `import()` when the handler is created, so the developer installs
-only the one they use; a missing adapter throws at handler creation with the exact
-`pnpm add` line. The registry is the one place a provider is spelled, and a test walks it.
+adapter is loaded by dynamic `import()` when the handler is created, so only the named one is
+ever loaded; every adapter is a dependency of the package, and a missing one (a pruned
+install) rejects with the exact `pnpm add` line. The registry is the one place a provider is spelled, and a test walks it.
 
 Official adapters (`@ai-sdk/*`), keyed by name:
 
@@ -650,7 +652,7 @@ Latest stable on npm, 2026-09-26, the floor L1 starts from:
 |---|---|---|
 | `ai` | 7.0.116 | core: `streamText`, `convertToModelMessages`, `toUIMessageStream`, `createUIMessageStreamResponse`, `isStepCount`, `tool` |
 | `@ai-sdk/svelte` | 5.0.116 | `Chat` in the widget |
-| `@ai-sdk/anthropic` | 4.0.65 | adapter (one of the registry's optional peers; the rest at their latest) |
+| `@ai-sdk/anthropic` | 4.0.65 | adapter (every registry adapter is a dependency; the rest at their latest) |
 | `@ai-sdk/openai` | 4.0.78 | adapter |
 | `@ai-sdk/openai-compatible` | 3.0.57 | adapter behind the presets |
 | `@ai-sdk/google` | 4.0.82 | adapter |
