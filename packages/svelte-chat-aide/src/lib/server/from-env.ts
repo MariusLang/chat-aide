@@ -1,5 +1,5 @@
-import type { ProviderConfig } from '../shared/types';
-import { findProvider } from './providers';
+import type { ProviderConfig } from '../shared/types.js';
+import { findProvider } from './providers.js';
 
 const PREFIX = 'SVELTE_CHAT_AIDE_';
 const V = {

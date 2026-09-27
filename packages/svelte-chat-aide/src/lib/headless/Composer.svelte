@@ -1,7 +1,7 @@
 <!-- The message field with send and stop (spec §3.8). Enter sends, Shift+Enter adds a line. -->
 <script lang="ts">
-	import { LIMIT_DEFAULTS } from '../shared/limits';
-	import type { ChatStore } from './create-chat.svelte';
+	import { LIMIT_DEFAULTS } from '../shared/limits.js';
+	import type { ChatStore } from './create-chat.svelte.js';
 
 	let {
 		chat,

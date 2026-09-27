@@ -1,8 +1,8 @@
 <!-- One message of the transcript. Visitor text stays text; answers render through Markdown. -->
 <script lang="ts">
 	import type { UIMessage } from 'ai';
-	import { DEFAULT_STRINGS, type Strings } from '../shared/strings';
-	import { messageText } from './create-chat.svelte';
+	import { DEFAULT_STRINGS, type Strings } from '../shared/strings.js';
+	import { messageText } from './create-chat.svelte.js';
 	import Markdown from './Markdown.svelte';
 
 	let {

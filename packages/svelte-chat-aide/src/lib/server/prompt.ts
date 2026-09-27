@@ -1,7 +1,7 @@
 import type { ModelMessage, SystemModelMessage } from 'ai';
-import type { Persona, PromptContext } from '../shared/types';
+import type { Persona, PromptContext } from '../shared/types.js';
 
-import type { CacheMarker } from './providers';
+import type { CacheMarker } from './providers.js';
 
 /** How a provider marks a cacheable prefix; the registry's type. */
 export type { CacheMarker };

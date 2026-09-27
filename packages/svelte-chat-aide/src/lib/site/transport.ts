@@ -5,9 +5,9 @@
  * rule. `accept-language` is set because SvelteKit's `event.fetch` copies the visitor's onto a
  * read that has none (`fetch.js`), which would make a cached page depend on who asked first.
  */
-import { MAX_REDIRECTS } from '../shared/limits';
-import { normalizeOrigin } from '../shared/schemas';
-import { IN_PROCESS_ORIGIN, acceptHref, normalizeRoute } from './route';
+import { MAX_REDIRECTS } from '../shared/limits.js';
+import { normalizeOrigin } from '../shared/schemas.js';
+import { IN_PROCESS_ORIGIN, acceptHref, normalizeRoute } from './route.js';
 
 export const INTERNAL_HEADER = 'x-aide-internal';
 /** Random per process; the hook recognises the library's own reads by it (spec §3.1). */

@@ -1,4 +1,4 @@
-import type { UIMessageLike } from '../shared/schemas';
+import type { UIMessageLike } from '../shared/schemas.js';
 
 function chars(m: UIMessageLike): number {
 	let n = 0;

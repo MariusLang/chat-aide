@@ -15,8 +15,8 @@ import {
 	type ToolSet,
 	type UIMessage
 } from 'ai';
-import { AideConfigError, createBodySchema, resolveConfig, type UIMessageLike } from '../shared/schemas';
-import { REFUSAL_MESSAGES } from '../shared/strings';
+import { AideConfigError, createBodySchema, resolveConfig, type UIMessageLike } from '../shared/schemas.js';
+import { REFUSAL_MESSAGES } from '../shared/strings.js';
 import type {
 	AideConfig,
 	ErrorCode,
@@ -25,20 +25,20 @@ import type {
 	ResolvedConfig,
 	Usage,
 	WarmupResponse
-} from '../shared/types';
-import { createPageCache, type PageCache } from '../site/cache';
-import { createReader, type Reader } from '../site/read-page';
-import { acceptRoute } from '../site/route';
-import { createSiteMap, type SiteMap } from '../site/site-map';
-import { createTransport, type FetchLike, type Transport } from '../site/transport';
-import { isLikelyServerless, resolveWaitUntil, runCallback, type WaitUntil } from './background';
-import { checkOrigin, clientId, createGuards } from './guards';
-import { buildPrompt } from './prompt';
-import { findProvider, loadProvider, type Importer, type LoadedProvider, type ProviderRow } from './providers';
-import { createReadPageTool } from './read-page-tool';
-import { memoryStore } from './store';
-import { warn } from './warn';
-import { windowHistory } from './window';
+} from '../shared/types.js';
+import { createPageCache, type PageCache } from '../site/cache.js';
+import { createReader, type Reader } from '../site/read-page.js';
+import { acceptRoute } from '../site/route.js';
+import { createSiteMap, type SiteMap } from '../site/site-map.js';
+import { createTransport, type FetchLike, type Transport } from '../site/transport.js';
+import { isLikelyServerless, resolveWaitUntil, runCallback, type WaitUntil } from './background.js';
+import { checkOrigin, clientId, createGuards } from './guards.js';
+import { buildPrompt } from './prompt.js';
+import { findProvider, loadProvider, type Importer, type LoadedProvider, type ProviderRow } from './providers.js';
+import { createReadPageTool } from './read-page-tool.js';
+import { memoryStore } from './store.js';
+import { warn } from './warn.js';
+import { windowHistory } from './window.js';
 
 export interface ChatHandler {
 	/** `GET ?route=` warm-up, `POST` chat, any other method `405`. */

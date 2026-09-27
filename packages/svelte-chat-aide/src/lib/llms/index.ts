@@ -9,8 +9,8 @@
  * example by answering `404`), which the handlers here do.
  */
 import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
-import type { ChatHandler } from '../server/handler';
-import { resolveWaitUntil, type WaitUntil } from '../server/background';
+import type { ChatHandler } from '../server/handler.js';
+import { resolveWaitUntil, type WaitUntil } from '../server/background.js';
 import {
 	renderLlmsFull,
 	renderLlmsTxt,
@@ -18,9 +18,9 @@ import {
 	routeForMarkdownPath,
 	type MapPage,
 	type ServeOptions
-} from '../site/llms';
-import { acceptRoute } from '../site/route';
-import { INTERNAL_HEADER } from '../site/transport';
+} from '../site/llms.js';
+import { acceptRoute } from '../site/route.js';
+import { INTERNAL_HEADER } from '../site/transport.js';
 
 const TEXT = 'text/plain; charset=utf-8';
 const MARKDOWN = 'text/markdown; charset=utf-8';

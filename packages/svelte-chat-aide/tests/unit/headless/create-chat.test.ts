@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createUIMessageStream, createUIMessageStreamResponse } from 'ai';
-import { createChat, type ChatStore } from '../../../src/lib/headless/create-chat.svelte';
+import { createChat, type ChatStore } from '../../../src/lib/headless/create-chat.svelte.js';
 
 interface Call {
 	url: string;

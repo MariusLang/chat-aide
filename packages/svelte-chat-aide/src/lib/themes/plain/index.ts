@@ -12,4 +12,4 @@ export {
 	type ChatStore,
 	type WidgetMode,
 	type WidgetPosition
-} from '../../headless/create-chat.svelte';
+} from '../../headless/create-chat.svelte.js';

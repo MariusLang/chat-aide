@@ -3,7 +3,7 @@
  * linkedom and by the widget on the live DOM, so both see the same page. Browser-safe: no
  * node imports, no parser import — it takes a Document.
  */
-import type { Heading } from '../shared/types';
+import type { Heading } from '../shared/types.js';
 
 export interface Extracted {
 	title: string;

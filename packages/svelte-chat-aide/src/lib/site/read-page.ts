@@ -4,14 +4,14 @@
  * and carries the internal marker.
  */
 import { parseHTML } from 'linkedom';
-import type { Limits } from '../shared/limits';
-import type { Heading, PageEntry } from '../shared/types';
-import type { WaitUntil } from '../server/background';
-import type { PageCache } from './cache';
-import { extract, hashText, isThin, type Extracted } from './extract';
-import { markdownPathFor, routeForMarkdownPath } from './llms';
-import { IN_PROCESS_ORIGIN } from './route';
-import type { Transport } from './transport';
+import type { Limits } from '../shared/limits.js';
+import type { Heading, PageEntry } from '../shared/types.js';
+import type { WaitUntil } from '../server/background.js';
+import type { PageCache } from './cache.js';
+import { extract, hashText, isThin, type Extracted } from './extract.js';
+import { markdownPathFor, routeForMarkdownPath } from './llms.js';
+import { IN_PROCESS_ORIGIN } from './route.js';
+import type { Transport } from './transport.js';
 
 export interface Reader {
 	/**

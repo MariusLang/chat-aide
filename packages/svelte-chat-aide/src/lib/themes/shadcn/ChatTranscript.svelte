@@ -6,7 +6,7 @@
 <script lang="ts">
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
-	import { messageText, type ChatStore } from '../../headless/create-chat.svelte';
+	import { messageText, type ChatStore } from '../../headless/create-chat.svelte.js';
 	import Message from '../../headless/Message.svelte';
 	import { Button } from './ui/button/index.js';
 	import { ScrollArea } from './ui/scroll-area/index.js';

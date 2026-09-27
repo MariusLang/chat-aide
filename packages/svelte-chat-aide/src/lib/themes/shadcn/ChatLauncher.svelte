@@ -6,7 +6,7 @@
 	import './styles.css';
 	import MessageCircle from '@lucide/svelte/icons/message-circle';
 	import X from '@lucide/svelte/icons/x';
-	import type { ChatStore, WidgetPosition } from '../../headless/create-chat.svelte';
+	import type { ChatStore, WidgetPosition } from '../../headless/create-chat.svelte.js';
 	import { Button } from './ui/button/index.js';
 	import * as Tooltip from './ui/tooltip/index.js';
 	import { cn } from './utils.js';

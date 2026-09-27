@@ -20,4 +20,4 @@ export {
 	type Usage,
 	type WidgetMode,
 	type WidgetPosition
-} from '../../headless/index';
+} from '../../headless/index.js';

@@ -6,7 +6,7 @@
 <script lang="ts">
 	import Sparkles from '@lucide/svelte/icons/sparkles';
 	import X from '@lucide/svelte/icons/x';
-	import type { ChatStore } from '../../headless/create-chat.svelte';
+	import type { ChatStore } from '../../headless/create-chat.svelte.js';
 	import ChatComposer from './ChatComposer.svelte';
 	import ChatTranscript from './ChatTranscript.svelte';
 	import { Button } from './ui/button/index.js';

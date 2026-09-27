@@ -1,4 +1,4 @@
-import type { Store } from '../shared/types';
+import type { Store } from '../shared/types.js';
 
 interface Entry {
 	value: string;

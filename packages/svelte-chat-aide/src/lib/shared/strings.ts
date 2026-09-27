@@ -1,4 +1,4 @@
-import type { ErrorCode } from './types';
+import type { ErrorCode } from './types.js';
 
 /** Sentences the server sends with each refusal (`{ error, message }`). Opaque by design. */
 export const REFUSAL_MESSAGES: Record<ErrorCode, string> = {

@@ -1,4 +1,4 @@
-import type { ResolvedConfig, Store } from '../shared/types';
+import type { ResolvedConfig, Store } from '../shared/types.js';
 
 /**
  * Same-origin check (spec §3.6). `Sec-Fetch-Site: same-origin` passes; otherwise the `Origin`

@@ -3,8 +3,8 @@
   with a retry, and a status node that receives each finished answer once for screen readers.
 -->
 <script lang="ts">
-	import type { ChatStore } from './create-chat.svelte';
-	import { messageText } from './create-chat.svelte';
+	import type { ChatStore } from './create-chat.svelte.js';
+	import { messageText } from './create-chat.svelte.js';
 	import Message from './Message.svelte';
 
 	let { chat, class: className }: { chat: ChatStore; class?: string } = $props();

@@ -3,10 +3,10 @@
  * A bounded, same-site, breadth-first crawl through `readPage`, seeded by `/`, the sitemap,
  * `pages.include` and the site's own llms.txt. Nothing is written to disk.
  */
-import type { PageEntry, ResolvedConfig } from '../shared/types';
-import type { WaitUntil } from '../server/background';
-import type { PageCache } from './cache';
-import { hashText, isThin } from './extract';
+import type { PageEntry, ResolvedConfig } from '../shared/types.js';
+import type { WaitUntil } from '../server/background.js';
+import type { PageCache } from './cache.js';
+import { hashText, isThin } from './extract.js';
 import {
 	outlineFrom,
 	parseLlmsTxt,
@@ -15,10 +15,10 @@ import {
 	type LlmsDoc,
 	type MapPage,
 	type SiteInfo
-} from './llms';
-import { pageFromMarkdown, toEntry, type Reader } from './read-page';
-import { IN_PROCESS_ORIGIN, acceptHref, acceptRoute } from './route';
-import type { Transport } from './transport';
+} from './llms.js';
+import { pageFromMarkdown, toEntry, type Reader } from './read-page.js';
+import { IN_PROCESS_ORIGIN, acceptHref, acceptRoute } from './route.js';
+import type { Transport } from './transport.js';
 
 export interface SiteMap {
 	/** Idempotent; starts the crawl on the first call, and again once the last one is older than the TTL. */

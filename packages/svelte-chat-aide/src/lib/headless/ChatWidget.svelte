@@ -7,9 +7,9 @@
 	import type { Snippet } from 'svelte';
 	import { untrack } from 'svelte';
 	import { afterNavigate } from '$app/navigation';
-	import type { Strings } from '../shared/strings';
-	import type { Suggestions, Usage } from '../shared/types';
-	import { createChat, type ChatStore, type WidgetMode, type WidgetPosition } from './create-chat.svelte';
+	import type { Strings } from '../shared/strings.js';
+	import type { Suggestions, Usage } from '../shared/types.js';
+	import { createChat, type ChatStore, type WidgetMode, type WidgetPosition } from './create-chat.svelte.js';
 	import ChatLauncher from './ChatLauncher.svelte';
 	import ChatWindow from './ChatWindow.svelte';
 

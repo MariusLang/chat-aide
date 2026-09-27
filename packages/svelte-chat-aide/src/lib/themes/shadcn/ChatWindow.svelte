@@ -5,8 +5,8 @@
 -->
 <script lang="ts">
 	import './styles.css';
-	import type { ChatStore } from '../../headless/create-chat.svelte';
-	import { trapFocus } from '../../headless/focus-trap';
+	import type { ChatStore } from '../../headless/create-chat.svelte.js';
+	import { trapFocus } from '../../headless/focus-trap.js';
 	import ChatPanel from './ChatPanel.svelte';
 	import { cn } from './utils.js';
 

@@ -7,10 +7,10 @@
  */
 import { Chat } from '@ai-sdk/svelte';
 import { DefaultChatTransport, type UIMessage } from 'ai';
-import { extract } from '../site/extract';
-import { LIMIT_DEFAULTS } from '../shared/limits';
-import { DEFAULT_STRINGS, type Strings } from '../shared/strings';
-import type { Suggestions, Usage, WarmupResponse } from '../shared/types';
+import { extract } from '../site/extract.js';
+import { LIMIT_DEFAULTS } from '../shared/limits.js';
+import { DEFAULT_STRINGS, type Strings } from '../shared/strings.js';
+import type { Suggestions, Usage, WarmupResponse } from '../shared/types.js';
 
 export type AnswerLinks = 'same-origin' | 'any';
 export type WidgetPosition = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';

@@ -4,8 +4,8 @@
  * grow the cache nor evict a crawled page. A stale page is kept until evicted; the
  * stale-while-revalidate decision belongs to `readPage`.
  */
-import { CACHE_DEFAULTS } from '../shared/limits';
-import type { PageEntry, Store } from '../shared/types';
+import { CACHE_DEFAULTS } from '../shared/limits.js';
+import type { PageEntry, Store } from '../shared/types.js';
 
 export type CacheRecord = { kind: 'page'; entry: PageEntry } | { kind: 'miss'; expiresAt: number };
 

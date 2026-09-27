@@ -9,7 +9,7 @@ import {
 	RATE_LIMIT_DEFAULTS,
 	type LimitName,
 	type Limits
-} from './limits';
+} from './limits.js';
 import type {
 	AideConfig,
 	AideRequestMeta,
@@ -20,7 +20,7 @@ import type {
 	ResolvedConfig,
 	Store,
 	WaitUntilFn
-} from './types';
+} from './types.js';
 
 /** Thrown by `resolveConfig`; `message` is `'<path>: <reason>'`. */
 export class AideConfigError extends Error {

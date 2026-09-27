@@ -5,9 +5,9 @@
  */
 import { tool } from 'ai';
 import { z } from 'zod';
-import type { PageEntry } from '../shared/types';
-import { acceptRoute } from '../site/route';
-import { dataBlock } from './prompt';
+import type { PageEntry } from '../shared/types.js';
+import { acceptRoute } from '../site/route.js';
+import { dataBlock } from './prompt.js';
 
 export const NOT_A_PAGE = 'Not a page of this site.';
 

@@ -10,12 +10,12 @@
  * request to the endpoint that the app answers with anything but a `404`.
  */
 import type { Handle, RequestHandler } from '@sveltejs/kit';
-import type { AideConfig } from '../shared/types';
-import { routeForMarkdownPath } from '../site/llms';
-import { INTERNAL_HEADER, INTERNAL_MARKER, SERVED_HEADER, SERVED_MARKER } from '../site/transport';
-import { llmsFullTxt, llmsTxt, pageMarkdown } from '../llms/index';
-import { createChatHandler, markHooked, type ChatHandler, type ChatHandlerDeps } from './handler';
-import { warn } from './warn';
+import type { AideConfig } from '../shared/types.js';
+import { routeForMarkdownPath } from '../site/llms.js';
+import { INTERNAL_HEADER, INTERNAL_MARKER, SERVED_HEADER, SERVED_MARKER } from '../site/transport.js';
+import { llmsFullTxt, llmsTxt, pageMarkdown } from '../llms/index.js';
+import { createChatHandler, markHooked, type ChatHandler, type ChatHandlerDeps } from './handler.js';
+import { warn } from './warn.js';
 
 export type AideHandle = Handle & { handler: ChatHandler };
 

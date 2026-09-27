@@ -4,7 +4,7 @@
  * paragraphs, `##` sections of `- [title](url): description`; `## Optional` is skippable.
  * Pure string functions: no I/O, never throw.
  */
-import type { Heading } from '../shared/types';
+import type { Heading } from '../shared/types.js';
 import { isExcluded } from './route.js';
 
 export interface LlmsLink {

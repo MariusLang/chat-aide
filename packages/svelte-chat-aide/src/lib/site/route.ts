@@ -11,7 +11,7 @@
  * pathname SvelteKit cannot decode (malformed `%`) is refused. `%25` stays literal, as in
  * SvelteKit, so double-encoding (`%252e`) is inert.
  */
-import { normalizeOrigin } from '../shared/schemas';
+import { normalizeOrigin } from '../shared/schemas.js';
 
 /** Sentinel origin used for in-process reads when no origin is configured. */
 export const IN_PROCESS_ORIGIN = 'http://aide.internal';

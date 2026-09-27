@@ -1,7 +1,7 @@
 <!-- The floating button that opens the chat (spec §3.8). -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import type { ChatStore } from './create-chat.svelte';
+	import type { ChatStore } from './create-chat.svelte.js';
 
 	let {
 		chat,

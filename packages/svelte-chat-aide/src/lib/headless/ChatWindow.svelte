@@ -5,10 +5,10 @@
 -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import type { ChatStore } from './create-chat.svelte';
+	import type { ChatStore } from './create-chat.svelte.js';
 	import Composer from './Composer.svelte';
 	import Transcript from './Transcript.svelte';
-	import { trapFocus } from './focus-trap';
+	import { trapFocus } from './focus-trap.js';
 
 	let {
 		chat,

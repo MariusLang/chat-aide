@@ -1,5 +1,5 @@
 import type { LanguageModel } from 'ai';
-import type { ProviderConfig } from '../shared/types';
+import type { ProviderConfig } from '../shared/types.js';
 
 /** Which prompt-caching marker the static prefix needs (spec §3.2, §3.5). */
 export type CacheMarker = 'anthropic' | 'bedrock' | 'none';

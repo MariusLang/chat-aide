@@ -1,6 +1,6 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import type { LanguageModel } from 'ai';
-import type { Limits } from './limits';
+import type { Limits } from './limits.js';
 
 /** The one interface for shared state (spec §3.5). */
 export interface Store {
