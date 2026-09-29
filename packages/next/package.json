@@ -1,0 +1,46 @@
+{
+	"name": "@chat-aide/next",
+	"version": "0.0.0",
+	"description": "Next.js App Router adapter for chat-aide: route handlers for the chat endpoint and llms.txt.",
+	"license": "MIT",
+	"type": "module",
+	"engines": {
+		"node": ">=24"
+	},
+	"files": [
+		"dist"
+	],
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"browser": "./dist/browser-guard.js",
+			"default": "./dist/index.js"
+		}
+	},
+	"scripts": {
+		"build": "node scripts/build.mjs",
+		"check": "tsc --noEmit -p tsconfig.json",
+		"lint": "eslint .",
+		"pretest": "test -f dist/index.js || pnpm build",
+		"test": "vitest run",
+		"publint": "publint"
+	},
+	"dependencies": {
+		"@chat-aide/core": "workspace:*"
+	},
+	"peerDependencies": {
+		"next": ">=15.1"
+	},
+	"devDependencies": {
+		"@types/node": "^24.19.0",
+		"ai": "^7.0.122",
+		"eslint": "^10.11.0",
+		"next": "^16.3.7",
+		"publint": "^0.3.24",
+		"react": "^19.3.0",
+		"react-dom": "^19.3.0",
+		"typescript": "~6.0.3",
+		"vitest": "^5.0.2"
+	}
+}

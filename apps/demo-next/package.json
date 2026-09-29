@@ -1,0 +1,31 @@
+{
+	"name": "demo-next",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"engines": {
+		"node": ">=24"
+	},
+	"scripts": {
+		"dev": "next dev",
+		"build": "next build",
+		"start": "next start",
+		"check": "next typegen && tsc --noEmit",
+		"test:e2e": "pnpm --filter @chat-aide/core --filter @chat-aide/react --filter @chat-aide/next build && next build && playwright test"
+	},
+	"dependencies": {
+		"@chat-aide/next": "workspace:*",
+		"@chat-aide/react": "workspace:*",
+		"ai": "^7.0.122",
+		"next": "^16.3.7",
+		"react": "^19.2.1",
+		"react-dom": "^19.2.1"
+	},
+	"devDependencies": {
+		"@playwright/test": "^1.63.0",
+		"@types/node": "^24.19.0",
+		"@types/react": "^19.2.0",
+		"@types/react-dom": "^19.2.0",
+		"typescript": "~6.0.3"
+	}
+}
