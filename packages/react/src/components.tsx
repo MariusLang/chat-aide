@@ -482,21 +482,26 @@ export function ChatWidget(props: ChatWidgetProps) {
 	const uid = useId();
 	const windowId = `aide-window-${uid}`;
 
+	// The latest chat and callback, so the effects below never act on a stale instance; their
+	// dependencies stay the inputs that should trigger them (a fresh `chat` object every render must not).
+	const latest = useRef({ chat, onOpenChange: props.onOpenChange });
+	latest.current = { chat, onOpenChange: props.onOpenChange };
+
 	// open prop -> chat
 	useEffect(() => {
+		const c = latest.current.chat;
 		if (!enabled || props.open === undefined) return;
-		if (props.open && !chat.isOpen) chat.open();
-		else if (!props.open && chat.isOpen) chat.close();
-		// Only when the prop changes.
-	}, [props.open, enabled]);
+		if (props.open && !c.isOpen) c.open();
+		else if (!props.open && c.isOpen) c.close();
+	}, [props.open, enabled, props.chat]);
 
 	// chat -> onOpenChange
 	const reported = useRef(chat.isOpen);
 	useEffect(() => {
 		if (reported.current === chat.isOpen) return;
 		reported.current = chat.isOpen;
-		props.onOpenChange?.(chat.isOpen);
-	}, [chat.isOpen]);
+		latest.current.onOpenChange?.(chat.isOpen);
+	}, [chat.isOpen, props.chat]);
 
 	// A new page while open: warm it up.
 	const first = useRef(true);
@@ -505,7 +510,8 @@ export function ChatWidget(props: ChatWidgetProps) {
 			first.current = false;
 			return;
 		}
-		if (props.pathname && enabled && (chat.isOpen || inline)) void chat.warmup(props.pathname);
+		const c = latest.current.chat;
+		if (props.pathname && enabled && (c.isOpen || inline)) void c.warmup(props.pathname);
 	}, [props.pathname]);
 
 	if (!enabled) return null;

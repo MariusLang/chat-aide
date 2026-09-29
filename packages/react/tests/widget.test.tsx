@@ -132,3 +132,18 @@ describe('ChatWidget (React)', () => {
 		expect(container.innerHTML).toBe('');
 	});
 });
+
+describe('ChatWidget with an external chat', () => {
+	it('opens a chat swapped in through the chat prop', async () => {
+		const { useAide } = await import('../src/index.js');
+		function Host({ which }: { which: 'a' | 'b' }) {
+			const a = useAide({ fetch: fakeFetch().fetch });
+			const b = useAide({ fetch: fakeFetch().fetch, strings: { title: 'Second chat' } });
+			return <ChatWidget chat={which === 'a' ? a : b} open />;
+		}
+		const { rerender } = render(<Host which="a" />);
+		await screen.findByRole('dialog');
+		rerender(<Host which="b" />);
+		expect(await screen.findByRole('heading', { name: 'Second chat' })).not.toBeNull();
+	});
+});
