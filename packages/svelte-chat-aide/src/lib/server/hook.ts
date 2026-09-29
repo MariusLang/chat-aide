@@ -9,15 +9,25 @@
  * creation (a hook has no access to the app's manifest), so it is given once, at the first
  * request to the endpoint that the app answers with anything but a `404`.
  */
-import type { Handle, RequestHandler } from '@sveltejs/kit';
-import type { AideConfig } from '../shared/types.js';
-import { routeForMarkdownPath } from '../site/llms.js';
-import { INTERNAL_HEADER, INTERNAL_MARKER, SERVED_HEADER, SERVED_MARKER } from '../site/transport.js';
-import { llmsFullTxt, llmsTxt, pageMarkdown } from '../llms/index.js';
-import { createChatHandler, markHooked, type ChatHandler, type ChatHandlerDeps } from './handler.js';
-import { warn } from './warn.js';
+import type { Handle, RequestEvent, RequestHandler } from '@sveltejs/kit';
+import { createChatHandler, type AideConfig as CoreAideConfig, type ChatHandler, type ChatHandlerDeps } from '@chat-aide/core';
+import {
+	INTERNAL_HEADER,
+	INTERNAL_MARKER,
+	SERVED_HEADER,
+	SERVED_MARKER,
+	llmsFullTxt,
+	llmsTxt,
+	markHooked,
+	pageMarkdown,
+	routeForMarkdownPath,
+	warn
+} from '@chat-aide/core/internal';
 
-export type AideHandle = Handle & { handler: ChatHandler };
+/** The configuration, with `authorize` and `clientKey` receiving SvelteKit's `RequestEvent`. */
+export type AideConfig = CoreAideConfig<RequestEvent>;
+
+export type AideHandle = Handle & { handler: ChatHandler<RequestEvent> };
 
 /** Marks the app's answer to one of the library's in-process reads (see `SERVED_HEADER`). */
 function stamp(res: Response): Response {
@@ -29,7 +39,7 @@ function stamp(res: Response): Response {
 type Kind = 'endpoint' | 'llms' | 'llms-full' | 'markdown';
 
 export function aide(config: AideConfig, deps?: ChatHandlerDeps): AideHandle {
-	const handler = createChatHandler(config, deps);
+	const handler = createChatHandler<RequestEvent>(config, deps);
 	const { endpoint, llms } = handler.config;
 	const answer: Record<Exclude<Kind, 'endpoint'>, RequestHandler> = {
 		llms: llmsTxt(handler),

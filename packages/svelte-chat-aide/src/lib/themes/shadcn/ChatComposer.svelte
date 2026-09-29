@@ -5,7 +5,7 @@
 <script lang="ts">
 	import ArrowUp from '@lucide/svelte/icons/arrow-up';
 	import Square from '@lucide/svelte/icons/square';
-	import { LIMIT_DEFAULTS } from '../../shared/limits.js';
+	import { LIMIT_DEFAULTS } from '@chat-aide/core/client';
 	import type { ChatStore } from '../../headless/create-chat.svelte.js';
 	import { Button } from './ui/button/index.js';
 	import { Textarea } from './ui/textarea/index.js';

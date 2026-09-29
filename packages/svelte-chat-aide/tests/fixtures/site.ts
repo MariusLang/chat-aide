@@ -6,7 +6,7 @@
  * and the marker).
  * Responses carry the `aide()` hook's served stamp, as the app's in-process answers do.
  */
-import { INTERNAL_HEADER, INTERNAL_MARKER, SERVED_HEADER, SERVED_MARKER, type FetchLike } from '../../src/lib/site/transport';
+import { INTERNAL_HEADER, INTERNAL_MARKER, SERVED_HEADER, SERVED_MARKER, type FetchLike } from '@chat-aide/core/internal';
 
 export interface FakePage {
 	/** Default 200. */

@@ -6,7 +6,7 @@
 <script lang="ts">
 	import type { ComponentProps } from 'svelte';
 	import HeadlessChatWidget from '../../headless/ChatWidget.svelte';
-	import css from './plain.css?raw';
+	import css from '@chat-aide/core/plain.css?raw';
 
 	type HeadlessProps = ComponentProps<typeof HeadlessChatWidget>;
 

@@ -7,41 +7,42 @@
  */
 import { Chat } from '@ai-sdk/svelte';
 import { DefaultChatTransport, type UIMessage } from 'ai';
-import { extract } from '../site/extract.js';
-import { LIMIT_DEFAULTS } from '../shared/limits.js';
-import { DEFAULT_STRINGS, type Strings } from '../shared/strings.js';
-import type { Suggestions, Usage, WarmupResponse } from '../shared/types.js';
+import {
+	DEFAULT_CLIENT_LIMITS,
+	DEFAULT_ENDPOINT,
+	currentPath,
+	dispatch,
+	errorFor,
+	fetchWarmup,
+	mergeStrings,
+	messageText,
+	pickSuggestions,
+	refusalCapture,
+	requestBody,
+	restoreThread,
+	saveThread,
+	sessionIdForTab,
+	usageOf,
+	type AnswerLinks,
+	type ChatError,
+	type ChatOptions,
+	type ChatStatus,
+	type ClientLimits,
+	type Strings,
+	type WarmupResponse
+} from '@chat-aide/core/client';
 
-export type AnswerLinks = 'same-origin' | 'any';
-export type WidgetPosition = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
-export type WidgetMode = 'floating' | 'inline' | 'sheet';
-export type ChatStatus = 'ready' | 'submitted' | 'streaming' | 'error';
-
-export interface ChatError {
-	/** A refusal code of §6 (`rate_limited`, `provider_error`, …) or `network`. */
-	code: string;
-	message: string;
-}
-
-export interface ChatOptions {
-	/** The chat endpoint (default `/api/chat`). */
-	endpoint?: string;
-	/** Keep the thread in `sessionStorage` for the tab (default `true`). */
-	persistThread?: boolean;
-	/** Which answer links survive (default `'same-origin'`, spec §3.6). */
-	answerLinks?: AnswerLinks;
-	/** Any subset of the visible strings. */
-	strings?: Partial<Strings>;
-	/** Suggestions for the empty state: a list, or a map by route (`'*'` is the fallback). */
-	suggestions?: Suggestions;
-	onopen?(): void;
-	onclose?(): void;
-	onsend?(text: string): void;
-	onresponse?(text: string, usage?: Usage): void;
-	onerror?(code: string): void;
-	/** A fetch implementation (tests, proxies). Defaults to the global `fetch`. */
-	fetch?: typeof fetch;
-}
+export {
+	messageText,
+	trimForRequest,
+	type AnswerLinks,
+	type ChatError,
+	type ChatOptions,
+	type ChatStatus,
+	type ClientLimits,
+	type WidgetMode,
+	type WidgetPosition
+} from '@chat-aide/core/client';
 
 export interface ChatStore {
 	readonly messages: UIMessage[];
@@ -66,146 +67,13 @@ export interface ChatStore {
 	sessionId: string;
 }
 
-const SESSION_KEY = 'aide:session';
-const THREAD_KEY = 'aide:thread';
-const MAX_SUGGESTIONS = 4;
-
-function storageGet(key: string): string | null {
-	try {
-		return typeof sessionStorage === 'undefined' ? null : sessionStorage.getItem(key);
-	} catch {
-		return null;
-	}
-}
-
-function storageSet(key: string, value: string): void {
-	try {
-		if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(key, value);
-	} catch {
-		// Storage blocked or full: the thread simply is not kept.
-	}
-}
-
-function randomId(): string {
-	if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-		return crypto.randomUUID();
-	}
-	return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`;
-}
-
-function currentPath(): string {
-	return typeof location === 'undefined' ? '/' : location.pathname || '/';
-}
-
-function dispatch(name: string, detail: unknown): void {
-	if (typeof window === 'undefined' || typeof CustomEvent === 'undefined') return;
-	window.dispatchEvent(new CustomEvent(name, { detail }));
-}
-
-function isMessageList(value: unknown): value is UIMessage[] {
-	return (
-		Array.isArray(value) &&
-		value.every(
-			(m) =>
-				m !== null &&
-				typeof m === 'object' &&
-				typeof (m as UIMessage).id === 'string' &&
-				((m as UIMessage).role === 'user' || (m as UIMessage).role === 'assistant') &&
-				Array.isArray((m as UIMessage).parts)
-		)
-	);
-}
-
-function restoreThread(): UIMessage[] {
-	const raw = storageGet(THREAD_KEY);
-	if (!raw) return [];
-	try {
-		const parsed: unknown = JSON.parse(raw);
-		return isMessageList(parsed) ? parsed : [];
-	} catch {
-		return [];
-	}
-}
-
-/** The concatenated text parts of a message. */
-export function messageText(message: UIMessage): string {
-	return message.parts
-		.map((p) => (p.type === 'text' ? p.text : ''))
-		.join('')
-		.trim();
-}
-
-function mergeStrings(overrides: Partial<Strings> | undefined): Strings {
-	return {
-		...DEFAULT_STRINGS,
-		...overrides,
-		errors: { ...DEFAULT_STRINGS.errors, ...overrides?.errors }
-	};
-}
-
-function pickSuggestions(source: Suggestions | undefined, route: string): string[] | null {
-	if (!source) return null;
-	if (Array.isArray(source)) return source;
-	return source[route] ?? source['*'] ?? null;
-}
-
-function usageOf(message: UIMessage): Usage | undefined {
-	const meta = message.metadata;
-	if (meta && typeof meta === 'object' && 'usage' in meta) {
-		const usage = (meta as { usage?: unknown }).usage;
-		if (usage && typeof usage === 'object') return usage as Usage;
-	}
-	return undefined;
-}
-
-export type ClientLimits = NonNullable<WarmupResponse['limits']>;
-
-const DEFAULT_CLIENT_LIMITS: ClientLimits = {
-	messages: LIMIT_DEFAULTS.messages,
-	messageChars: LIMIT_DEFAULTS.messageChars,
-	pageChars: LIMIT_DEFAULTS.pageChars
-};
-
-function clientLimits(value: unknown): ClientLimits | null {
-	if (!value || typeof value !== 'object') return null;
-	const v = value as Record<string, unknown>;
-	const ok = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n > 0;
-	return ok(v.messages) && ok(v.messageChars) && ok(v.pageChars)
-		? { messages: v.messages, messageChars: v.messageChars, pageChars: v.pageChars }
-		: null;
-}
-
-/**
- * The thread as the server may receive it: text parts only (joined, cut to `messageChars`),
- * the most recent messages that fit `messages`, starting at a user message. The UI keeps the
- * whole thread; only the request is trimmed, so a long tab never gets stuck on a 400.
- */
-export function trimForRequest(messages: UIMessage[], limits: ClientLimits): UIMessage[] {
-	const out: UIMessage[] = [];
-	for (const m of messages) {
-		const text = m.parts
-			.map((p) => (p.type === 'text' ? p.text : ''))
-			.join('')
-			.slice(0, limits.messageChars);
-		if (text) out.push({ id: m.id, role: m.role, parts: [{ type: 'text', text }] });
-	}
-	let start = Math.max(0, out.length - Math.max(1, limits.messages));
-	while (start < out.length - 1 && out[start]!.role !== 'user') start++;
-	return out.slice(start);
-}
-
 export function createChat(options: ChatOptions = {}): ChatStore {
-	const endpoint = options.endpoint ?? '/api/chat';
+	const endpoint = options.endpoint ?? DEFAULT_ENDPOINT;
 	const persist = options.persistThread ?? true;
 	const answerLinks: AnswerLinks = options.answerLinks ?? 'same-origin';
 	const strings = mergeStrings(options.strings);
 	const baseFetch: typeof fetch = (...args) => (options.fetch ?? globalThis.fetch)(...args);
-
-	let sessionId = storageGet(SESSION_KEY) ?? '';
-	if (!sessionId) {
-		sessionId = randomId();
-		storageSet(SESSION_KEY, sessionId);
-	}
+	const sessionId = sessionIdForTab();
 
 	let isOpen = $state(false);
 	let route = $state(currentPath());
@@ -214,74 +82,36 @@ export function createChat(options: ChatOptions = {}): ChatStore {
 	let provider = $state<string | null>(null);
 	let limits: ClientLimits = DEFAULT_CLIENT_LIMITS;
 	let error = $state<ChatError | null>(null);
-	/** The refusal body of the last non-2xx POST, read by the fetch wrapper before the SDK throws. */
-	let refusal: { error: string; message: string } | null = null;
+	/** Keeps the refusal body of the last non-2xx POST before the SDK throws. */
+	const capture = refusalCapture(baseFetch);
 
 	const save = (messages: UIMessage[]): void => {
-		if (persist) storageSet(THREAD_KEY, JSON.stringify(messages));
+		if (persist) saveThread(messages);
 	};
 
-	const fail = (code: string, message: string): void => {
-		error = { code, message };
-		options.onerror?.(code);
-		dispatch('aide:error', { code });
-	};
-
-	const postFetch: typeof fetch = async (input, init) => {
-		refusal = null;
-		const response = await baseFetch(input, init);
-		if (!response.ok) {
-			try {
-				const body: unknown = await response.clone().json();
-				if (body && typeof body === 'object' && typeof (body as { error?: unknown }).error === 'string') {
-					const b = body as { error: string; message?: unknown };
-					refusal = { error: b.error, message: typeof b.message === 'string' ? b.message : '' };
-				}
-			} catch {
-				// Not JSON: reported as a provider error below.
-			}
-		}
-		return response;
-	};
-
-	const domText = (): string | null => {
-		if (typeof document === 'undefined') return null;
-		try {
-			return extract(document).text.slice(0, limits.pageChars);
-		} catch {
-			return null;
-		}
+	const fail = (next: ChatError): void => {
+		error = next;
+		options.onerror?.(next.code);
+		dispatch('aide:error', { code: next.code });
 	};
 
 	const chat = new Chat<UIMessage>({
 		messages: persist ? restoreThread() : [],
 		transport: new DefaultChatTransport<UIMessage>({
 			api: endpoint,
-			fetch: postFetch,
+			fetch: capture.fetch,
 			prepareSendMessagesRequest: ({ id, messages, trigger, messageId }) => {
 				const path = currentPath();
 				route = path;
 				return {
-					body: {
-						id,
-						messages: trimForRequest(messages, limits),
-						trigger,
-						messageId,
-						aide: { route: path, sessionId, dom: pageSource === 'dom' ? domText() : null }
-					}
+					body: requestBody(
+						{ id, messages, trigger, messageId },
+						{ route: path, sessionId, limits, sendDom: pageSource === 'dom' }
+					)
 				};
 			}
 		}),
-		onError: () => {
-			if (refusal) {
-				const code = refusal.error;
-				const override = options.strings?.errors?.[code as keyof Strings['errors']];
-				const fallback = (strings.errors as Record<string, string>)[code] ?? strings.errors.provider_error;
-				fail(code, override ?? (refusal.message || fallback));
-			} else {
-				fail('network', strings.errors.network);
-			}
-		},
+		onError: () => fail(errorFor(capture.last(), strings, options.strings)),
 		onFinish: ({ message, messages, isAbort, isDisconnect, isError }) => {
 			save(messages);
 			if (isAbort || isDisconnect || isError || message.role !== 'assistant') return;
@@ -319,24 +149,12 @@ export function createChat(options: ChatOptions = {}): ChatStore {
 
 	async function warmup(path: string): Promise<void> {
 		route = path;
-		try {
-			const res = await baseFetch(`${endpoint}?route=${encodeURIComponent(path)}`, {
-				method: 'GET',
-				headers: { accept: 'application/json' },
-				credentials: 'same-origin'
-			});
-			if (!res.ok) return;
-			const body = (await res.json()) as Partial<WarmupResponse>;
-			if (route !== path) return; // a newer navigation won
-			pageSource = body.pageSource === 'dom' ? 'dom' : 'server';
-			serverSuggestions = Array.isArray(body.suggestions)
-				? body.suggestions.filter((s): s is string => typeof s === 'string')
-				: [];
-			if (typeof body.provider === 'string' && body.provider) provider = body.provider;
-			limits = clientLimits(body.limits) ?? limits;
-		} catch {
-			// The warm-up is an optimisation; a failure leaves the defaults.
-		}
+		const result = await fetchWarmup(endpoint, path, baseFetch);
+		if (!result || route !== path) return; // failed, or a newer navigation won
+		pageSource = result.pageSource;
+		serverSuggestions = result.suggestions;
+		if (result.provider) provider = result.provider;
+		limits = result.limits ?? limits;
 	}
 
 	function open(): void {
@@ -368,8 +186,7 @@ export function createChat(options: ChatOptions = {}): ChatStore {
 			return isOpen;
 		},
 		get suggestions() {
-			const list = pickSuggestions(options.suggestions, route) ?? serverSuggestions;
-			return list.slice(0, MAX_SUGGESTIONS);
+			return pickSuggestions(options.suggestions, route, serverSuggestions);
 		},
 		get strings() {
 			return strings;

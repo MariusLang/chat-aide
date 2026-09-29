@@ -8,15 +8,15 @@
 	import type { Snippet } from 'svelte';
 	import { untrack } from 'svelte';
 	import { afterNavigate } from '$app/navigation';
-	import type { Strings } from '../../shared/strings.js';
-	import type { Suggestions, Usage } from '../../shared/types.js';
+	import type { Strings } from '@chat-aide/core/client';
+	import type { Suggestions, Usage } from '@chat-aide/core/client';
 	import {
 		createChat,
 		type ChatStore,
 		type WidgetMode,
 		type WidgetPosition
 	} from '../../headless/create-chat.svelte.js';
-	import { trapFocus } from '../../headless/focus-trap.js';
+	import { trapFocus } from '@chat-aide/core/client';
 	import ChatLauncher from './ChatLauncher.svelte';
 	import ChatPanel from './ChatPanel.svelte';
 	import ChatWindow from './ChatWindow.svelte';

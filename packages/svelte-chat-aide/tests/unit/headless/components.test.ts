@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import { createRawSnippet } from 'svelte';
 import { parseHTML } from 'linkedom';
-import { extract } from '../../../src/lib/site/extract';
+import { extract } from '@chat-aide/core/extract';
 import {
 	ChatWidget,
 	ChatWindow,

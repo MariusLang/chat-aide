@@ -8,7 +8,7 @@
 	import type { ChatStore } from './create-chat.svelte.js';
 	import Composer from './Composer.svelte';
 	import Transcript from './Transcript.svelte';
-	import { trapFocus } from './focus-trap.js';
+	import { trapFocus } from '@chat-aide/core/client';
 
 	let {
 		chat,

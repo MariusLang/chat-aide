@@ -53,7 +53,7 @@
 	},
 	"scripts": {
 		"dev": "vite dev",
-		"build": "node scripts/build-css.mjs && svelte-kit sync && svelte-package && publint",
+		"build": "node scripts/build-css.mjs && node scripts/copy-plain-css.mjs && svelte-kit sync && svelte-package && publint",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"lint": "eslint .",
 		"pretest": "test -f dist/themes/shadcn/styles.css || pnpm build",
@@ -61,46 +61,18 @@
 		"publint": "publint"
 	},
 	"dependencies": {
-		"@ai-sdk/amazon-bedrock": "^5.0.97",
-		"@ai-sdk/anthropic": "^4.0.65",
-		"@ai-sdk/azure": "^4.0.82",
-		"@ai-sdk/baseten": "^2.1.35",
-		"@ai-sdk/cerebras": "^3.0.57",
-		"@ai-sdk/cohere": "^4.0.50",
-		"@ai-sdk/deepinfra": "^3.0.57",
-		"@ai-sdk/deepseek": "^3.0.54",
-		"@ai-sdk/fireworks": "^3.0.60",
-		"@ai-sdk/google": "^4.0.82",
-		"@ai-sdk/google-vertex": "^5.0.95",
-		"@ai-sdk/groq": "^4.0.50",
-		"@ai-sdk/huggingface": "^2.0.57",
-		"@ai-sdk/mistral": "^4.0.52",
-		"@ai-sdk/openai": "^4.0.78",
-		"@ai-sdk/openai-compatible": "^3.0.57",
-		"@ai-sdk/perplexity": "^5.0.0",
 		"@ai-sdk/svelte": "^5.0.116",
-		"@ai-sdk/togetherai": "^3.0.58",
-		"@ai-sdk/xai": "^5.0.10",
+		"@chat-aide/core": "workspace:*",
 		"@lucide/svelte": "^1.48.0",
-		"@openrouter/ai-sdk-provider": "^3.1.0",
 		"ai": "^7.0.116",
 		"bits-ui": "^2.19.3",
 		"clsx": "^2.1.1",
-		"linkedom": "^0.18.13",
-		"marked": "^18.0.14",
 		"tailwind-merge": "^3.7.0",
-		"tailwind-variants": "^3.3.1",
-		"zod": "^4.6.5"
+		"tailwind-variants": "^3.3.1"
 	},
 	"peerDependencies": {
 		"@sveltejs/kit": "^2",
-		"@vercel/functions": "^3",
 		"svelte": "^5"
-	},
-	"peerDependenciesMeta": {
-		"@vercel/functions": {
-			"optional": true
-		}
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
@@ -115,6 +87,7 @@
 		"eslint-plugin-svelte": "^3.23.0",
 		"globals": "^17.12.0",
 		"happy-dom": "^20.14.5",
+		"linkedom": "^0.18.13",
 		"publint": "^0.3.24",
 		"shadcn-svelte": "^1.7.0",
 		"svelte": "^5.57.1",

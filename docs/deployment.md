@@ -123,7 +123,7 @@ address header or pass `clientKey`, or every visitor shares the proxy's rate-lim
 
 ## Warnings
 
-The library logs only these, each once, prefixed `[svelte-chat-aide]`:
+The library logs only these, each once, prefixed `[chat-aide]`:
 
 - the app answers the chat endpoint itself (at the first such request);
 - a handler mounted directly with no `origin` configured (at its first request);

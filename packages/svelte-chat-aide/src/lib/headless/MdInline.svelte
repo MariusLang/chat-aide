@@ -7,7 +7,7 @@
 	/* eslint-disable svelte/no-navigation-without-resolve -- hrefs come from answers, already
 	   reduced by parseAnswer to same-origin paths or vetted external URLs; no route id to resolve. */
 	import { goto } from '$app/navigation';
-	import type { MdInline } from '../shared/markdown.js';
+	import type { MdInline } from '@chat-aide/core/client';
 	import Self from './MdInline.svelte';
 
 	let { nodes }: { nodes: MdInline[] } = $props();

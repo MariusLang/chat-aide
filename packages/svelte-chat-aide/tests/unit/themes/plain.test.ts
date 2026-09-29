@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import { parseHTML } from 'linkedom';
-import { extract } from '../../../src/lib/site/extract';
+import { extract } from '@chat-aide/core/extract';
 import { ChatWidget, ChatWindow, createChat } from '../../../src/lib/themes/plain/index';
 
 const CSS = readFileSync(
