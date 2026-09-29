@@ -74,6 +74,8 @@ adapter come with the package, so this one command is the whole install.
 
 - `packages/svelte-chat-aide` — the library
 - `apps/demo` — a SvelteKit site using it (adapter-node, mock model) and the Playwright suite
+- `apps/website` — the project website and rendered docs, running svelte-chat-aide on itself
+  (`AIDE_PREVIEW=1 pnpm --filter website dev` runs it without a provider key)
 - `spec.md` — the specification
 
 `pnpm check` runs svelte-check, eslint, vitest, Playwright, publint and `pnpm audit`.

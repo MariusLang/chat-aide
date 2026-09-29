@@ -1,0 +1,47 @@
+# Introduction
+
+svelte-chat-aide puts an AI chat on your own SvelteKit site. It answers from your pages, and
+nothing else, and it also serves an `llms.txt` for the site. You install one package, add one
+line to `hooks.server.ts` and drop `<ChatWidget />` into your root layout.
+
+## How it works
+
+There is no indexing step, no vector database and nothing to commit. When the first visitor opens
+the chat, the server reads your pages from the running app, anonymously, and keeps a map of them in
+memory. Each answer gets three things:
+
+- the text of the page the visitor is on;
+- an outline of every other page (title, description, headings);
+- one tool, `read_page`, that reads a single page of this site and nothing else.
+
+So when you publish a page, the chat knows about it after the next cache refresh
+(`cache.ttlSeconds`, one hour by default).
+
+## What you get
+
+- **A chat widget** in three layers: a shadcn-svelte theme (the default) that follows your
+  shadcn variables, a dependency-free plain theme, and a headless store with unstyled parts.
+- **Any provider the AI SDK has an adapter for**: Anthropic, OpenAI, Google, Mistral, Groq,
+  Bedrock, Azure, OpenRouter, any OpenAI-compatible server, and more. Requests go straight to the
+  provider; SDK telemetry is off.
+- **Bounded cost**: a per-visitor rate limit, a per-visitor and a site-wide daily token budget,
+  hard limits on every input, and prompt caching where the provider supports it.
+- **`/llms.txt`, `/llms-full.txt` and `<route>.md`**, generated from the same map, unless your app
+  already answers those paths.
+
+## What it is not
+
+It is not a hosted service, not a RAG platform and not for `adapter-static` sites: it needs a
+server at run time. It stores nothing on the server beyond an in-memory cache.
+
+## This website runs on it
+
+The chat in the corner of this site is svelte-chat-aide itself, with the shadcn theme and the
+default settings. It has read these docs the same way it would read yours. Ask it how to install,
+which provider to pick or how to restyle the widget.
+
+## Where next
+
+- [Getting started](/docs/getting-started): install, wire, verify.
+- [Customizing](/docs/customizing): prompt, persona, suggestions, strings and your own widget.
+- [Configuration](/docs/configuration): every option and limit.
