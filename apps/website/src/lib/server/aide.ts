@@ -26,10 +26,11 @@ function aideHandle(): AideHandle {
 		},
 		facts: [
 			'This website is itself built with SvelteKit and uses svelte-chat-aide for this chat, with the default shadcn theme.',
-			'The package is MIT licensed. It is not published to npm yet.'
+			'The package is MIT licensed. It is not published to npm yet.',
+			'It works on SvelteKit (svelte-chat-aide), on Next.js with React (@chat-aide/next and @chat-aide/react), and on any framework with web-standard Request/Response through createAide from @chat-aide/core (Astro, React Router, Hono, Nuxt, Bun).'
 		],
 		suggestions: {
-			'*': ['How do I get started?', 'Which AI providers can I use?', 'How do I change the look of the chat?'],
+			'*': ['How do I get started?', 'Does it work with Next.js?', 'Which AI providers can I use?'],
 			'/docs/providers': ['How do I use OpenAI instead of Anthropic?'],
 			'/docs/deployment': ['Does it work on Vercel?'],
 			'/docs/security': ['Can someone abuse my API key?']

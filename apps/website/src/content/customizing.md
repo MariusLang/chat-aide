@@ -4,6 +4,10 @@ Everything below is optional. The defaults give a working chat; this page shows 
 are most likely to turn, from the server prompt to a widget you build yourself. The full lists are
 in [Configuration](configuration.md) and [Theming](theming.md).
 
+The server options are the same on every framework: pass them to `aide()` on SvelteKit, or to
+`createAide()` on Next.js and elsewhere. The widget examples are Svelte; the React
+`<ChatWidget>` takes the same props (see [Next.js and React](nextjs.md#the-react-widget)).
+
 ## Shape the answers
 
 The server assembles the prompt from your system prompt, a persona, extra facts and the site

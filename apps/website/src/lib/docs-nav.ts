@@ -13,9 +13,14 @@ export interface DocGroup {
 export const DOCS_NAV: DocGroup[] = [
 	{
 		title: 'Start here',
+		items: [{ slug: 'introduction', title: 'Introduction', blurb: 'What it is, how it reads your site.' }]
+	},
+	{
+		title: 'Frameworks',
 		items: [
-			{ slug: 'introduction', title: 'Introduction', blurb: 'What it is, how it reads your site.' },
-			{ slug: 'getting-started', title: 'Getting started', blurb: 'Install, add the hook and the widget.' }
+			{ slug: 'getting-started', title: 'SvelteKit', blurb: 'Install, add the hook and the widget.' },
+			{ slug: 'nextjs', title: 'Next.js and React', blurb: 'Route handlers and the React widget.' },
+			{ slug: 'other-frameworks', title: 'Other frameworks', blurb: 'Astro, React Router, Hono, Nuxt, Bun.' }
 		]
 	},
 	{

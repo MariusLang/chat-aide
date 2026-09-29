@@ -7,8 +7,8 @@
 	import Logo from './Logo.svelte';
 
 	const links = [
-		{ href: '/docs', label: 'Docs', active: (p: string) => p.startsWith('/docs') && p !== '/docs/getting-started' },
-		{ href: '/docs/getting-started', label: 'Get started', active: (p: string) => p === '/docs/getting-started' }
+		{ href: '/docs', label: 'Docs', active: (p: string) => p.startsWith('/docs') },
+		{ href: '/docs/introduction#pick-your-framework', label: 'Get started', active: () => false }
 	];
 </script>
 

@@ -7,6 +7,7 @@
 	import CrowdScene from '$lib/components/illustrations/CrowdScene.svelte';
 	import InstallCommand from '$lib/components/site/InstallCommand.svelte';
 	import { parallax } from '$lib/actions/parallax';
+	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { chatUi } from '$lib/chat.svelte';
 	import { page } from '$app/state';
 
@@ -44,7 +45,7 @@
 					A drop-in AI chat that has read every page of your site. One package, one hook, one component.
 				</p>
 				<div class="mt-8 flex flex-wrap gap-3">
-					<Button size="lg" href="/docs/getting-started" class="h-11 px-5 text-[0.95rem]">Get started</Button>
+					<Button size="lg" href="/docs/introduction#pick-your-framework" class="h-11 px-5 text-[0.95rem]">Get started</Button>
 					{#if chatOn}
 						<Button size="lg" variant="outline" class="h-11 px-5 text-[0.95rem]" onclick={() => (chatUi.open = true)}>
 							<PixelIcon name="message" /> Ask this site
@@ -56,6 +57,9 @@
 				<div class="mt-8">
 					<InstallCommand />
 				</div>
+				<p class="text-muted-foreground mt-4 text-sm">
+					For SvelteKit, Next.js and React, and any server that speaks <code class="font-mono">fetch</code>.
+				</p>
 			</div>
 			<div class="relative mx-auto w-full max-w-xl">
 				<HeroScene />
@@ -94,27 +98,47 @@
 			<h2 class="font-display max-w-xl text-4xl text-balance sm:text-5xl">
 				Running in three steps.
 			</h2>
-			<ol class="mt-14 space-y-10">
-				{#each data.steps as step, i (step.title)}
-					<li class="grid min-w-0 gap-4 md:grid-cols-[16rem_1fr] md:gap-10">
-						<div class="flex items-start gap-3 md:pt-3">
-							<span
-								class="bg-primary text-primary-foreground font-display grid size-8 shrink-0 place-items-center text-sm"
-							>
-								{i + 1}
-							</span>
-							<h3 class="pt-1 text-lg font-semibold">{step.title}</h3>
-						</div>
-						<div class="bg-card px-border px-soft m-[3px] min-w-0 overflow-hidden">
-							<div class="text-muted-foreground border-b-[3px] px-4 py-2 font-mono text-xs">{step.file}</div>
-							<!-- eslint-disable-next-line svelte/no-at-html-tags -- highlighted on the server from constants -->
-							<div class="snippet">{@html step.html}</div>
-						</div>
-					</li>
+			<Tabs.Root value="sveltekit" class="mt-12">
+				<Tabs.List class="bg-transparent h-auto gap-3 p-0">
+					{#each data.frameworks as f (f.id)}
+						<Tabs.Trigger
+							value={f.id}
+							class="border-border data-active:border-foreground data-active:bg-primary data-active:text-primary-foreground! dark:data-active:text-primary-foreground! dark:data-active:bg-primary dark:data-active:border-foreground h-11 flex-none border-[3px] px-5 text-base font-semibold data-active:shadow-none"
+						>
+							{f.label}
+						</Tabs.Trigger>
+					{/each}
+				</Tabs.List>
+				{#each data.frameworks as f (f.id)}
+					<Tabs.Content value={f.id} class="mt-10">
+						<ol class="space-y-10">
+							{#each f.steps as step, i (step.title)}
+								<li class="grid min-w-0 gap-4 md:grid-cols-[16rem_1fr] md:gap-10">
+									<div class="flex items-start gap-3 md:pt-3">
+										<span
+											class="bg-primary text-primary-foreground font-display grid size-8 shrink-0 place-items-center text-sm"
+										>
+											{i + 1}
+										</span>
+										<h3 class="pt-1 text-lg font-semibold">{step.title}</h3>
+									</div>
+									<div class="bg-card px-border px-soft m-[3px] min-w-0 overflow-hidden">
+										<div class="text-muted-foreground border-b-[3px] px-4 py-2 font-mono text-xs">{step.file}</div>
+										<!-- eslint-disable-next-line svelte/no-at-html-tags -- highlighted on the server from constants -->
+										<div class="snippet">{@html step.html}</div>
+									</div>
+								</li>
+							{/each}
+						</ol>
+						<p class="text-muted-foreground mt-10">
+							That is the whole install. <a href={f.guide} class="font-semibold bg-marker text-black px-1">Read the {f.label} guide</a> for providers, origin and verification.
+						</p>
+					</Tabs.Content>
 				{/each}
-			</ol>
-			<p class="text-muted-foreground mt-10">
-				That is the whole install. <a href="/docs/getting-started" class="font-semibold bg-marker text-black px-1">Read the guide</a> for providers, origin and verification.
+			</Tabs.Root>
+			<p class="text-muted-foreground mt-6">
+				On Astro, React Router, Hono, Nuxt or Bun, mount the same server with <code class="font-mono text-sm">createAide</code>:
+				<a href="/docs/other-frameworks" class="text-foreground font-semibold underline underline-offset-4">other frameworks</a>.
 			</p>
 		</div>
 	</section>

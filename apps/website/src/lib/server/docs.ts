@@ -40,7 +40,7 @@ export interface Doc {
 	next?: DocLink;
 }
 
-const LANGS = ['ts', 'js', 'svelte', 'sh', 'css', 'json', 'html'];
+const LANGS = ['ts', 'tsx', 'js', 'svelte', 'sh', 'css', 'json', 'html'];
 const highlighter = await createHighlighter({ themes: ['github-light', 'github-dark'], langs: LANGS });
 
 /** GitHub's heading anchors, so `deployment.md#without-origin` links keep working. */

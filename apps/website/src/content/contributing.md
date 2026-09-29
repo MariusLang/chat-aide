@@ -11,26 +11,31 @@ You need Node 24 or newer and pnpm 10.
 git clone <repository-url> svelte-chat-aide
 cd svelte-chat-aide
 pnpm install
-pnpm --filter svelte-chat-aide build
+pnpm -r --filter './packages/**' build
 ```
 
-The apps import the library from its built `dist`, so build it once before starting an app, and
-again after changing it.
+The apps import the packages from their built `dist`, so build them once before starting an app,
+and again after changing one.
 
 ## Repository layout
 
 | path | what |
 |---|---|
-| `packages/svelte-chat-aide` | the library: server handler, site reader, llms.txt, the three widget layers |
-| `apps/demo` | a test site with a mock model, and the Playwright suite |
+| `packages/core` | `@chat-aide/core`: the framework-neutral server, site reader, llms.txt and widget helpers |
+| `packages/svelte-chat-aide` | the SvelteKit hook and the three Svelte widget layers |
+| `packages/react` | `@chat-aide/react`: the React widget and `useAide` |
+| `packages/next` | `@chat-aide/next`: Next.js route handlers |
+| `apps/demo` | a SvelteKit test site with a mock model, and its Playwright suite |
+| `apps/demo-next` | a Next.js test site with the React widget, and its Playwright suite |
 | `apps/demo-plain-host` | a site without Tailwind or shadcn, for the plain theme |
 | `apps/website` | this website |
 | `docs/` | the documentation, rendered on this site |
 | `spec.md` | the specification the library is built against |
 
-Inside the library, `src/lib/server` holds the hook and chat handler, `src/lib/site` the crawler
-and page reader, `src/lib/llms` the `llms.txt` routes, `src/lib/headless` the store and unstyled
-components, and `src/lib/themes` the shadcn and plain themes.
+Inside the core, `src/server` holds the chat handler and the web-standard adapter, `src/site` the
+crawler and page reader, `src/llms` the `llms.txt` routes and `src/client` the browser helpers the
+widgets share. The Svelte package adds `src/lib/server/hook.ts`, `src/lib/headless` and
+`src/lib/themes`.
 
 ## Run this website
 
@@ -62,12 +67,13 @@ From the repository root:
 pnpm check
 ```
 
-runs svelte-check, eslint, vitest, the Playwright suite, publint and `pnpm audit`. CI runs the same
+runs the type checks, eslint, vitest, both Playwright suites (SvelteKit and Next.js), publint and
+`pnpm audit`. CI runs the same
 command on Node 24 and 22.
 
 ## Edit the docs
 
-The pages under Guides, Operate and Getting started come straight from `docs/*.md` in the
+The pages under Frameworks, Guides and Operate come straight from `docs/*.md` in the
 repository; this site renders them at run time. Links between them are ordinary relative links
 (`providers.md#fromenv`), so they work on GitHub and here. The Introduction, Customizing and
 Contributing pages live in `apps/website/src/content`.
