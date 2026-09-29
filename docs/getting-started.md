@@ -1,5 +1,8 @@
 # Getting started
 
+This guide is for SvelteKit. On Next.js see [Next.js and React](nextjs.md); on Astro, React
+Router, Hono, Nuxt or Bun see [Other frameworks](other-frameworks.md).
+
 ## 1. Install
 
 ```sh
