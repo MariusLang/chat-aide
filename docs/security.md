@@ -71,7 +71,8 @@ The origin reads go to is `config.origin`, never the request's `Host`. See
 
 ## Prompt injection
 
-Page text and messages sit in delimited data blocks that the system prompt names as data. The one
+Page text and messages sit in delimited data blocks that the system prompt names as data, and the
+site outline, built from crawled titles, headings and descriptions, is delimited too. The one
 tool reads pages of this site and nothing else; there is no tool that fetches, writes or
 navigates. But crawled text reaches every visitor's prompt, so text a visitor wrote (comments,
 forum posts, reviews, profile fields) can carry instructions to other visitors' chats.

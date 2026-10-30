@@ -91,9 +91,11 @@ function renderFacts(facts: string | string[] | undefined): string | null {
 }
 
 function renderOutline(outline: string, partial: boolean): string {
-	const parts = ['## Site outline', outline.trim()];
+	const body = outline.trim();
+	const parts = ['## Site outline'];
+	if (body.length > 0) parts.push(dataBlock('outline', body));
 	if (partial) parts.push(PARTIAL_NOTE);
-	return parts.filter((p) => p.length > 0).join('\n\n');
+	return parts.join('\n\n');
 }
 
 function renderPage(page: PromptInput['page'], ctx: PromptContext, pageChars: number): string {
