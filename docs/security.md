@@ -127,5 +127,6 @@ set `--aide-offset-x` / `--aide-offset-y` from your own stylesheet instead ([The
 
 ## Supply chain
 
-No `postinstall`, no `bin`; dependencies are caret ranges within a major; `pnpm audit --prod` runsin CI. SDK telemetry is disabled on every `streamText` call, even when the host app registered a
+No `postinstall`, no `bin`; dependencies are caret ranges within a major; `pnpm audit --prod --audit-level moderate`
+runs in CI. SDK telemetry is disabled on every `streamText` call, even when the host app registered a
 telemetry integration.
