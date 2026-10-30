@@ -61,6 +61,8 @@ function resolveLink(href: string, ctx: Ctx): { href: string; external: boolean 
 	}
 	if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
 	if (url.origin === ctx.origin) {
+		// `/.//evil.com` keeps this origin but its bare path would be a protocol-relative href.
+		if (url.pathname.startsWith('//')) return null;
 		return { href: url.pathname + url.search + url.hash, external: false };
 	}
 	return ctx.any ? { href: url.href, external: true } : null;

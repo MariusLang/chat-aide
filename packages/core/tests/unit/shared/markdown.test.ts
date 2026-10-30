@@ -128,6 +128,39 @@ describe('parseAnswer — hostile corpus', () => {
 		});
 	});
 
+	it.each([
+		'[x](/.//evil.com/x)',
+		'[x](/..//evil.com/x)',
+		'[x](/.\\\\/evil.com/x)',
+		'[x](https://site.dev//evil.com/x)'
+	])('same-origin path that would render protocol-relative is text in %j', (md) => {
+		for (const opts of [SAME, ANY]) {
+			expect(parseAnswer(md, opts)).toEqual([{ t: 'p', c: [{ t: 'text', v: 'x' }] }]);
+		}
+	});
+
+	// `\/` is a markdown escape and `\\/` a literal backslash: both resolve to evil.com itself,
+	// so these are ordinary cross-origin links rather than same-origin paths.
+	it.each(['[x](/\\/evil.com)', '[x](/\\\\/evil.com)'])(
+		'slash-backslash href %j is treated as another host',
+		(md) => {
+			expect(parseAnswer(md, SAME)).toEqual([{ t: 'p', c: [{ t: 'text', v: 'x' }] }]);
+			expect(links(parseAnswer(md, ANY))[0]).toMatchObject({
+				href: 'https://evil.com/',
+				external: true
+			});
+		}
+	);
+
+	it('a double slash later in a same-origin path still links', () => {
+		for (const opts of [SAME, ANY]) {
+			expect(links(parseAnswer('[x](/a//b)', opts))[0]).toMatchObject({
+				href: '/a//b',
+				external: false
+			});
+		}
+	});
+
 	it('autolink to another host is text under same-origin', () => {
 		const out = parseAnswer('see https://other.dev now', SAME);
 		expect(links(out)).toHaveLength(0);
