@@ -1,7 +1,7 @@
 # Providers
 
 `provider.name` is one row of the registry below. Every adapter package is a dependency of
-`svelte-chat-aide`, installed with it; the one you name is loaded with a dynamic `import()` when
+`@chat-aide/sveltekit`, installed with it; the one you name is loaded with a dynamic `import()` when
 the handler is created, and the others are never loaded. Should an adapter be missing anyway (a
 pruned install), `handle.handler.ready` and the first request reject with the exact `pnpm add`
 line.
@@ -104,21 +104,21 @@ for what keeps the prefix stable.
 
 | variable | maps to | required |
 |---|---|---|
-| `SVELTE_CHAT_AIDE_PROVIDER` | `provider.name` | always |
-| `SVELTE_CHAT_AIDE_MODEL` | `provider.model` | always |
-| `SVELTE_CHAT_AIDE_API_KEY` | `provider.apiKey` | every key-based row (all rows marked `apiKey` (required) above, `azure` included) |
-| `SVELTE_CHAT_AIDE_BASE_URL` | `provider.baseURL` | `openai-compatible`; optional elsewhere |
-| `SVELTE_CHAT_AIDE_REGION` | `provider.region` | `amazon-bedrock` |
-| `SVELTE_CHAT_AIDE_PROJECT`, `SVELTE_CHAT_AIDE_LOCATION` | `provider.project`, `provider.location` | `google-vertex` |
-| `SVELTE_CHAT_AIDE_RESOURCE_NAME` | `provider.resourceName` | `azure`, unless `SVELTE_CHAT_AIDE_BASE_URL` is set |
-| `SVELTE_CHAT_AIDE_OPTIONS` | `provider.options`, parsed as a JSON object | optional |
+| `CHAT_AIDE_PROVIDER` | `provider.name` | always |
+| `CHAT_AIDE_MODEL` | `provider.model` | always |
+| `CHAT_AIDE_API_KEY` | `provider.apiKey` | every key-based row (all rows marked `apiKey` (required) above, `azure` included) |
+| `CHAT_AIDE_BASE_URL` | `provider.baseURL` | `openai-compatible`; optional elsewhere |
+| `CHAT_AIDE_REGION` | `provider.region` | `amazon-bedrock` |
+| `CHAT_AIDE_PROJECT`, `CHAT_AIDE_LOCATION` | `provider.project`, `provider.location` | `google-vertex` |
+| `CHAT_AIDE_RESOURCE_NAME` | `provider.resourceName` | `azure`, unless `CHAT_AIDE_BASE_URL` is set |
+| `CHAT_AIDE_OPTIONS` | `provider.options`, parsed as a JSON object | optional |
 
 It throws, naming the variable, when a required one is missing, the name is not a row, or
 `OPTIONS` is not a JSON object. It never falls back to a provider's conventional variable
 (`ANTHROPIC_API_KEY`). `custom` cannot come from the environment. Values passed beside it win:
 
 ```ts
-import { aide, fromEnv } from 'svelte-chat-aide/server';
+import { aide, fromEnv } from '@chat-aide/sveltekit/server';
 import { env } from '$env/dynamic/private';
 
 export const handle = aide({
@@ -127,5 +127,5 @@ export const handle = aide({
 });
 ```
 
-(Bedrock's access keys and Vertex's `credentials` have no `SVELTE_CHAT_AIDE_*` variable; pass
+(Bedrock's access keys and Vertex's `credentials` have no `CHAT_AIDE_*` variable; pass
 them like this, or rely on the platform's default credential chain.)

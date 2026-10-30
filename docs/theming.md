@@ -4,10 +4,10 @@ Three layers, each importable on its own:
 
 | import | what |
 |---|---|
-| `svelte-chat-aide` or `svelte-chat-aide/themes/shadcn` | the default theme: shadcn-svelte components, precompiled Tailwind 4 styles |
-| `svelte-chat-aide/themes/plain` | no dependencies, one stylesheet of `--aide-*` custom properties |
-| `svelte-chat-aide/headless` | `createChat` and unstyled components with `data-part` attributes |
-| `svelte-chat-aide/extract` | the page-text extractor (`extract(document)`), for a custom widget |
+| `@chat-aide/sveltekit` or `@chat-aide/sveltekit/themes/shadcn` | the default theme: shadcn-svelte components, precompiled Tailwind 4 styles |
+| `@chat-aide/sveltekit/themes/plain` | no dependencies, one stylesheet of `--aide-*` custom properties |
+| `@chat-aide/sveltekit/headless` | `createChat` and unstyled components with `data-part` attributes |
+| `@chat-aide/sveltekit/extract` | the page-text extractor (`extract(document)`), for a custom widget |
 
 ## `<ChatWidget>` props
 
@@ -70,7 +70,7 @@ e.g. inline) and `ChatLauncher`.
 
 ```svelte
 <script>
-	import { ChatWidget } from 'svelte-chat-aide/themes/plain';
+	import { ChatWidget } from '@chat-aide/sveltekit/themes/plain';
 	let { data } = $props();
 </script>
 
@@ -78,7 +78,7 @@ e.g. inline) and `ChatLauncher`.
 ```
 
 The component injects its CSS in one `<style nonce>` in the head. To link it yourself instead:
-`import 'svelte-chat-aide/themes/plain/plain.css'` and `stylesheet={false}`. Every colour, radius,
+`import '@chat-aide/sveltekit/themes/plain/plain.css'` and `stylesheet={false}`. Every colour, radius,
 font and size is a `--aide-*` custom property set at zero specificity, so overriding is one rule:
 
 ```css
@@ -97,7 +97,7 @@ column.
 
 ```svelte
 <script>
-	import { createChat, ChatWidget, ChatWindow } from 'svelte-chat-aide/headless';
+	import { createChat, ChatWidget, ChatWindow } from '@chat-aide/sveltekit/headless';
 	const chat = createChat({ endpoint: '/api/chat' });
 </script>
 

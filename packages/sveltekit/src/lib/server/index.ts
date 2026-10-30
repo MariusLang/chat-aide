@@ -1,5 +1,5 @@
 /**
- * `svelte-chat-aide/server`: the SvelteKit hook, the explicit handler, and the public server
+ * `@chat-aide/sveltekit/server`: the SvelteKit hook, the explicit handler, and the public server
  * types. Everything but the hook comes from `@chat-aide/core`.
  */
 import type { RequestEvent } from '@sveltejs/kit';

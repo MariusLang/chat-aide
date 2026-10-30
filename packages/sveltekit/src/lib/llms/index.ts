@@ -1,5 +1,5 @@
 /**
- * `svelte-chat-aide/llms`: `/llms.txt`, `/llms-full.txt` and `<route>.md` as SvelteKit
+ * `@chat-aide/sveltekit/llms`: `/llms.txt`, `/llms-full.txt` and `<route>.md` as SvelteKit
  * `RequestHandler`s bound to a chat handler, for sites that mount the routes by hand.
  */
 import type { RequestEvent, RequestHandler } from '@sveltejs/kit';

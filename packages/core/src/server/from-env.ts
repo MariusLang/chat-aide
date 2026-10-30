@@ -1,7 +1,7 @@
 import type { ProviderConfig } from '../shared/types.js';
 import { findProvider } from './providers.js';
 
-const PREFIX = 'SVELTE_CHAT_AIDE_';
+const PREFIX = 'CHAT_AIDE_';
 const V = {
 	provider: `${PREFIX}PROVIDER`,
 	model: `${PREFIX}MODEL`,
@@ -23,7 +23,7 @@ class FromEnvError extends Error {
 
 /**
  * Builds a `ProviderConfig` from the environment object handed in (spec §3.2).
- * Reads only the `SVELTE_CHAT_AIDE_*` variables of the table, and nothing from the process.
+ * Reads only the `CHAT_AIDE_*` variables of the table, and nothing from the process.
  */
 export function fromEnv(env: Record<string, string | undefined>): ProviderConfig {
 	const read = (name: string): string | undefined => {

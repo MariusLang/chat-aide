@@ -74,7 +74,7 @@
 				<path d={notch(10, 98, 130, 78, 4)} fill="var(--spot)" />
 				<text x="20" y="116" font-size="10" font-weight="600" font-family="var(--font-sans)" fill="var(--spot-ink)">One command:</text>
 				<rect x="20" y="124" width="110" height="20" fill="var(--spot-ink)" />
-				<text x="26" y="138" font-size="8.6" textLength="98" lengthAdjust="spacingAndGlyphs" font-family="ui-monospace, monospace" fill="var(--spot)">pnpm add svelte-chat-aide</text>
+				<text x="24" y="137.5" font-size="6.4" textLength="102" lengthAdjust="spacingAndGlyphs" font-family="ui-monospace, monospace" fill="var(--spot)">pnpm add @chat-aide/sveltekit</text>
 				<rect x="20" y="152" width="80" height="6" fill="var(--spot-ink)" opacity="0.7" />
 				<rect x="20" y="163" width="56" height="6" fill="var(--spot-ink)" opacity="0.45" />
 			</g>

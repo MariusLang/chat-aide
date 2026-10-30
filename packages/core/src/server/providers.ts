@@ -20,12 +20,12 @@ export interface ProviderRow {
 	/** For `@ai-sdk/openai-compatible` presets. */
 	preset?: { baseURL: string; keyless?: boolean; providerName: string };
 	credentials: 'apiKey' | 'none' | 'azure' | 'vertex' | 'bedrock' | 'openai-compatible' | 'custom';
-	/** `SVELTE_CHAT_AIDE_*` variables `fromEnv` requires for this row. */
+	/** `CHAT_AIDE_*` variables `fromEnv` requires for this row. */
 	envRequired: string[];
 	cache: CacheMarker;
 }
 
-const API_KEY = 'SVELTE_CHAT_AIDE_API_KEY';
+const API_KEY = 'CHAT_AIDE_API_KEY';
 
 function keyed(
 	name: string,
@@ -78,7 +78,7 @@ export const PROVIDERS: readonly ProviderRow[] = Object.freeze([
 		factory: 'createAzure',
 		cache: 'none',
 		credentials: 'azure',
-		envRequired: [API_KEY, 'SVELTE_CHAT_AIDE_RESOURCE_NAME']
+		envRequired: [API_KEY, 'CHAT_AIDE_RESOURCE_NAME']
 	},
 	keyed('google', '@ai-sdk/google', 'createGoogle', 'https://generativelanguage.googleapis.com/v1beta', {
 		aliases: ['gemini']
@@ -88,7 +88,7 @@ export const PROVIDERS: readonly ProviderRow[] = Object.freeze([
 		pkg: '@ai-sdk/google-vertex',
 		factory: 'createGoogleVertex',
 		credentials: 'vertex',
-		envRequired: ['SVELTE_CHAT_AIDE_PROJECT', 'SVELTE_CHAT_AIDE_LOCATION'],
+		envRequired: ['CHAT_AIDE_PROJECT', 'CHAT_AIDE_LOCATION'],
 		cache: 'none'
 	},
 	{
@@ -96,7 +96,7 @@ export const PROVIDERS: readonly ProviderRow[] = Object.freeze([
 		pkg: '@ai-sdk/amazon-bedrock',
 		factory: 'createAmazonBedrock',
 		credentials: 'bedrock',
-		envRequired: ['SVELTE_CHAT_AIDE_REGION'],
+		envRequired: ['CHAT_AIDE_REGION'],
 		cache: 'bedrock'
 	},
 	keyed('mistral', '@ai-sdk/mistral', 'createMistral', 'https://api.mistral.ai/v1'),
@@ -122,7 +122,7 @@ export const PROVIDERS: readonly ProviderRow[] = Object.freeze([
 		pkg: '@ai-sdk/openai-compatible',
 		factory: 'createOpenAICompatible',
 		credentials: 'openai-compatible',
-		envRequired: ['SVELTE_CHAT_AIDE_BASE_URL'],
+		envRequired: ['CHAT_AIDE_BASE_URL'],
 		cache: 'none'
 	},
 	{ name: 'custom', pkg: '', factory: '', credentials: 'custom', envRequired: [], cache: 'none' }

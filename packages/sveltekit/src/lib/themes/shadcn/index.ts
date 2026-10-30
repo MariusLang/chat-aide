@@ -1,5 +1,5 @@
 /**
- * `svelte-chat-aide/themes/shadcn` (spec §3.9 layer 3): the default theme, re-exported by the
+ * `@chat-aide/sveltekit/themes/shadcn` (spec §3.9 layer 3): the default theme, re-exported by the
  * package root. Built from shadcn-svelte components (generated into `./ui`) and Tailwind 4
  * classes under `prefix(aide)`, precompiled into `./styles.css`, which the components import.
  */

@@ -7,7 +7,7 @@
 	<h1 class="text-3xl font-bold">Install</h1>
 	<p>Adding the chat takes three steps and no generated files.</p>
 	<ol class="list-decimal space-y-2 pl-6">
-		<li>Run <code>pnpm add svelte-chat-aide ai</code> together with the adapter of your provider.</li>
+		<li>Run <code>pnpm add @chat-aide/sveltekit ai</code> together with the adapter of your provider.</li>
 		<li>Export the <code>aide()</code> hook from <code>src/hooks.server.ts</code> with your provider.</li>
 		<li>Mount <code>&lt;ChatWidget /&gt;</code> in your root layout.</li>
 	</ol>

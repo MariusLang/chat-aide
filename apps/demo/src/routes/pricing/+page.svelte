@@ -1,6 +1,6 @@
 <svelte:head>
 	<title>Pricing</title>
-	<meta name="description" content="svelte-chat-aide is free; you pay your model provider." />
+	<meta name="description" content="@chat-aide/sveltekit is free; you pay your model provider." />
 </svelte:head>
 
 <article class="space-y-4">

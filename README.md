@@ -24,19 +24,19 @@ run time), and it stores nothing on the server.
 
 | framework | server | widget | guide |
 |---|---|---|---|
-| SvelteKit | `svelte-chat-aide` (hook) | `svelte-chat-aide` (shadcn, plain, headless) | [Getting started](docs/getting-started.md) |
+| SvelteKit | `@chat-aide/sveltekit` (hook) | `@chat-aide/sveltekit` (shadcn, plain, headless) | [Getting started](docs/getting-started.md) |
 | Next.js | `@chat-aide/next` (route handlers) | `@chat-aide/react` | [Next.js and React](docs/nextjs.md) |
 | Astro, React Router, Hono, Nuxt, Bun, … | `@chat-aide/core` (`createAide`, web `Request`/`Response`) | `@chat-aide/react` where React runs | [Other frameworks](docs/other-frameworks.md) |
 
 ## Quick start (SvelteKit)
 
 ```sh
-pnpm add svelte-chat-aide
+pnpm add @chat-aide/sveltekit
 ```
 
 ```ts
 // src/hooks.server.ts
-import { aide } from 'svelte-chat-aide/server';
+import { aide } from '@chat-aide/sveltekit/server';
 import { ANTHROPIC_API_KEY } from '$env/static/private';
 import { env } from '$env/dynamic/private';
 
@@ -49,7 +49,7 @@ export const handle = aide({
 ```svelte
 <!-- src/routes/+layout.svelte -->
 <script>
-	import { ChatWidget } from 'svelte-chat-aide';
+	import { ChatWidget } from '@chat-aide/sveltekit';
 	let { children } = $props();
 </script>
 
@@ -86,7 +86,7 @@ adapter come with the package, so this one command is the whole install.
 ## Repository
 
 - `packages/core` — `@chat-aide/core`: the framework-neutral server, site reader, `llms.txt` and widget helpers
-- `packages/svelte-chat-aide` — `svelte-chat-aide`: the SvelteKit hook and the Svelte widgets
+- `packages/sveltekit` — `@chat-aide/sveltekit`: the SvelteKit hook and the Svelte widgets
 - `packages/react` — `@chat-aide/react`: the React widget and `useAide`
 - `packages/next` — `@chat-aide/next`: Next.js App Router route handlers
 - `apps/demo` — a SvelteKit site using it (adapter-node, mock model) and the Playwright suite

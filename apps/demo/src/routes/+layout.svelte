@@ -3,9 +3,9 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import { page } from '$app/state';
 	import { ModeWatcher, toggleMode } from 'mode-watcher';
-	import { ChatWidget as ShadcnChatWidget } from 'svelte-chat-aide';
-	import { ChatWidget as PlainChatWidget } from 'svelte-chat-aide/themes/plain';
-	import { ChatWidget as HeadlessChatWidget } from 'svelte-chat-aide/headless';
+	import { ChatWidget as ShadcnChatWidget } from '@chat-aide/sveltekit';
+	import { ChatWidget as PlainChatWidget } from '@chat-aide/sveltekit/themes/plain';
+	import { ChatWidget as HeadlessChatWidget } from '@chat-aide/sveltekit/headless';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { keep, widgetParams } from '$lib/params';
 	import { onMount } from 'svelte';

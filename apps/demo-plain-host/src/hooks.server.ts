@@ -1,7 +1,7 @@
 import { env } from '$env/dynamic/private';
 import type { Handle } from '@sveltejs/kit';
 import { MockLanguageModelV4, simulateReadableStream } from 'ai/test';
-import { aide, fromEnv, type AideHandle } from 'svelte-chat-aide/server';
+import { aide, fromEnv, type AideHandle } from '@chat-aide/sveltekit/server';
 
 /** A mock model for AIDE_MOCK=1 (the Playwright run): it echoes the question. */
 function mockModel() {

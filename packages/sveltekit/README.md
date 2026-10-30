@@ -1,4 +1,4 @@
-# svelte-chat-aide
+# @chat-aide/sveltekit
 
 An AI chat for your own SvelteKit site, and an `llms.txt` for it, both derived from the site at
 run time. Install one package, add one line to `hooks.server.ts`, drop `<ChatWidget />` into the
@@ -22,12 +22,12 @@ at run time), and it stores nothing on the server.
 ## Quick start
 
 ```sh
-pnpm add svelte-chat-aide
+pnpm add @chat-aide/sveltekit
 ```
 
 ```ts
 // src/hooks.server.ts
-import { aide } from 'svelte-chat-aide/server';
+import { aide } from '@chat-aide/sveltekit/server';
 import { ANTHROPIC_API_KEY } from '$env/static/private';
 import { env } from '$env/dynamic/private';
 
@@ -40,7 +40,7 @@ export const handle = aide({
 ```svelte
 <!-- src/routes/+layout.svelte -->
 <script>
-	import { ChatWidget } from 'svelte-chat-aide';
+	import { ChatWidget } from '@chat-aide/sveltekit';
 	let { children } = $props();
 </script>
 
@@ -72,7 +72,7 @@ adapter come with the package, so this one command is the whole install.
 
 ## Repository
 
-- `packages/svelte-chat-aide` — the library
+- `packages/sveltekit` — the library
 - `apps/demo` — a SvelteKit site using it (adapter-node, mock model) and the Playwright suite
 - `spec.md` — the specification
 

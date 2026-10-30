@@ -57,5 +57,5 @@ test('answers about a page it was never told about, by reading it', async ({ pag
 	await ready(page);
 	await openChat(page);
 	const answer = await ask(page, 'what does /docs/install say');
-	await expect(answer).toContainText('pnpm add svelte-chat-aide ai');
+	await expect(answer).toContainText('pnpm add @chat-aide/sveltekit ai');
 });

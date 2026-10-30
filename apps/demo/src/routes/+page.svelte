@@ -5,13 +5,13 @@
 
 <svelte:head>
 	<title>Aide demo — home</title>
-	<meta name="description" content="A demo site for svelte-chat-aide, the AI chat for your own SvelteKit site." />
+	<meta name="description" content="A demo site for @chat-aide/sveltekit, the AI chat for your own SvelteKit site." />
 </svelte:head>
 
 <article class="space-y-4">
 	<h1 class="text-3xl font-bold">Aide demo</h1>
 	<p>
-		This site shows svelte-chat-aide: a chat widget that answers questions about the pages of the site it lives on.
+		This site shows @chat-aide/sveltekit: a chat widget that answers questions about the pages of the site it lives on.
 		Nothing is generated ahead of time; the server reads the site's own pages at run time, the same way a visitor
 		would, and hands the relevant text to the model.
 	</p>

@@ -5,7 +5,7 @@
 <script lang="ts">
 	import favicon from '$lib/assets/favicon.svg';
 	import { onMount } from 'svelte';
-	import { ChatWidget } from 'svelte-chat-aide';
+	import { ChatWidget } from '@chat-aide/sveltekit';
 
 	let { children } = $props();
 

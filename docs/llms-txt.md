@@ -47,5 +47,5 @@ waiting at most `limits.crawlBudgetMs` for it.
 
 A site that already serves `/llms.txt` keeps it: the hook calls `resolve` first. `llms.serve:
 false` turns the serving off entirely. To mount the documents as your own routes, use `llmsTxt`,
-`llmsFullTxt` and `pageMarkdown` from `svelte-chat-aide/llms` ([Getting started → mounting by
+`llmsFullTxt` and `pageMarkdown` from `@chat-aide/sveltekit/llms` ([Getting started → mounting by
 hand](getting-started.md#mounting-by-hand)).

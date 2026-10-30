@@ -15,8 +15,8 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
 	},
 	"dependencies": {
-		"ai": "^7.0.116",
-		"svelte-chat-aide": "workspace:*"
+		"@chat-aide/sveltekit": "workspace:*",
+		"ai": "^7.0.116"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-node": "^5.5.7",

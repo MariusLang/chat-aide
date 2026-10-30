@@ -1,7 +1,7 @@
 <script lang="ts">
 	import PixelIcon from './PixelIcon.svelte';
 
-	let { command = 'pnpm add svelte-chat-aide' }: { command?: string } = $props();
+	let { command = 'pnpm add @chat-aide/sveltekit' }: { command?: string } = $props();
 	let copied = $state(false);
 
 	async function copy() {

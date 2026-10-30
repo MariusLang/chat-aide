@@ -1,7 +1,7 @@
 'use client';
 /**
  * `useAide(options)`: the chat state for a React widget. The same behaviour as the Svelte store
- * (`svelte-chat-aide/headless`'s `createChat`): the per-tab session and thread, the warm-up, the
+ * (`@chat-aide/sveltekit/headless`'s `createChat`): the per-tab session and thread, the warm-up, the
  * `aide` request block, the refusal codes, the callbacks and the `aide:*` window events, all from
  * `@chat-aide/core/client`, over `@ai-sdk/react`'s `useChat`.
  */

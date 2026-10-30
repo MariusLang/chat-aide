@@ -32,12 +32,12 @@ importers:
 
   apps/demo:
     dependencies:
+      '@chat-aide/sveltekit':
+        specifier: workspace:*
+        version: link:../../packages/sveltekit
       ai:
         specifier: ^7.0.116
         version: 7.0.116(zod@4.6.7)
-      svelte-chat-aide:
-        specifier: workspace:*
-        version: link:../../packages/svelte-chat-aide
     devDependencies:
       '@fontsource-variable/inter':
         specifier: ^5.3.0
@@ -130,12 +130,12 @@ importers:
 
   apps/demo-plain-host:
     dependencies:
+      '@chat-aide/sveltekit':
+        specifier: workspace:*
+        version: link:../../packages/sveltekit
       ai:
         specifier: ^7.0.116
         version: 7.0.116(zod@4.6.7)
-      svelte-chat-aide:
-        specifier: workspace:*
-        version: link:../../packages/svelte-chat-aide
     devDependencies:
       '@sveltejs/adapter-node':
         specifier: ^5.5.7
@@ -161,6 +161,9 @@ importers:
 
   apps/website:
     dependencies:
+      '@chat-aide/sveltekit':
+        specifier: workspace:*
+        version: link:../../packages/sveltekit
       ai:
         specifier: ^7.0.116
         version: 7.0.116(zod@4.6.7)
@@ -170,9 +173,6 @@ importers:
       shiki:
         specifier: ^4.4.3
         version: 4.4.3
-      svelte-chat-aide:
-        specifier: workspace:*
-        version: link:../../packages/svelte-chat-aide
     devDependencies:
       '@fontsource-variable/archivo':
         specifier: ^5.3.0
@@ -403,7 +403,7 @@ importers:
         specifier: ^5.0.2
         version: 5.0.2(@types/node@24.19.0)(happy-dom@20.14.5)(vite@8.3.5(@types/node@24.19.0)(jiti@2.7.0))
 
-  packages/svelte-chat-aide:
+  packages/sveltekit:
     dependencies:
       '@ai-sdk/svelte':
         specifier: ^5.0.116
@@ -416,7 +416,7 @@ importers:
         version: 1.48.0(svelte@5.57.1(@typescript-eslint/types@8.70.1))
       ai:
         specifier: ^7.0.116
-        version: 7.0.116(zod@4.6.7)
+        version: 7.0.122(zod@4.6.7)
       bits-ui:
         specifier: ^2.19.3
         version: 2.19.3(@internationalized/date@3.12.4)(@sveltejs/kit@2.70.3(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.1(@typescript-eslint/types@8.70.1))(vite@8.3.5(@types/node@24.19.0)(jiti@2.7.0)))(svelte@5.57.1(@typescript-eslint/types@8.70.1))(typescript@6.0.3)(vite@8.3.5(@types/node@24.19.0)(jiti@2.7.0)))(svelte@5.57.1(@typescript-eslint/types@8.70.1))

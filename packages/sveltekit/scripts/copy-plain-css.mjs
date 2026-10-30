@@ -1,5 +1,5 @@
 // Copies the plain theme's stylesheet from @chat-aide/core into src/lib so svelte-package ships
-// it at svelte-chat-aide/themes/plain/plain.css. The components import it from core directly;
+// it at @chat-aide/sveltekit/themes/plain/plain.css. The components import it from core directly;
 // this copy exists only for hosts that link the file themselves. The copy is git-ignored.
 import { copyFileSync } from 'node:fs';
 import { createRequire } from 'node:module';

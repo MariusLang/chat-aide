@@ -1,5 +1,5 @@
 /**
- * `svelte-chat-aide/headless` (spec §3.9 layer 1): the chat store and unstyled components that
+ * `@chat-aide/sveltekit/headless` (spec §3.9 layer 1): the chat store and unstyled components that
  * render structure with `data-part` attributes and no CSS.
  */
 export {

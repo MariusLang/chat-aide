@@ -15,12 +15,12 @@ const FRAMEWORKS: { id: string; label: string; guide: string; steps: Step[] }[] 
 		label: 'SvelteKit',
 		guide: '/docs/getting-started',
 		steps: [
-			{ title: 'Install the package', file: 'terminal', lang: 'sh', code: 'pnpm add svelte-chat-aide' },
+			{ title: 'Install the package', file: 'terminal', lang: 'sh', code: 'pnpm add @chat-aide/sveltekit' },
 			{
 				title: 'Add the server hook',
 				file: 'src/hooks.server.ts',
 				lang: 'ts',
-				code: `import { aide } from 'svelte-chat-aide/server';
+				code: `import { aide } from '@chat-aide/sveltekit/server';
 import { ANTHROPIC_API_KEY } from '$env/static/private';
 
 export const handle = aide({
@@ -33,7 +33,7 @@ export const handle = aide({
 				file: 'src/routes/+layout.svelte',
 				lang: 'svelte',
 				code: `<script>
-	import { ChatWidget } from 'svelte-chat-aide';
+	import { ChatWidget } from '@chat-aide/sveltekit';
 	let { children } = $props();
 </script>
 
