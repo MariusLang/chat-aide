@@ -319,6 +319,83 @@ describe('createChatHandler: read_page', () => {
 		await (await handler(makeEvent(site, { body: chatBody() }))).text();
 		expect(promptText(model, 1)).toContain('Hidden page.');
 	});
+
+	function expectNoToolData(body: string) {
+		expect(body).not.toContain('Hidden page.');
+		expect(body).not.toContain('/hidden');
+		expect(body).not.toContain('read_page');
+		expect(body).not.toContain('"type":"tool-');
+	}
+
+	it('keeps the tool call and its output off the wire when the turn opens with the call', async () => {
+		const model = toolThenTextModel('/hidden');
+		const { site, handler, cb, settle } = setup({ model, config: { budget: { tokensPerDay: 31 } } });
+		const res = await handler(makeEvent(site, { body: chatBody() }));
+		expect(res.status).toBe(200);
+		const body = await res.text();
+		expectNoToolData(body);
+		expect(body).toContain('Done.');
+		expect(body).toMatch(/"messageMetadata":\{"usage":\{[^}]*"inputTokens":20/);
+		await settle();
+		// The model still got the page, and the server side still sees the call and pays for both steps.
+		expect(promptText(model, 1)).toContain('Hidden page.');
+		const r = cb.onResponse.mock.calls[0]![0];
+		expect(r.toolCalls).toEqual([{ name: 'read_page', input: { route: '/hidden' } }]);
+		const next = await handler(makeEvent(site, { body: chatBody() }));
+		expect(next.status).toBe(200);
+		await next.text();
+		await settle();
+		const over = await handler(makeEvent(site, { body: chatBody() }));
+		expect(over.status).toBe(429);
+	});
+
+	it('streams the text around a tool call and drops the streamed tool input', async () => {
+		const model = new MockLanguageModelV4({
+			doStream: async (options) => {
+				const afterTool = options.prompt[options.prompt.length - 1]?.role === 'tool';
+				if (afterTool) return { stream: convertArrayToReadableStream(textParts('Final answer.')) };
+				const input = JSON.stringify({ route: '/hidden' });
+				return {
+					stream: convertArrayToReadableStream([
+						{ type: 'stream-start', warnings: [] },
+						{ type: 'text-start', id: 't' },
+						{ type: 'text-delta', id: 't', delta: 'Let me check. ' },
+						{ type: 'text-end', id: 't' },
+						{ type: 'tool-input-start', id: 'call-1', toolName: 'read_page' },
+						{ type: 'tool-input-delta', id: 'call-1', delta: input },
+						{ type: 'tool-input-end', id: 'call-1' },
+						{ type: 'tool-call', toolCallId: 'call-1', toolName: 'read_page', input },
+						{ type: 'finish', finishReason: { unified: 'tool-calls', raw: 'tool_use' }, usage: USAGE }
+					] as Part[])
+				};
+			}
+		});
+		const { site, handler } = setup({ model });
+		const res = await handler(makeEvent(site, { body: chatBody() }));
+		expect(res.status).toBe(200);
+		const body = await res.text();
+		expectNoToolData(body);
+		expect(body).toContain('Let me check. ');
+		expect(body).toContain('Final answer.');
+		expect(body).toMatch(/"messageMetadata":\{"usage":\{[^}]*"inputTokens":20/);
+		expect(promptText(model, 1)).toContain('Hidden page.');
+	});
+
+	it('still reports a failure in the step after a tool call, as a mid-stream error', async () => {
+		const model = new MockLanguageModelV4({
+			doStream: async (options) => {
+				if (options.prompt[options.prompt.length - 1]?.role === 'tool') throw new Error('step two sk-SECRET-789');
+				return { stream: convertArrayToReadableStream(toolParts('/hidden', 1)) };
+			}
+		});
+		const { site, handler } = setup({ model });
+		const res = await handler(makeEvent(site, { body: chatBody() }));
+		expect(res.status).toBe(200);
+		const body = await res.text();
+		expectNoToolData(body);
+		expect(body).not.toContain('SECRET');
+		expect(body).toContain('The assistant could not answer just now.');
+	});
 });
 
 describe('createChatHandler: route rule on the body and the warm-up', () => {

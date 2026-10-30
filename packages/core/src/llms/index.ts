@@ -28,8 +28,9 @@ export type EventHandler<E extends AideEvent = AideEvent> = (event: E) => Promis
 const TEXT = 'text/plain; charset=utf-8';
 const MARKDOWN = 'text/markdown; charset=utf-8';
 
+/** `no-store`: anyone can send `x-aide-internal`, and a CDN must not keep that `404` for everyone. */
 function notFound(): Response {
-	return new Response('Not found', { status: 404, headers: { 'content-type': TEXT } });
+	return new Response('Not found', { status: 404, headers: { 'content-type': TEXT, 'cache-control': 'no-store' } });
 }
 
 function document(handler: ChatHandler<never>, body: string, type: string, head: boolean): Response {
@@ -73,7 +74,7 @@ export function llmsTxt<E extends AideEvent>(handler: ChatHandler<E>): EventHand
 		if (!answerable(event)) return notFound();
 		const ready = await prepare(handler, event);
 		if ('limited' in ready) return ready.limited;
-		const body = renderLlmsTxt(handler.siteMap.site(), handler.siteMap.pages(), serveOptions(handler));
+		const body = renderLlmsTxt(handler.siteMap.servedSite(), handler.siteMap.pages(), serveOptions(handler));
 		return document(handler, body, TEXT, event.request.method.toUpperCase() === 'HEAD');
 	};
 }
@@ -83,7 +84,7 @@ export function llmsFullTxt<E extends AideEvent>(handler: ChatHandler<E>): Event
 		if (!answerable(event)) return notFound();
 		const ready = await prepare(handler, event);
 		if ('limited' in ready) return ready.limited;
-		const body = renderLlmsFull(handler.siteMap.site(), handler.siteMap.pages(), serveOptions(handler));
+		const body = renderLlmsFull(handler.siteMap.servedSite(), handler.siteMap.pages(), serveOptions(handler));
 		return document(handler, body, MARKDOWN, event.request.method.toUpperCase() === 'HEAD');
 	};
 }

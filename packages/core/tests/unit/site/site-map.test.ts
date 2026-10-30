@@ -423,6 +423,7 @@ describe('site map: pages.source', () => {
 		expect(await map.readForTool('/cms/a')).toMatchObject({ route: '/cms/a', text: 'a text', source: 'source' });
 		expect(await map.readForTool('/elsewhere')).toBeNull();
 		expect(map.site()).toEqual({ title: 'CMS Home', summary: 'From the CMS' });
+		expect(map.servedSite()).toEqual({ title: '' });
 		expect(map.outline(6000).text).toContain('[A](/cms/a)');
 		expect(site.calls).toEqual([]);
 	});

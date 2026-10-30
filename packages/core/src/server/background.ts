@@ -21,7 +21,7 @@ export type WaitUntil = (p: Promise<unknown>) => void;
 
 type ErrorHandler = (e: { sessionId: string | null; error: unknown; at: Date }) => unknown;
 
-const VERCEL_CONTEXT = Symbol.for('@vercel/request-context');
+export const VERCEL_CONTEXT = Symbol.for('@vercel/request-context');
 
 const noop = () => {};
 

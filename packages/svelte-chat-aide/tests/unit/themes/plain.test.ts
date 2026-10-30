@@ -7,7 +7,7 @@ import { extract } from '@chat-aide/core/extract';
 import { ChatWidget, ChatWindow, createChat } from '../../../src/lib/themes/plain/index';
 
 const CSS = readFileSync(
-	fileURLToPath(new URL('../../../src/lib/themes/plain/plain.css', import.meta.url)),
+	fileURLToPath(new URL('../../../../core/src/themes/plain.css', import.meta.url)),
 	'utf8'
 );
 const noFetch = (async () => new Response('{}')) as typeof fetch;

@@ -12,7 +12,7 @@
 </script>
 
 <svelte:head>
-	<title>{data.title} · svelte-chat-aide docs</title>
+	<title>{data.title} · chat-aide docs</title>
 	{#if data.description}<meta name="description" content={data.description} />{/if}
 </svelte:head>
 

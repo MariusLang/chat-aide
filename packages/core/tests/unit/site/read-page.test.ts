@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createReader } from '../../../src/site/read-page';
+import { createReader, markdownHrefs, pageFromMarkdown } from '../../../src/site/read-page';
 import { createTransport } from '../../../src/site/transport';
 import { createPageCache } from '../../../src/site/cache';
 import { acceptHref } from '../../../src/site/route';
@@ -158,6 +158,83 @@ describe('readPage: markdown twins', () => {
 		const { site, reader } = setup({ '/a': { body: htmlPage({ title: 'A' }) }, '/a.md': md('# A') });
 		expect((await reader.readPage('/a'))!.source).toBe('render');
 		expect(site.paths()).toEqual(['/a']);
+	});
+});
+
+describe('pageFromMarkdown: headings', () => {
+	const heading = (line: string) => pageFromMarkdown(line).headings;
+
+	it.each([
+		['# Title', 1, 'Title'],
+		['##   Spaced   out  ', 2, 'Spaced out'],
+		['### Closed ###', 3, 'Closed'],
+		['## Closed ##   ', 2, 'Closed'],
+		['# C#', 1, 'C'],
+		['# a # #', 1, 'a #'],
+		['# a ## b', 1, 'a ## b'],
+		['# #tag', 1, '#tag'],
+		['#\tTab', 1, 'Tab']
+	])('reads %j', (line, level, text) => {
+		expect(heading(line)).toEqual([{ level, text }]);
+	});
+
+	it.each(['#', '#nope', ' # indented', '#### deep', '# ', '# ##', '# a\u2028b'])('finds none in %j', (line) => {
+		expect(heading(line)).toEqual([]);
+	});
+
+	it('parses pathological lines correctly and fast', () => {
+		const spaces = ' '.repeat(50_000);
+		const start = performance.now();
+		expect(heading(`# a${spaces}x`)).toEqual([{ level: 1, text: 'a x' }]);
+		expect(heading(`## a${spaces}##`)).toEqual([{ level: 2, text: 'a' }]);
+		expect(heading(`### a${spaces}#${spaces}x`)).toEqual([{ level: 3, text: 'a # x' }]);
+		expect(heading(`#${spaces}`)).toEqual([]);
+		expect(heading(`# ${'#'.repeat(50_000)}x`)).toEqual([{ level: 1, text: `${'#'.repeat(50_000)}x` }]);
+		expect(heading(`# a${spaces}\u2028x`)).toEqual([]);
+		expect(performance.now() - start).toBeLessThan(1000);
+	});
+});
+
+describe('markdownHrefs', () => {
+	it.each([
+		['[a](/x)', ['/x']],
+		['[a]( <b> "T" ) [c](d "e")', ['b', 'd']],
+		['[a\\]b](/x) [c[d](/y)', ['/x', '/y']],
+		['[a](<) [b](<>) [c](>)', ['<', '<']],
+		['[a](x y) [b](/z) [c](', ['/z']],
+		['[a](xx[yy zz](c)', ['c']],
+		['[a\\\nb](/x) [c](/y)', ['/y']],
+		['[a](/x "t) [b](/y "u") [c](/z)', ['/y', '/z']]
+	])('reads %j', (markdown, hrefs) => {
+		expect(markdownHrefs(markdown)).toEqual(hrefs);
+	});
+
+	it('parses pathological bodies correctly and fast', () => {
+		const n = 200_000;
+		const start = performance.now();
+		expect(markdownHrefs('['.repeat(n))).toEqual([]);
+		expect(markdownHrefs(`${'['.repeat(n)}]x [a](/y)`)).toEqual(['/y']);
+		expect(markdownHrefs('[a]('.repeat(n))).toEqual([]);
+		expect(markdownHrefs(`${'[a]('.repeat(n)}${' '.repeat(n)}x [b](/y)`)).toEqual(['/y']);
+		expect(markdownHrefs(`[a](/x${' '.repeat(n)}) [b](/y${' '.repeat(n)}x`)).toEqual(['/x']);
+		expect(markdownHrefs('[a](/x "'.repeat(n))).toEqual([]);
+		expect(performance.now() - start).toBeLessThan(1000);
+	});
+
+	it('keeps a page with a pathological line readable through the reader', async () => {
+		const spaces = ' '.repeat(50_000);
+		const { reader } = setup(
+			{ '/a.md': md(`# A${spaces}##\n\n${'['.repeat(50_000)}\n\n## B${spaces}x\n\n[C](/c.md)`) },
+			{ preferMarkdown: true }
+		);
+		const start = performance.now();
+		const entry = await reader.readPage('/a');
+		expect(performance.now() - start).toBeLessThan(1000);
+		expect(entry!.headings).toEqual([
+			{ level: 1, text: 'A' },
+			{ level: 2, text: 'B x' }
+		]);
+		expect(reader.links('/a')).toEqual(['/c']);
 	});
 });
 

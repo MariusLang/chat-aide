@@ -31,7 +31,7 @@ import { createReader, type Reader } from '../site/read-page.js';
 import { acceptRoute } from '../site/route.js';
 import { createSiteMap, type SiteMap } from '../site/site-map.js';
 import { createTransport, type FetchLike, type Transport } from '../site/transport.js';
-import { isLikelyServerless, resolveWaitUntil, runCallback, type WaitUntil } from './background.js';
+import { resolveWaitUntil, runCallback, VERCEL_CONTEXT, type WaitUntil } from './background.js';
 import { checkOrigin, clientId, createGuards } from './guards.js';
 import { buildPrompt } from './prompt.js';
 import { findProvider, loadProvider, type Importer, type LoadedProvider, type ProviderRow } from './providers.js';
@@ -120,10 +120,17 @@ const STATUS: Record<ErrorCode, number> = {
 	provider_error: 502
 };
 
-const VERCEL_CONTEXT = Symbol.for('@vercel/request-context');
-
 /** Stream parts that come before the model has said anything. */
 const PREAMBLE = new Set(['start', 'start-step']);
+
+/**
+ * Every part of a tool's life (`tool-input-*`, `tool-call`, `tool-result`, `tool-error`, …). They
+ * carry the `read_page` input and page text, which the widgets never show and the server discards
+ * when the history comes back, so they stay on the server, like the model's reasoning.
+ */
+function isToolPart(part: TextStreamPart<ToolSet>): boolean {
+	return part.type.startsWith('tool-');
+}
 
 function json(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
 	return new Response(JSON.stringify(body), {
@@ -316,13 +323,13 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 	let checkedPlatform = false;
 	/**
 	 * Deferred to the first request, since only a request shows the platform. The library reads no
-	 * environment variable, so `isLikelyServerless()` gets no env and the signal is the request's
-	 * `platform` (Cloudflare, Netlify) or a live Vercel request context.
+	 * environment variable, so the signal is the request's `platform` (Cloudflare, Netlify) or a live
+	 * Vercel request context.
 	 */
 	function platformWarnings(event: AideEvent): void {
 		if (checkedPlatform) return;
 		checkedPlatform = true;
-		if (!isLikelyServerless() && !platformDetected(event)) return;
+		if (!platformDetected(event)) return;
 		if (!platformWaitUntil(event) && !config.waitUntil) {
 			warn(
 				'this looks like a serverless platform, but no waitUntil was found on event.platform and none is ' +
@@ -376,15 +383,18 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 		return json({ error: code, message: REFUSAL_MESSAGES[code], ...extra }, STATUS[code], headers);
 	}
 
+	/** Whether the server asks the widget for the page's DOM text. */
+	function wantsDom(entry: PageEntry | null): boolean {
+		return config.pageContext === 'dom' || (config.pageContext === 'auto' && (!entry || entry.thin));
+	}
+
 	async function warmup(event: E, waitUntil: WaitUntil): Promise<Response> {
 		const route = acceptRoute(event.url.searchParams.get('route'), { origin, exclude });
 		if (route === null) return refuse('invalid_request', waitUntil, null, { path: 'route' });
 		siteMap.ensureStarted(waitUntil);
 		const entry = await reader.readPage(route, { waitUntil });
-		const wantsDom =
-			config.pageContext === 'dom' || (config.pageContext === 'auto' && (!entry || entry.thin));
 		const body: WarmupResponse = {
-			pageSource: wantsDom ? 'dom' : 'server',
+			pageSource: wantsDom(entry) ? 'dom' : 'server',
 			suggestions: suggestionsFor(plain, route),
 			mapped: siteMap.isMapped(route),
 			provider,
@@ -395,9 +405,7 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 
 	/** The current page (spec §3.3 part 5, §3.6): DOM text only when the server would ask for it. */
 	function currentPage(route: string, entry: PageEntry | null, dom: string | null) {
-		const wantsDom =
-			config.pageContext === 'dom' || (config.pageContext === 'auto' && (!entry || entry.thin));
-		if (wantsDom && dom) return { route, title: entry?.title, text: dom };
+		if (wantsDom(entry) && dom) return { route, title: entry?.title, text: dom };
 		if (config.pageContext === 'dom') return null;
 		return entry ? { route, title: entry.title, text: entry.text } : null;
 	}
@@ -521,7 +529,8 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 				source.cancel().catch(() => {});
 				return refuse('provider_error', waitUntil, sessionId);
 			}
-			buffered.push(next.value);
+			// A tool call is the model's first output too: it ends this wait, but is not sent on.
+			if (!isToolPart(next.value)) buffered.push(next.value);
 			if (!PREAMBLE.has(next.value.type)) break;
 		}
 
@@ -530,9 +539,17 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 				for (const part of buffered) controller.enqueue(part);
 			},
 			async pull(controller) {
-				const next = await source.read();
-				if (next.done) controller.close();
-				else controller.enqueue(next.value);
+				// A pull that enqueues nothing is not pulled again, so read past the dropped parts.
+				for (;;) {
+					const next = await source.read();
+					if (next.done) {
+						controller.close();
+						return;
+					}
+					if (isToolPart(next.value)) continue;
+					controller.enqueue(next.value);
+					return;
+				}
 			},
 			cancel(reason) {
 				return source.cancel(reason);
@@ -542,7 +559,6 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 		return createUIMessageStreamResponse({
 			stream: toUIMessageStream({
 				stream,
-				tools,
 				// The model's reasoning is not the visitor's to read or to send back in the thread.
 				sendReasoning: false,
 				onError: () => REFUSAL_MESSAGES.provider_error,

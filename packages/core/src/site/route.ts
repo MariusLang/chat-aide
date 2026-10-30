@@ -11,6 +11,7 @@
  * pathname SvelteKit cannot decode (malformed `%`) is refused. `%25` stays literal, as in
  * SvelteKit, so double-encoding (`%252e`) is inert.
  */
+import { MAX_ROUTE_LENGTH } from '../shared/limits.js';
 import { normalizeOrigin } from '../shared/schemas.js';
 
 /** Sentinel origin used for in-process reads when no origin is configured. */
@@ -25,7 +26,6 @@ export const SIDE_EFFECT_SEGMENTS = ['logout', 'logoff', 'signout', 'sign-out', 
  */
 export const DEFAULT_EXCLUDES: string[] = ['/api/**', ...SIDE_EFFECT_SEGMENTS.map((s) => `/**/${s}`)];
 
-const MAX_ROUTE_LENGTH = 512;
 const ENCODED_SEPARATOR = /%(2f|5c|2e)/i;
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHAR = /[\u0000-\u001f\u007f]/;

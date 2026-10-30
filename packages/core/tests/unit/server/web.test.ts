@@ -1,8 +1,10 @@
 import { MockLanguageModelV4, simulateReadableStream } from 'ai/test';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createAide, headerAddress, toAideEvent } from '../../../src/server/web';
+import { htmlPage } from '../../fixtures/site';
 
 const ORIGIN = 'https://example.test';
+const HTML = { 'content-type': 'text/html; charset=utf-8' };
 const USAGE = {
 	inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
 	outputTokens: { total: 1, text: 1, reasoning: undefined }
@@ -75,5 +77,77 @@ describe('createAide', () => {
 		await aide.chat(new Request(`${ORIGIN}/api/chat?route=/`, { headers: { origin: ORIGIN } }));
 		expect(aide.handler.transport.hasInProcessFetch()).toBe(false);
 		expect(inProcess).not.toHaveBeenCalled();
+	});
+});
+
+describe('createAide: cache-control on the llms documents', () => {
+	const PATHS = ['/llms.txt', '/llms-full.txt', '/about.md'];
+	const stubSite = () => {
+		const read = vi.fn(async (input: RequestInfo | URL) => {
+			const { pathname } = new URL(String(input));
+			if (pathname === '/') return new Response(htmlPage({ title: 'Home', links: ['/about'] }), { headers: HTML });
+			if (pathname === '/about') return new Response(htmlPage({ title: 'About' }), { headers: HTML });
+			return new Response('Not found', { status: 404 });
+		});
+		vi.stubGlobal('fetch', read);
+		return read;
+	};
+
+	it('answers 404 with no-store to any x-aide-internal value, and starts no crawl', async () => {
+		const read = stubSite();
+		const aide = createAide({ provider, origin: ORIGIN });
+		for (const path of PATHS) {
+			for (const method of ['GET', 'HEAD']) {
+				const headers = { 'x-aide-internal': 'not-the-marker', 'x-real-ip': '5.5.5.5' };
+				const response = await aide.fetch(new Request(`${ORIGIN}${path}`, { method, headers }));
+				expect(response.status).toBe(404);
+				expect(response.headers.get('cache-control')).toBe('no-store');
+			}
+		}
+		expect(read).not.toHaveBeenCalled();
+	});
+
+	it('keeps public, max-age on normal answers', async () => {
+		stubSite();
+		const aide = createAide({ provider, origin: ORIGIN, cache: { ttlSeconds: 120 } });
+		for (const path of PATHS) {
+			const response = await aide.fetch(new Request(`${ORIGIN}${path}`, { headers: { 'x-real-ip': '5.5.5.5' } }));
+			expect(response.status).toBe(200);
+			expect(response.headers.get('cache-control')).toBe('public, max-age=120');
+		}
+	});
+});
+
+describe('createAide: the llms header with a pages.source root', () => {
+	const TITLE = 'Staff-only CMS title';
+	const DESCRIPTION = 'Unpublished CMS description';
+	const source = async () => [{ route: '/', title: TITLE, description: DESCRIPTION, headings: [], text: 'Draft text.' }];
+	const documents = async (config: Record<string, unknown>) => {
+		const aide = createAide({ provider, origin: ORIGIN, pages: { source }, ...config });
+		const headers = { 'x-real-ip': '5.5.5.5' };
+		return Promise.all(
+			['/llms.txt', '/llms-full.txt'].map(async (path) => (await aide.fetch(new Request(`${ORIGIN}${path}`, { headers }))).text())
+		);
+	};
+
+	it('leaves the source title and description out by default', async () => {
+		for (const body of await documents({})) {
+			expect(body).not.toContain(TITLE);
+			expect(body).not.toContain(DESCRIPTION);
+		}
+	});
+
+	it('keeps the summary from facts', async () => {
+		for (const body of await documents({ facts: ['We sell tea.'] })) {
+			expect(body).toContain('> We sell tea.');
+			expect(body).not.toContain(TITLE);
+		}
+	});
+
+	it('publishes both with serveSource: true', async () => {
+		for (const body of await documents({ llms: { serveSource: true } })) {
+			expect(body).toContain(`# ${TITLE}`);
+			expect(body).toContain(`> ${DESCRIPTION}`);
+		}
 	});
 });

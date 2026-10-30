@@ -16,7 +16,7 @@
 	<div class="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4 sm:px-6">
 		<a href="/" class="mr-3 flex items-center gap-2 font-display text-[1.05rem]">
 			<Logo class="h-[30px] w-auto" />
-			<span>svelte-chat-aide</span>
+			<span>chat-aide</span>
 		</a>
 		<nav aria-label="Main" class="hidden items-center gap-1 text-sm sm:flex">
 			{#each links as l (l.href)}

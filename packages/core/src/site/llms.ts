@@ -39,11 +39,83 @@ export interface ServeOptions {
 
 const CUT_MARK = '(outline cut)';
 const ROOT_SECTION = 'Pages';
-const LINK_RE = /^\s*[-*+]\s+\[((?:\\.|[^\]\\])*)\]\((.+?)\)(?:\s*:\s*(.*?))?\s*$/;
+const LINK_START_RE = /^\s*[-*+]\s+\[/;
+/** What `.` refuses and `\s` accepts: inside a value these make a line no match. */
+const LINE_SEPARATOR_RE = /[\n\r\u2028\u2029]/;
+const SPACE_RE = /\s*/y;
 const FENCE_RE = /^\s*(```|~~~)/;
 const SOURCE_RE = /^(?:source|url):\s*(\S+)\s*$/i;
 
 // ---------------------------------------------------------------- parsing
+
+// Fetched content is up to 2 MB and may hold visitor-written text, so these scanners stay linear
+// where a regex with adjacent `\s*`, `.*?` and `#*` backtracks polynomially on one long line.
+
+/**
+ * An ATX heading line: `#`s at the very start, whitespace, then the text with surrounding
+ * whitespace removed and, when `closing`, the trailing `#` run too. Null if it is not one.
+ */
+export function atxHeading(line: string, closing = true): { level: number; text: string } | null {
+	const marker = /^#+\s/.exec(line);
+	if (!marker) return null;
+	const level = marker[0].length - 1;
+	let text = line.slice(level).trim();
+	if (closing) {
+		let end = text.length;
+		while (end > 0 && text[end - 1] === '#') end--;
+		text = text.slice(0, end).trimEnd();
+	}
+	return LINE_SEPARATOR_RE.test(text) ? null : { level, text };
+}
+
+/**
+ * The end of bracketed link text starting at `from`, where `\` escapes one character: the index
+ * of the closing `]`. Any other character at the returned index means the text never closes.
+ */
+export function linkTextEnd(s: string, from: number): number {
+	let i = from;
+	while (i < s.length && s[i] !== ']') {
+		if (s[i] !== '\\') i++;
+		else if (i + 1 < s.length && !LINE_SEPARATOR_RE.test(s[i + 1]!)) i += 2;
+		else return i;
+	}
+	return i;
+}
+
+/** The index of the first non-whitespace character at or after `from`. */
+export function skipSpace(s: string, from: number): number {
+	SPACE_RE.lastIndex = from;
+	SPACE_RE.test(s);
+	return SPACE_RE.lastIndex;
+}
+
+/**
+ * `- [title](url): description`. The url ends at the first `)` followed by nothing but
+ * whitespace or by `:` and a description, so a url may itself contain `)`.
+ */
+function linkFrom(line: string): { title: string; url: string; description?: string } | null {
+	const start = LINK_START_RE.exec(line);
+	if (!start) return null;
+	const textStart = start[0].length;
+	const textEnd = linkTextEnd(line, textStart);
+	if (line[textEnd] !== ']' || line[textEnd + 1] !== '(') return null;
+	const title = line.slice(textStart, textEnd);
+	const urlStart = textEnd + 2;
+	const end = line.trimEnd().length;
+	let lastSeparator = end - 1;
+	while (lastSeparator >= urlStart && !LINE_SEPARATOR_RE.test(line[lastSeparator]!)) lastSeparator--;
+	for (let i = urlStart; i < line.length; i++) {
+		if (LINE_SEPARATOR_RE.test(line[i]!)) return null;
+		if (line[i] !== ')' || i === urlStart) continue;
+		const url = line.slice(urlStart, i);
+		const next = skipSpace(line, i + 1);
+		if (next === line.length) return { title, url };
+		if (line[next] !== ':') continue;
+		const descriptionStart = skipSpace(line, next + 1);
+		if (lastSeparator < descriptionStart) return { title, url, description: line.slice(descriptionStart, end) };
+	}
+	return null;
+}
 
 export function parseLlmsTxt(text: string): LlmsDoc {
 	const lines = String(text ?? '')
@@ -56,28 +128,28 @@ export function parseLlmsTxt(text: string): LlmsDoc {
 	const links: LlmsLink[] = [];
 
 	for (const line of lines) {
-		const h2 = /^##\s+(.*?)\s*#*\s*$/.exec(line);
-		if (h2) {
-			section = h2[1] ?? '';
+		const h2 = atxHeading(line);
+		if (h2?.level === 2) {
+			section = h2.text;
 			continue;
 		}
 		if (section !== null) {
-			const m = LINK_RE.exec(line);
+			const m = linkFrom(line);
 			if (!m) continue;
 			const link: LlmsLink = {
-				title: (m[1] ?? '').replace(/\\([\\[\]])/g, '$1').trim(),
-				url: (m[2] ?? '').trim(),
+				title: m.title.replace(/\\([\\[\]])/g, '$1').trim(),
+				url: m.url.trim(),
 				optional: section.trim().toLowerCase() === 'optional',
 				section
 			};
-			const description = m[3]?.trim();
+			const description = m.description?.trim();
 			if (description) link.description = description;
 			links.push(link);
 			continue;
 		}
 		if (!title) {
-			const h1 = /^#\s+(.*?)\s*$/.exec(line);
-			if (h1) title = h1[1] ?? '';
+			const h1 = atxHeading(line, false);
+			if (h1?.level === 1) title = h1.text;
 			continue;
 		}
 		const quote = /^>\s?(.*)$/.exec(line);
@@ -108,8 +180,8 @@ export function splitLlmsFull(
 	let inFence = false;
 	for (const line of lines) {
 		if (FENCE_RE.test(line)) inFence = !inFence;
-		const h1 = inFence ? null : /^#\s+(.*?)\s*$/.exec(line);
-		if (h1) chunks.push({ title: h1[1] ?? '', body: [] });
+		const h1 = inFence ? null : atxHeading(line, false);
+		if (h1?.level === 1) chunks.push({ title: h1.text, body: [] });
 		else chunks.at(-1)?.body.push(line);
 	}
 

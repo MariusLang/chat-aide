@@ -60,7 +60,9 @@ describe('shadcn theme stylesheet (build output)', () => {
 	});
 });
 
-describe('shadcn theme (server render)', () => {
+// The first dynamic import() of the theme transforms its whole component tree, which can take
+// far longer than Vitest's default 5s, especially under a loaded machine.
+describe('shadcn theme (server render)', { timeout: 60_000 }, () => {
 	it('renders the themed widget with a labelled launcher and no image', async () => {
 		const { ChatWidget } = await import('../../../src/lib/themes/shadcn/index');
 		const { body } = render(ChatWidget, { props: {} });
