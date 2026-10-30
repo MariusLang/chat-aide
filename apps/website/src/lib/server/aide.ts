@@ -1,6 +1,6 @@
 /**
  * The site's own chat-aide, on Vercel. The chat only exists once everything that bounds its cost
- * is configured: the CHAT_AIDE_* provider variables, ORIGIN, and a shared store (UPSTASH_REDIS_REST_*
+ * is configured: the CHAT_AIDE_* provider variables, ORIGIN, and a shared store (Upstash's KV_REST_API_*
  * and AIDE_SALT). Missing any of them, the site still runs and the chat is hidden, so a deployment
  * can never spend the key with per-instance limits. AIDE_PREVIEW=1 shows the chat with a
  * fixed-answer model and no key, for working on the site.
@@ -17,8 +17,8 @@ const live = (): boolean =>
 	Boolean(
 		env.CHAT_AIDE_PROVIDER &&
 			env.ORIGIN &&
-			env.UPSTASH_REDIS_REST_URL &&
-			env.UPSTASH_REDIS_REST_TOKEN &&
+			env.KV_REST_API_URL &&
+			env.KV_REST_API_TOKEN &&
 			env.AIDE_SALT
 	);
 
@@ -29,7 +29,8 @@ export const chatConfigured = (): boolean => preview() || live();
  * name to reach the function. A provider without an entry here is refused at the first request.
  */
 const adapters: Record<string, () => Promise<Record<string, unknown>>> = {
-	'@ai-sdk/anthropic': () => import('@ai-sdk/anthropic')
+	'@ai-sdk/anthropic': () => import('@ai-sdk/anthropic'),
+	'@openrouter/ai-sdk-provider': () => import('@openrouter/ai-sdk-provider')
 };
 
 const importer = (pkg: string): Promise<Record<string, unknown>> =>
@@ -42,7 +43,7 @@ function aideHandle(): AideHandle {
 	instance ??= aide({
 		provider: preview() ? { name: 'custom', model: 'preview', instance: previewModel() } : fromEnv(env),
 		origin: env.ORIGIN || undefined,
-		...(preview() ? {} : { store: redisStore(env.UPSTASH_REDIS_REST_URL!, env.UPSTASH_REDIS_REST_TOKEN!), salt: env.AIDE_SALT }),
+		...(preview() ? {} : { store: redisStore(env.KV_REST_API_URL!, env.KV_REST_API_TOKEN!), salt: env.AIDE_SALT }),
 		persona: {
 			name: 'Aide',
 			tone: 'friendly, concise, practical; show code when it helps',
