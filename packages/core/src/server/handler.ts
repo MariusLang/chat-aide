@@ -125,6 +125,15 @@ const VERCEL_CONTEXT = Symbol.for('@vercel/request-context');
 /** Stream parts that come before the model has said anything. */
 const PREAMBLE = new Set(['start', 'start-step']);
 
+/**
+ * Every part of a tool's life (`tool-input-*`, `tool-call`, `tool-result`, `tool-error`, …). They
+ * carry the `read_page` input and page text, which the widgets never show and the server discards
+ * when the history comes back, so they stay on the server, like the model's reasoning.
+ */
+function isToolPart(part: TextStreamPart<ToolSet>): boolean {
+	return part.type.startsWith('tool-');
+}
+
 function json(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
 	return new Response(JSON.stringify(body), {
 		status,
@@ -521,7 +530,8 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 				source.cancel().catch(() => {});
 				return refuse('provider_error', waitUntil, sessionId);
 			}
-			buffered.push(next.value);
+			// A tool call is the model's first output too: it ends this wait, but is not sent on.
+			if (!isToolPart(next.value)) buffered.push(next.value);
 			if (!PREAMBLE.has(next.value.type)) break;
 		}
 
@@ -530,9 +540,17 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 				for (const part of buffered) controller.enqueue(part);
 			},
 			async pull(controller) {
-				const next = await source.read();
-				if (next.done) controller.close();
-				else controller.enqueue(next.value);
+				// A pull that enqueues nothing is not pulled again, so read past the dropped parts.
+				for (;;) {
+					const next = await source.read();
+					if (next.done) {
+						controller.close();
+						return;
+					}
+					if (isToolPart(next.value)) continue;
+					controller.enqueue(next.value);
+					return;
+				}
 			},
 			cancel(reason) {
 				return source.cancel(reason);
@@ -542,7 +560,6 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 		return createUIMessageStreamResponse({
 			stream: toUIMessageStream({
 				stream,
-				tools,
 				// The model's reasoning is not the visitor's to read or to send back in the thread.
 				sendReasoning: false,
 				onError: () => REFUSAL_MESSAGES.provider_error,
