@@ -92,6 +92,51 @@ describe('parseLlmsTxt', () => {
 		expect(parseLlmsTxt('')).toEqual({ title: '', links: [] });
 		expect(parseLlmsTxt('<html>nope</html>').links).toEqual([]);
 	});
+
+	it('removes a closing run from a section but not from the title', () => {
+		const d = parseLlmsTxt('# Title ##\n\n## Docs ##  \n\n- [A](/a)\n\n## C#\n\n- [B](/b)\n\n## \n\n- [C](/c)');
+		expect(d.title).toBe('Title ##');
+		expect(d.links.map((l) => l.section)).toEqual(['Docs', 'C', '']);
+	});
+
+	it('ends a url at the first ) followed by the end of the line or a description', () => {
+		const url = (line: string) => parseLlmsTxt(`## S\n${line}`).links[0];
+		expect(url('- [A](/a_(b)) ')).toMatchObject({ url: '/a_(b)' });
+		expect(url('- [A](/a) b): c')).toMatchObject({ url: '/a) b', description: 'c' });
+		expect(url('- [A](/a) : c : d )  ')).toMatchObject({ url: '/a', description: 'c : d )' });
+		expect(url('- [A]()')).toBeUndefined();
+		expect(url('- [A]())')).toMatchObject({ url: ')' });
+		expect(url('- [A](/a) b')).toBeUndefined();
+		expect(url('- [A\\]B](/a)')).toMatchObject({ title: 'A]B' });
+		expect(url('- [A](/a)\u2028')).toMatchObject({ url: '/a' });
+		expect(url('- [A](/a):\u2028 b')).toMatchObject({ description: 'b' });
+		expect(url('- [A](/a): b\u2028c')).toBeUndefined();
+	});
+
+	it('parses pathological lines correctly and fast', () => {
+		const spaces = ' '.repeat(50_000);
+		const start = performance.now();
+		expect(parseLlmsTxt(`# a${spaces}x`).title).toBe(`a${spaces}x`);
+		const d = parseLlmsTxt(
+			[
+				`# T${spaces}`,
+				`## a${spaces}x`,
+				`- [A](/a): b${spaces}c`,
+				`- [B](/b)${spaces}x`,
+				`- [C](/c):${spaces}\u2028d\u2028e`,
+				`- [D](${'): '.repeat(50_000)}\u2028f\u2028g`,
+				`- [${'['.repeat(50_000)}`,
+				`## b${spaces}##`,
+				`- [E](/e)${spaces}`
+			].join('\n')
+		);
+		expect(d.title).toBe('T');
+		expect(d.links).toEqual([
+			{ title: 'A', url: '/a', description: `b${spaces}c`, optional: false, section: `a${spaces}x` },
+			{ title: 'E', url: '/e', optional: false, section: 'b' }
+		]);
+		expect(performance.now() - start).toBeLessThan(1000);
+	});
 });
 
 describe('renderLlmsTxt', () => {
@@ -184,6 +229,17 @@ describe('renderLlmsFull and splitLlmsFull', () => {
 		});
 		expect(parts[1]).toEqual({ route: '/guide/getting-started', title: 'Getting Started', text: 'Body two.' });
 		expect(parts[2]).toEqual({ title: 'Unknown page', text: 'Body three.' });
+	});
+
+	it('parses pathological lines correctly and fast', () => {
+		const spaces = ' '.repeat(50_000);
+		const start = performance.now();
+		const parts = splitLlmsFull(`# a${spaces}x\nSource:${spaces}/a${spaces}\nBody.\n# b ##${spaces}\nsource: /b${spaces}c`);
+		expect(parts).toEqual([
+			{ route: '/a', title: `a${spaces}x`, text: 'Body.' },
+			{ title: 'b ##', text: `source: /b${spaces}c` }
+		]);
+		expect(performance.now() - start).toBeLessThan(1000);
 	});
 });
 

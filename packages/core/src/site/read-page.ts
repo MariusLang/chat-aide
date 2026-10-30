@@ -9,7 +9,7 @@ import type { Heading, PageEntry } from '../shared/types.js';
 import type { WaitUntil } from '../server/background.js';
 import type { PageCache } from './cache.js';
 import { extract, hashText, isThin, type Extracted } from './extract.js';
-import { markdownPathFor, routeForMarkdownPath } from './llms.js';
+import { atxHeading, linkTextEnd, markdownPathFor, routeForMarkdownPath, skipSpace } from './llms.js';
 import { IN_PROCESS_ORIGIN } from './route.js';
 import type { Transport } from './transport.js';
 
@@ -31,8 +31,7 @@ export interface Reader {
 const HTML_ACCEPT = 'text/html';
 const MARKDOWN_ACCEPT = 'text/markdown';
 const FENCE_RE = /^\s*(```|~~~)/;
-const MD_HEADING_RE = /^(#{1,3})\s+(.*?)\s*#*\s*$/;
-const MD_LINK_RE = /\[(?:\\.|[^\]\\])*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g;
+const HREF_CHARS_RE = /[^)\s>]*/y;
 
 /** Title, description (a `>` line right after the H1), H1–H3 and the text of a markdown page. */
 export function pageFromMarkdown(markdown: string, fallbackTitle = ''): Extracted {
@@ -47,10 +46,10 @@ export function pageFromMarkdown(markdown: string, fallbackTitle = ''): Extracte
 	for (const line of lines) {
 		if (FENCE_RE.test(line)) inFence = !inFence;
 		if (inFence) continue;
-		const h = MD_HEADING_RE.exec(line);
-		if (h) {
-			const level = h[1]!.length as 1 | 2 | 3;
-			const text = h[2]!.replace(/\s+/g, ' ').trim();
+		const h = atxHeading(line);
+		if (h && h.level <= 3) {
+			const level = h.level as 1 | 2 | 3;
+			const text = h.text.replace(/\s+/g, ' ').trim();
 			if (text) headings.push({ level, text });
 			if (level === 1 && !title && text) {
 				title = text;
@@ -133,6 +132,48 @@ function htmlLinks(doc: Document, pageRoute: string): string[] {
 }
 
 /**
+ * The hrefs of `[text](href)`, `[text](<href>)` and `[text](href "title")`, in one linear pass:
+ * link text and hrefs may span the whole body, so nothing may be rescanned per `[`. All `[` before
+ * a `]` close at that `]`, hence fail or match with the first; all hrefs running to the same stop
+ * character have the same continuation, hence fail with the first.
+ */
+export function markdownHrefs(markdown: string): string[] {
+	const out: string[] = [];
+	let failedHrefEnd = 0;
+	let pos = 0;
+	for (;;) {
+		const open = markdown.indexOf('[', pos);
+		if (open < 0) return out;
+		const close = linkTextEnd(markdown, open + 1);
+		pos = close + 1;
+		if (markdown[close] !== ']' || markdown[pos] !== '(') continue;
+		const start = skipSpace(markdown, pos + 1);
+		if (start < failedHrefEnd) continue;
+		HREF_CHARS_RE.lastIndex = start;
+		HREF_CHARS_RE.test(markdown);
+		const hrefEnd = HREF_CHARS_RE.lastIndex;
+		if (hrefEnd === start) continue;
+		const afterHref = markdown[hrefEnd] === '>' ? hrefEnd + 1 : hrefEnd;
+		let end = skipSpace(markdown, afterHref);
+		if (end > afterHref && markdown[end] === '"') {
+			const quote = markdown.indexOf('"', end + 1);
+			if (quote < 0) {
+				failedHrefEnd = hrefEnd;
+				continue;
+			}
+			end = skipSpace(markdown, quote + 1);
+		}
+		if (markdown[end] !== ')') {
+			failedHrefEnd = hrefEnd;
+			continue;
+		}
+		const hrefStart = markdown[start] === '<' && hrefEnd > start + 1 ? start + 1 : start;
+		out.push(markdown.slice(hrefStart, hrefEnd));
+		pos = end + 1;
+	}
+}
+
+/**
  * Markdown links, `.md` twins (relative or absolute) mapped to their page route. The mapping
  * works on the URL-encoded path as written and never decodes, so an encoded route such as
  * `/%61pi/x.md` → `/%61pi/x` is left for the crawler's `acceptHref`, which judges the
@@ -140,8 +181,8 @@ function htmlLinks(doc: Document, pageRoute: string): string[] {
  */
 function markdownLinks(markdown: string, pageRoute: string): string[] {
 	const out: string[] = [];
-	for (const m of markdown.matchAll(MD_LINK_RE)) {
-		const href = relativize(m[1] ?? '', pageRoute);
+	for (const raw of markdownHrefs(markdown)) {
+		const href = relativize(raw, pageRoute);
 		if (href === null) continue;
 		if (href.startsWith('/')) {
 			const path = href.replace(/[?#].*$/, '');
