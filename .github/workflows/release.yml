@@ -1,0 +1,74 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  # npm trusted publishing: a short-lived token instead of a stored NPM_TOKEN.
+  id-token: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+      PRERELEASE: ${{ github.event.release.prerelease }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # The pnpm version comes from package.json's packageManager (pnpm 10).
+      - uses: pnpm/action-setup@v4
+
+      # No registry-url: it writes a token placeholder to .npmrc, which gets in trusted publishing's way.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Read the version from the tag
+        run: |
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::The release tag '$TAG' is not a version like v1.2.3 or v1.2.3-beta.1."
+            exit 1
+          fi
+          echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
+
+      - name: Refuse a tag that is not on main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::The release tag '$TAG' points at a commit that is not on main."
+            exit 1
+          fi
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm -r --filter './packages/**' build
+
+      - name: Check
+        run: |
+          pnpm -r --filter './packages/**' check
+          pnpm -r --filter './packages/**' lint
+          pnpm -r --filter './packages/**' test
+          pnpm -r --filter './packages/**' publint
+
+      # The tag decides the version: workspace:* dependencies resolve to it when publishing.
+      - name: Set the version
+        run: pnpm -r --filter './packages/**' exec npm pkg set version="$VERSION"
+
+      # A prerelease goes to the `next` dist-tag, so `pnpm add` does not pick it up. A re-run skips
+      # versions already on npm. The git checks would refuse the detached tag and the version change.
+      - name: Publish
+        run: |
+          DIST_TAG=latest
+          if [ "$PRERELEASE" = "true" ]; then DIST_TAG=next; fi
+          pnpm -r --filter './packages/**' publish --access public --no-git-checks --tag "$DIST_TAG"
