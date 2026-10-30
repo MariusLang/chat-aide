@@ -1,6 +1,6 @@
 {
 	"name": "@chat-aide/core",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"description": "The framework-neutral core of chat-aide: an AI chat and llms.txt for your own site, derived from the site at run time.",
 	"license": "MIT",
 	"type": "module",
@@ -46,7 +46,8 @@
 		"lint": "eslint .",
 		"pretest": "test -f dist/index.js || pnpm build",
 		"test": "vitest run",
-		"publint": "publint"
+		"publint": "publint",
+		"prepack": "cp ../../README.md ../../LICENSE ."
 	},
 	"dependencies": {
 		"@ai-sdk/amazon-bedrock": "^5.0.97",

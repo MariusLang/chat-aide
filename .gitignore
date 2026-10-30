@@ -16,3 +16,7 @@ packages/sveltekit/src/lib/themes/shadcn/styles.css
 
 # Copied from @chat-aide/core by scripts/copy-plain-css.mjs
 packages/sveltekit/src/lib/themes/plain/plain.css
+
+# Copied from the root by each package's prepack script
+packages/*/README.md
+packages/*/LICENSE

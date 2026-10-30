@@ -1,6 +1,6 @@
 {
 	"name": "@chat-aide/react",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"description": "React widget and hook for chat-aide: an AI chat for your own site that answers from its pages.",
 	"license": "MIT",
 	"type": "module",
@@ -27,7 +27,8 @@
 		"lint": "eslint .",
 		"pretest": "test -f dist/index.js || pnpm build",
 		"test": "vitest run",
-		"publint": "publint"
+		"publint": "publint",
+		"prepack": "cp ../../README.md ../../LICENSE ."
 	},
 	"dependencies": {
 		"@ai-sdk/react": "^4.0.125",

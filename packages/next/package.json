@@ -1,6 +1,6 @@
 {
 	"name": "@chat-aide/next",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"description": "Next.js App Router adapter for chat-aide: route handlers for the chat endpoint and llms.txt.",
 	"license": "MIT",
 	"type": "module",
@@ -24,7 +24,8 @@
 		"lint": "eslint .",
 		"pretest": "test -f dist/index.js || pnpm build",
 		"test": "vitest run",
-		"publint": "publint"
+		"publint": "publint",
+		"prepack": "cp ../../README.md ../../LICENSE ."
 	},
 	"dependencies": {
 		"@chat-aide/core": "workspace:*"
