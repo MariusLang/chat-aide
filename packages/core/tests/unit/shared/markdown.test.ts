@@ -271,6 +271,11 @@ describe('parseAnswer — structure', () => {
 		expect(plain(out)).toBe('a * b & c <');
 	});
 
+	it('references naming Object.prototype members stay literal text', () => {
+		const out = parseAnswer('&constructor; &toString; &amp;', SAME);
+		expect(plain(out)).toBe('&constructor; &toString; &');
+	});
+
 	it('tables become paragraphs of cell text', () => {
 		const out = parseAnswer('| a | b |\n|---|---|\n| 1 | [x](https://evil.dev) |', SAME);
 		expect(out.every((b) => b.t === 'p')).toBe(true);

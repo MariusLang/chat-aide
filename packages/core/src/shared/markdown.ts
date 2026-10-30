@@ -44,7 +44,7 @@ const NAMED: Record<string, string> = {
 /** Decodes the few character references that markdown text commonly carries. */
 function decode(s: string): string {
 	return s.replace(/&(#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[a-zA-Z]+);/g, (whole, ref: string) => {
-		if (ref[0] !== '#') return NAMED[ref] ?? whole;
+		if (ref[0] !== '#') return Object.hasOwn(NAMED, ref) ? NAMED[ref]! : whole;
 		const n = ref[1] === 'x' || ref[1] === 'X' ? parseInt(ref.slice(2), 16) : parseInt(ref.slice(1), 10);
 		if (n === 0 || n > 0x10ffff || (n >= 0xd800 && n <= 0xdfff)) return '�';
 		return String.fromCodePoint(n);
