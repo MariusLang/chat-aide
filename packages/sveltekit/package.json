@@ -1,6 +1,6 @@
 {
 	"name": "@chat-aide/sveltekit",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"description": "An AI chat and llms.txt for your own SvelteKit site, derived from the site at run time.",
 	"license": "MIT",
 	"type": "module",
@@ -58,7 +58,8 @@
 		"lint": "eslint .",
 		"pretest": "test -f dist/themes/shadcn/styles.css || pnpm build",
 		"test": "vitest run",
-		"publint": "publint"
+		"publint": "publint",
+		"prepack": "cp ../../README.md ../../LICENSE ."
 	},
 	"dependencies": {
 		"@ai-sdk/svelte": "^5.0.116",

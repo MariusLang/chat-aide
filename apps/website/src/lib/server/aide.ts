@@ -51,7 +51,7 @@ function aideHandle(): AideHandle {
 		},
 		facts: [
 			'This website is itself built with SvelteKit and uses chat-aide for this chat, with the default shadcn theme.',
-			'chat-aide is MIT licensed. Its packages are not published to npm yet.',
+			'chat-aide is MIT licensed.',
 			'chat-aide works on SvelteKit (the @chat-aide/sveltekit package), on Next.js with React (@chat-aide/next and @chat-aide/react), and on any framework with web-standard Request/Response through createAide from @chat-aide/core (Astro, React Router, Hono, Nuxt, Bun).'
 		],
 		suggestions: {
