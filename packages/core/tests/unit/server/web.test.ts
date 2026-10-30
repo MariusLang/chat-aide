@@ -117,3 +117,37 @@ describe('createAide: cache-control on the llms documents', () => {
 		}
 	});
 });
+
+describe('createAide: the llms header with a pages.source root', () => {
+	const TITLE = 'Staff-only CMS title';
+	const DESCRIPTION = 'Unpublished CMS description';
+	const source = async () => [{ route: '/', title: TITLE, description: DESCRIPTION, headings: [], text: 'Draft text.' }];
+	const documents = async (config: Record<string, unknown>) => {
+		const aide = createAide({ provider, origin: ORIGIN, pages: { source }, ...config });
+		const headers = { 'x-real-ip': '5.5.5.5' };
+		return Promise.all(
+			['/llms.txt', '/llms-full.txt'].map(async (path) => (await aide.fetch(new Request(`${ORIGIN}${path}`, { headers }))).text())
+		);
+	};
+
+	it('leaves the source title and description out by default', async () => {
+		for (const body of await documents({})) {
+			expect(body).not.toContain(TITLE);
+			expect(body).not.toContain(DESCRIPTION);
+		}
+	});
+
+	it('keeps the summary from facts', async () => {
+		for (const body of await documents({ facts: ['We sell tea.'] })) {
+			expect(body).toContain('> We sell tea.');
+			expect(body).not.toContain(TITLE);
+		}
+	});
+
+	it('publishes both with serveSource: true', async () => {
+		for (const body of await documents({ llms: { serveSource: true } })) {
+			expect(body).toContain(`# ${TITLE}`);
+			expect(body).toContain(`> ${DESCRIPTION}`);
+		}
+	});
+});

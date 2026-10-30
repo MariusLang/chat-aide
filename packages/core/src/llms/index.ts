@@ -74,7 +74,7 @@ export function llmsTxt<E extends AideEvent>(handler: ChatHandler<E>): EventHand
 		if (!answerable(event)) return notFound();
 		const ready = await prepare(handler, event);
 		if ('limited' in ready) return ready.limited;
-		const body = renderLlmsTxt(handler.siteMap.site(), handler.siteMap.pages(), serveOptions(handler));
+		const body = renderLlmsTxt(handler.siteMap.servedSite(), handler.siteMap.pages(), serveOptions(handler));
 		return document(handler, body, TEXT, event.request.method.toUpperCase() === 'HEAD');
 	};
 }
@@ -84,7 +84,7 @@ export function llmsFullTxt<E extends AideEvent>(handler: ChatHandler<E>): Event
 		if (!answerable(event)) return notFound();
 		const ready = await prepare(handler, event);
 		if ('limited' in ready) return ready.limited;
-		const body = renderLlmsFull(handler.siteMap.site(), handler.siteMap.pages(), serveOptions(handler));
+		const body = renderLlmsFull(handler.siteMap.servedSite(), handler.siteMap.pages(), serveOptions(handler));
 		return document(handler, body, MARKDOWN, event.request.method.toUpperCase() === 'HEAD');
 	};
 }

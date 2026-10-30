@@ -28,6 +28,8 @@ export interface SiteMap {
 	/** True once the outline is whole: the first crawl finished, or the site's llms.txt was read and has at least one usable link. */
 	complete(): boolean;
 	site(): SiteInfo;
+	/** `site()` for the llms paths: a `pages.source` root gives it nothing unless `llms.serveSource`. */
+	servedSite(): SiteInfo;
 	/** Mapped pages, in crawl / llms.txt order. */
 	pages(): MapPage[];
 	outline(maxChars: number): { text: string; partial: boolean };
@@ -302,9 +304,10 @@ export function createSiteMap(opts: {
 		return rec?.kind === 'page' ? toMapPage(rec.entry, false, page.description) : page;
 	}
 
-	function siteInfo(): SiteInfo {
+	function siteInfo(served = false): SiteInfo {
 		const rootPage = current.order.get('/');
-		const root = rootPage ? live(rootPage) : undefined;
+		const hidden = served && rootPage?.fromSource && !config.llms.serveSource;
+		const root = rootPage && !hidden ? live(rootPage) : undefined;
 		const title = current.llms?.title || root?.title || '';
 		const summary = current.llms?.summary ?? (config.facts.length ? config.facts.join(' ') : root?.description);
 		return summary ? { title, summary } : { title };
@@ -331,7 +334,9 @@ export function createSiteMap(opts: {
 
 		complete: () => isComplete,
 
-		site: siteInfo,
+		site: () => siteInfo(),
+
+		servedSite: () => siteInfo(true),
 
 		pages,
 
