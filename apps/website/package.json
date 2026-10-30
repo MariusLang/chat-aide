@@ -15,7 +15,10 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
 	},
 	"dependencies": {
+		"@ai-sdk/anthropic": "^4.0.65",
 		"@chat-aide/sveltekit": "workspace:*",
+		"@upstash/redis": "^1.40.0",
+		"@vercel/functions": "^3.9.9",
 		"ai": "^7.0.116",
 		"marked": "^18.0.14",
 		"shiki": "^4.4.3"
@@ -23,7 +26,7 @@
 	"devDependencies": {
 		"@fontsource-variable/archivo": "^5.3.0",
 		"@internationalized/date": "^3.12.4",
-		"@sveltejs/adapter-node": "^5.5.7",
+		"@sveltejs/adapter-vercel": "^6.3.4",
 		"@sveltejs/kit": "^2.70.3",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@tailwindcss/vite": "^4.3.3",
