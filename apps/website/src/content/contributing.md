@@ -71,6 +71,17 @@ runs the type checks, eslint, vitest, both Playwright suites (SvelteKit and Next
 `pnpm audit`. CI runs the same
 command on Node 24 and 22.
 
+## Release
+
+Publish a GitHub release with a tag such as `v0.2.0`. The `Release` workflow checks the packages,
+sets all four to that version and publishes them to npm, so nothing needs bumping in the repository.
+A release marked as a prerelease, tagged like `v0.2.0-beta.1`, goes to the `next` dist-tag. A tag
+that is not on `main`, or not a version, is refused. Re-running the workflow skips versions already
+on npm.
+
+The workflow authenticates with npm trusted publishing, so each package needs
+`MariusLang/chat-aide` and `release.yml` set as its trusted publisher on npmjs.com.
+
 ## Edit the docs
 
 The pages under Frameworks, Guides and Operate come straight from `docs/*.md` in the
