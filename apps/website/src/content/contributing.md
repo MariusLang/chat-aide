@@ -8,8 +8,8 @@ where things live and how to check a change.
 You need Node 24 or newer and pnpm 10.
 
 ```sh
-git clone <repository-url> svelte-chat-aide
-cd svelte-chat-aide
+git clone <repository-url> chat-aide
+cd chat-aide
 pnpm install
 pnpm -r --filter './packages/**' build
 ```
