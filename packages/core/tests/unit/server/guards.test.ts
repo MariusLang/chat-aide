@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { memoryStore } from '../../../src/server/store';
-import { checkOrigin, clientId, createGuards } from '../../../src/server/guards';
+import { addressKey, checkOrigin, clientId, createGuards } from '../../../src/server/guards';
 import type { ResolvedConfig } from '../../../src/shared/types';
 
 type Cfg = Pick<ResolvedConfig, 'rateLimit' | 'budget'>;
@@ -187,6 +187,79 @@ describe('checkOrigin', () => {
 	});
 });
 
+describe('budget reservations', () => {
+	it('turns started together cannot all pass one check', async () => {
+		const { g } = setup();
+		const results = await Promise.all(Array.from({ length: 20 }, () => g.reserve('a', 30_000)));
+		// 200k visitor budget: the 7th reservation starts at 180k, the 8th at 210k and is refused.
+		expect(results.filter((r) => typeof r !== 'string')).toHaveLength(7);
+		expect(results.filter((r) => r === 'visitor')).toHaveLength(13);
+	});
+
+	it('a refused reservation is taken back', async () => {
+		const { g, store } = setup();
+		await g.charge('a', 200_000);
+		expect(await g.reserve('a', 30_000)).toBe('visitor');
+		expect(await store.get('aide:tok:site:2026-09-26')).toBe('200000');
+	});
+
+	it('settle replaces the estimate with the real tokens', async () => {
+		const { g, store } = setup();
+		const r = await g.reserve('a', 30_000);
+		if (typeof r === 'string') throw new Error(r);
+		await r.settle(1_234);
+		expect(await store.get('aide:tok:a:2026-09-26')).toBe('1234');
+		expect(await store.get('aide:tok:site:2026-09-26')).toBe('1234');
+	});
+
+	it('settles on the day it reserved, across midnight', async () => {
+		const { g, c, store } = setup();
+		const r = await g.reserve('a', 30_000);
+		if (typeof r === 'string') throw new Error(r);
+		c.advance(12 * 3_600_000);
+		await r.settle(500);
+		expect(await store.get('aide:tok:a:2026-09-26')).toBe('500');
+		expect(await store.get('aide:tok:a:2026-09-27')).toBeNull();
+	});
+
+	it('the site budget refuses as "site"', async () => {
+		const { g } = setup({ ...defaults, budget: { tokensPerDay: false, siteTokensPerDay: 100 } });
+		expect(typeof (await g.reserve('a', 60))).toBe('object');
+		expect(typeof (await g.reserve('b', 60))).toBe('object');
+		expect(await g.reserve('c', 60)).toBe('site');
+	});
+
+	it('budget: false reserves nothing', async () => {
+		const { g, store } = setup({ ...defaults, budget: false });
+		const r = await g.reserve('a', 1e9);
+		if (typeof r === 'string') throw new Error(r);
+		await r.settle(1e9);
+		expect(await store.get('aide:tok:site:2026-09-26')).toBeNull();
+	});
+});
+
+describe('addressKey', () => {
+	it.each([
+		['2001:db8:1:2:3:4:5:6', '2001:db8:1:2::/64'],
+		['2001:0db8:0001:0002:ffff:ffff:ffff:ffff', '2001:db8:1:2::/64'],
+		['2001:db8::1', '2001:db8:0:0::/64'],
+		['2001:DB8:1:2::abcd', '2001:db8:1:2::/64'],
+		['[2001:db8:1:2::1]', '2001:db8:1:2::/64'],
+		['fe80::1%eth0', 'fe80:0:0:0::/64'],
+		['::1', '0:0:0:0::/64'],
+		['2001:db8:1:2:3:4:192.0.2.1', '2001:db8:1:2::/64'],
+		['::ffff:203.0.113.7', '203.0.113.7'],
+		['203.0.113.7', '203.0.113.7'],
+		['not an address', 'not an address'],
+		['1:2:3', '1:2:3'],
+		['1::2::3', '1::2::3'],
+		['1:2:3:4:5:6:7:8:9', '1:2:3:4:5:6:7:8:9'],
+		['2001:db8:zz::1', '2001:db8:zz::1']
+	])('%s → %s', (input, out) => {
+		expect(addressKey(input)).toBe(out);
+	});
+});
+
 describe('clientId', () => {
 	const ev = (addr: string) => ({ getClientAddress: () => addr });
 
@@ -207,6 +280,12 @@ describe('clientId', () => {
 		const id = await clientId(ev('203.0.113.7'), { salt: 's1' });
 		expect(id).not.toContain('203.0.113.7');
 		expect(id).not.toContain('203');
+	});
+
+	it('keys an IPv6 address by its /64', async () => {
+		const a = await clientId(ev('2001:db8:1:2::1'), { salt: 's' });
+		expect(await clientId(ev('2001:db8:1:2:ffff::9'), { salt: 's' })).toBe(a);
+		expect(await clientId(ev('2001:db8:1:3::1'), { salt: 's' })).not.toBe(a);
 	});
 
 	it('uses clientKey when given, not the address', async () => {

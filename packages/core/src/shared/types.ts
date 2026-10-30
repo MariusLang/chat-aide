@@ -23,6 +23,7 @@ export interface AideEvent {
 
 /** The one interface for shared state (spec §3.5). */
 export interface Store {
+	/** Adds `by` (negative too) to a counter; creates it with `ttlSeconds` when missing. */
 	incr(key: string, by: number, ttlSeconds: number): Promise<number>;
 	get(key: string): Promise<string | null>;
 	set(key: string, value: string, ttlSeconds: number): Promise<void>;

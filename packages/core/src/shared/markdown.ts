@@ -3,9 +3,12 @@
  *
  * Only marked's lexer is used; no HTML string is ever produced. The tree has no image node,
  * raw HTML becomes its own source text, and links survive only as http(s) and, unless
- * `answerLinks: 'any'`, only to the configured origin. Browser-safe: no Node imports.
+ * `answerLinks: 'any'`, only to the configured origin. A same-origin link whose last segment is
+ * one where a GET may act (`/account/delete`) is dropped too: page text read by the model must
+ * not hand the visitor a click that acts on their session. Browser-safe: no Node imports.
  */
 import { Lexer, getDefaults, type Token, type Tokens } from 'marked';
+import { hasSideEffectSegment } from './side-effects.js';
 
 export type MdInline =
 	| { t: 'text'; v: string }
@@ -63,6 +66,13 @@ function resolveLink(href: string, ctx: Ctx): { href: string; external: boolean 
 	if (url.origin === ctx.origin) {
 		// `/.//evil.com` keeps this origin but its bare path would be a protocol-relative href.
 		if (url.pathname.startsWith('//')) return null;
+		let decoded: string;
+		try {
+			decoded = decodeURI(url.pathname);
+		} catch {
+			return null;
+		}
+		if (hasSideEffectSegment(decoded)) return null;
 		return { href: url.pathname + url.search + url.hash, external: false };
 	}
 	return ctx.any ? { href: url.href, external: true } : null;

@@ -30,8 +30,9 @@ site-scoped system prompt. Set `siteTokensPerDay` to what you are willing to pay
 
 ### Behind a proxy
 
-The rate limit is keyed by an HMAC of `event.getClientAddress()` under a salt; no address is
-stored. The library reads no forwarded header by itself. Behind a proxy or CDN that SvelteKit's
+The rate limit and the per-visitor budget are keyed by an HMAC of `event.getClientAddress()`
+under a salt; no address is stored. An IPv6 address counts by its /64, since one connection
+usually has a whole /64 to pick addresses from. The library reads no forwarded header by itself. Behind a proxy or CDN that SvelteKit's
 adapter is not configured for, every visitor has the proxy's address, shares one bucket, and one
 client can use it up for everybody. Handler creation cannot detect this. Either configure your
 adapter's address header (e.g. `ADDRESS_HEADER` on adapter-node), or pass `clientKey`:
@@ -51,10 +52,12 @@ character, resolving to the configured origin (or the in-process sentinel withou
 segments are resolved and query and hash dropped. Excludes are then matched against the pathname
 **as SvelteKit decodes it for routing**, so `/%61pi/x` is `/api/x` and excluded; an undecodable
 pathname is refused. A refused route is `400 invalid_request` or, from `read_page`, "Not a page of
-this site.", and no read is made.
+this site.", and no read is made. The route that results from resolving dot segments must still
+start with exactly one `/`, so `/.//evil.example` is refused too.
 
 Default excludes: `/api/**`, any last segment with a file extension, and last segments `logout`,
-`logoff`, `signout`, `sign-out`, `unsubscribe`, `delete`, `remove` (a GET there may act).
+`logoff`, `signout`, `sign-out`, `unsubscribe`, `delete`, `remove` (a GET there may act). The
+defaults match in any letter case (`/API/x` is excluded too); your own excludes match as written.
 
 ## Reads of your site
 
@@ -68,6 +71,11 @@ cached as a page; anything else is a miss, remembered for 60 seconds without its
 
 The origin reads go to is `config.origin`, never the request's `Host`. See
 [Deployment → origin](deployment.md#origin).
+
+Reads come from your server, so what your edge or network hides from the public is not hidden
+from them: a route behind edge authentication (Vercel deployment protection, Cloudflare Access),
+an IP allowlist or a VPN answers a read from inside as it would answer you. `read_page` takes any
+route of the site, linked or not. **Put every such route in `pages.exclude`.**
 
 ## Prompt injection
 
@@ -99,7 +107,10 @@ and nothing in an answer makes the browser send a request without a click:
   default) a link to another host renders as its text; `'any'` keeps it with
   `rel="noopener noreferrer"` and `target="_blank"`. Same-origin links navigate with `goto` on
   click, and carry `data-sveltekit-preload-data="off"` and `data-sveltekit-preload-code="off"`, so
-  hovering one does not run a `load`.
+  hovering one does not run a `load`. A same-origin link whose last segment is one of the
+  side-effect segments above (`/logout`, `/account/delete`) renders as its text, so page text
+  read by the model cannot hand a signed-in visitor a click that acts on their session. Links to
+  routes you excluded yourself are kept: the widget does not know your excludes.
 - Raw HTML is shown as text.
 
 ## DOM text
