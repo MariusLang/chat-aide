@@ -3,6 +3,12 @@
 	"version": "0.1.0",
 	"description": "An AI chat and llms.txt for your own SvelteKit site, derived from the site at run time.",
 	"license": "MIT",
+	"homepage": "https://chat-aide.dev",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MariusLang/chat-aide.git",
+		"directory": "packages/sveltekit"
+	},
 	"type": "module",
 	"engines": {
 		"node": ">=24"

@@ -3,6 +3,12 @@
 	"version": "0.1.0",
 	"description": "React widget and hook for chat-aide: an AI chat for your own site that answers from its pages.",
 	"license": "MIT",
+	"homepage": "https://chat-aide.dev",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MariusLang/chat-aide.git",
+		"directory": "packages/react"
+	},
 	"type": "module",
 	"engines": {
 		"node": ">=24"

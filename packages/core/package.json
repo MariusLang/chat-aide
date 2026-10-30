@@ -3,6 +3,12 @@
 	"version": "0.1.0",
 	"description": "The framework-neutral core of chat-aide: an AI chat and llms.txt for your own site, derived from the site at run time.",
 	"license": "MIT",
+	"homepage": "https://chat-aide.dev",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MariusLang/chat-aide.git",
+		"directory": "packages/core"
+	},
 	"type": "module",
 	"engines": {
 		"node": ">=24"

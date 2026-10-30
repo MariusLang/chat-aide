@@ -3,6 +3,12 @@
 	"version": "0.1.0",
 	"description": "Next.js App Router adapter for chat-aide: route handlers for the chat endpoint and llms.txt.",
 	"license": "MIT",
+	"homepage": "https://chat-aide.dev",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MariusLang/chat-aide.git",
+		"directory": "packages/next"
+	},
 	"type": "module",
 	"engines": {
 		"node": ">=24"
