@@ -8,7 +8,7 @@ where things live and how to check a change.
 You need Node 24 or newer and pnpm 10.
 
 ```sh
-git clone <repository-url> chat-aide
+git clone https://github.com/MariusLang/chat-aide.git
 cd chat-aide
 pnpm install
 pnpm -r --filter './packages/**' build
