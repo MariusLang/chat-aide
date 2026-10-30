@@ -7,11 +7,11 @@ import type { RequestHandler } from './$types';
  */
 export const GET: RequestHandler = () => {
 	const lines = [
-		'# svelte-chat-aide',
+		'# chat-aide',
 		'',
-		'> An AI chat for your own SvelteKit site, and an llms.txt for it, both derived from the site at run time. One package, one server hook, one component.',
+		'> An AI chat for your own site, and an llms.txt for it, both derived from the site at run time. For SvelteKit, Next.js and React, and any server that speaks web-standard Request and Response.',
 		'',
-		'- [Home](/): what svelte-chat-aide does, in short',
+		'- [Home](/): what chat-aide does, in short',
 		'- [Documentation](/docs): all docs pages',
 		''
 	];

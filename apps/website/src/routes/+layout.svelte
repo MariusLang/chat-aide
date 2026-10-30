@@ -21,6 +21,6 @@
 {#if data.chat}
 	<ChatWidget
 		bind:open={chatUi.open}
-		strings={{ title: 'Ask svelte-chat-aide', greeting: 'Hi! I have read every page of this site. What are you building?' }}
+		strings={{ title: 'Ask chat-aide', greeting: 'Hi! I have read every page of this site. What are you building?' }}
 	/>
 {/if}

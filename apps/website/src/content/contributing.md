@@ -1,6 +1,6 @@
 # Contributing
 
-svelte-chat-aide is an MIT-licensed pnpm monorepo. This page explains how to run it locally,
+chat-aide is an MIT-licensed pnpm monorepo. This page explains how to run it locally,
 where things live and how to check a change.
 
 ## Set up
@@ -22,7 +22,7 @@ and again after changing one.
 | path | what |
 |---|---|
 | `packages/core` | `@chat-aide/core`: the framework-neutral server, site reader, llms.txt and widget helpers |
-| `packages/svelte-chat-aide` | the SvelteKit hook and the three Svelte widget layers |
+| `packages/svelte-chat-aide` | `svelte-chat-aide`: the SvelteKit hook and the three Svelte widget layers |
 | `packages/react` | `@chat-aide/react`: the React widget and `useAide` |
 | `packages/next` | `@chat-aide/next`: Next.js route handlers |
 | `apps/demo` | a SvelteKit test site with a mock model, and its Playwright suite |

@@ -4,14 +4,14 @@
 </script>
 
 <svelte:head>
-	<title>Documentation · svelte-chat-aide</title>
-	<meta name="description" content="Install, configure, theme and deploy svelte-chat-aide, the AI chat for SvelteKit sites." />
+	<title>Documentation · chat-aide</title>
+	<meta name="description" content="Install, configure, theme and deploy chat-aide, the AI chat that knows your site." />
 </svelte:head>
 
 <div class="py-10 md:py-14">
 	<h1 class="font-display text-4xl sm:text-5xl">Documentation</h1>
 	<p class="text-muted-foreground mt-4 max-w-xl text-lg">
-		Everything about svelte-chat-aide, from the first install to running it in production.
+		Everything about chat-aide, from the first install to running it in production.
 	</p>
 	<div class="mt-6"><InstallCommand /></div>
 

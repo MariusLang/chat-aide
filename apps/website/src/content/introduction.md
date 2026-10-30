@@ -1,6 +1,6 @@
 # Introduction
 
-svelte-chat-aide puts an AI chat on your own site. It answers from your pages, and nothing else,
+chat-aide puts an AI chat on your own site. It answers from your pages, and nothing else,
 and it also serves an `llms.txt` for the site. It started on SvelteKit, where you install one
 package, add one line to `hooks.server.ts` and drop `<ChatWidget />` into your root layout. The
 same server now runs on Next.js with a React widget, and on any framework that speaks
@@ -50,7 +50,7 @@ at run time. It stores nothing on the server beyond an in-memory cache.
 
 ## This website runs on it
 
-The chat in the corner of this site is svelte-chat-aide itself, with the shadcn theme and the
+The chat in the corner of this site is chat-aide itself, with the shadcn theme and the
 default settings. It has read these docs the same way it would read yours. Ask it how to install,
 which provider to pick or how to restyle the widget.
 

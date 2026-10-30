@@ -71,9 +71,10 @@ The origin reads go to is `config.origin`, never the request's `Host`. See
 
 ## Prompt injection
 
-Page text and messages sit in delimited data blocks that the system prompt names as data, and the
-site outline, built from crawled titles, headings and descriptions, is delimited too. The one
-tool reads pages of this site and nothing else; there is no tool that fetches, writes or
+Page text (the current page and each `read_page` result) and the site outline, built from crawled
+titles, headings and descriptions, sit in delimited data blocks. Visitor messages go to the model
+as ordinary chat messages, outside those blocks; the default system prompt names all of them as
+data. The one tool reads pages of this site and nothing else; there is no tool that fetches, writes or
 navigates. But crawled text reaches every visitor's prompt, so text a visitor wrote (comments,
 forum posts, reviews, profile fields) can carry instructions to other visitors' chats.
 **Put `data-aide-ignore` on every element holding visitor-written text:**

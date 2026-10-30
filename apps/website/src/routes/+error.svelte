@@ -3,7 +3,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 </script>
 
-<svelte:head><title>{page.status} · svelte-chat-aide</title></svelte:head>
+<svelte:head><title>{page.status} · chat-aide</title></svelte:head>
 
 <div class="mx-auto max-w-xl px-4 py-32 text-center">
 	<p class="font-display text-7xl text-spot">{page.status}</p>

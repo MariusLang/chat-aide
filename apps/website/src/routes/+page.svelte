@@ -26,10 +26,10 @@
 </script>
 
 <svelte:head>
-	<title>svelte-chat-aide · An AI chat that knows your SvelteKit site</title>
+	<title>chat-aide · An AI chat that knows your site</title>
 	<meta
 		name="description"
-		content="A drop-in AI chat for SvelteKit that answers from your own pages. One package, one hook, one component."
+		content="A drop-in AI chat that answers from your own pages. For SvelteKit, Next.js and React, and any server that speaks fetch."
 	/>
 </svelte:head>
 
@@ -174,7 +174,7 @@
 			<div>
 				<h2 class="font-display text-4xl text-balance sm:text-5xl">Ask it something.</h2>
 				<p class="text-muted-foreground mt-4 max-w-md text-lg">
-					The chat on this page runs on svelte-chat-aide and has read all of these docs.
+					The chat on this page runs on chat-aide and has read all of these docs.
 				</p>
 				<div class="mt-8 flex flex-wrap gap-3">
 					{#if chatOn}

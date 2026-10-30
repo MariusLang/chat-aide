@@ -1,4 +1,4 @@
-# svelte-chat-aide
+# chat-aide
 
 An AI chat for your own site, and an `llms.txt` for it, both derived from the site at run time.
 Built first for SvelteKit, now with a framework-neutral core, a React widget and a Next.js adapter.
@@ -86,12 +86,12 @@ adapter come with the package, so this one command is the whole install.
 ## Repository
 
 - `packages/core` — `@chat-aide/core`: the framework-neutral server, site reader, `llms.txt` and widget helpers
-- `packages/svelte-chat-aide` — the SvelteKit hook and the Svelte widgets
+- `packages/svelte-chat-aide` — `svelte-chat-aide`: the SvelteKit hook and the Svelte widgets
 - `packages/react` — `@chat-aide/react`: the React widget and `useAide`
 - `packages/next` — `@chat-aide/next`: Next.js App Router route handlers
 - `apps/demo` — a SvelteKit site using it (adapter-node, mock model) and the Playwright suite
 - `apps/demo-next` — a Next.js site with the React widget (mock model) and its Playwright suite
-- `apps/website` — the project website and rendered docs, running svelte-chat-aide on itself
+- `apps/website` — the project website and rendered docs, running chat-aide on itself
   (`AIDE_PREVIEW=1 pnpm --filter website dev` runs it without a provider key)
 - `spec.md` — the specification
 
