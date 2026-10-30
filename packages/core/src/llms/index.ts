@@ -28,8 +28,9 @@ export type EventHandler<E extends AideEvent = AideEvent> = (event: E) => Promis
 const TEXT = 'text/plain; charset=utf-8';
 const MARKDOWN = 'text/markdown; charset=utf-8';
 
+/** `no-store`: anyone can send `x-aide-internal`, and a CDN must not keep that `404` for everyone. */
 function notFound(): Response {
-	return new Response('Not found', { status: 404, headers: { 'content-type': TEXT } });
+	return new Response('Not found', { status: 404, headers: { 'content-type': TEXT, 'cache-control': 'no-store' } });
 }
 
 function document(handler: ChatHandler<never>, body: string, type: string, head: boolean): Response {

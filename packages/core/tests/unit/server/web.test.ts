@@ -1,8 +1,10 @@
 import { MockLanguageModelV4, simulateReadableStream } from 'ai/test';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createAide, headerAddress, toAideEvent } from '../../../src/server/web';
+import { htmlPage } from '../../fixtures/site';
 
 const ORIGIN = 'https://example.test';
+const HTML = { 'content-type': 'text/html; charset=utf-8' };
 const USAGE = {
 	inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
 	outputTokens: { total: 1, text: 1, reasoning: undefined }
@@ -75,5 +77,43 @@ describe('createAide', () => {
 		await aide.chat(new Request(`${ORIGIN}/api/chat?route=/`, { headers: { origin: ORIGIN } }));
 		expect(aide.handler.transport.hasInProcessFetch()).toBe(false);
 		expect(inProcess).not.toHaveBeenCalled();
+	});
+});
+
+describe('createAide: cache-control on the llms documents', () => {
+	const PATHS = ['/llms.txt', '/llms-full.txt', '/about.md'];
+	const stubSite = () => {
+		const read = vi.fn(async (input: RequestInfo | URL) => {
+			const { pathname } = new URL(String(input));
+			if (pathname === '/') return new Response(htmlPage({ title: 'Home', links: ['/about'] }), { headers: HTML });
+			if (pathname === '/about') return new Response(htmlPage({ title: 'About' }), { headers: HTML });
+			return new Response('Not found', { status: 404 });
+		});
+		vi.stubGlobal('fetch', read);
+		return read;
+	};
+
+	it('answers 404 with no-store to any x-aide-internal value, and starts no crawl', async () => {
+		const read = stubSite();
+		const aide = createAide({ provider, origin: ORIGIN });
+		for (const path of PATHS) {
+			for (const method of ['GET', 'HEAD']) {
+				const headers = { 'x-aide-internal': 'not-the-marker', 'x-real-ip': '5.5.5.5' };
+				const response = await aide.fetch(new Request(`${ORIGIN}${path}`, { method, headers }));
+				expect(response.status).toBe(404);
+				expect(response.headers.get('cache-control')).toBe('no-store');
+			}
+		}
+		expect(read).not.toHaveBeenCalled();
+	});
+
+	it('keeps public, max-age on normal answers', async () => {
+		stubSite();
+		const aide = createAide({ provider, origin: ORIGIN, cache: { ttlSeconds: 120 } });
+		for (const path of PATHS) {
+			const response = await aide.fetch(new Request(`${ORIGIN}${path}`, { headers: { 'x-real-ip': '5.5.5.5' } }));
+			expect(response.status).toBe(200);
+			expect(response.headers.get('cache-control')).toBe('public, max-age=120');
+		}
 	});
 });
