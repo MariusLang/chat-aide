@@ -17,8 +17,8 @@ running app, anonymously, and keeps a map of them in memory.
 - **Three widget layers:** headless (store + unstyled components), a dependency-free plain
   theme, and a shadcn-svelte theme (the default) that follows the host's shadcn variables.
 
-It is not a hosted service, not a RAG platform, not for `adapter-static` sites (it needs a server
-at run time), and it stores nothing on the server.
+It is not a hosted service, not a RAG platform, not for static-only sites (it needs a server at
+run time), and it stores nothing on the server.
 
 ## Frameworks
 

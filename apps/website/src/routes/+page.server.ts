@@ -86,6 +86,7 @@ export default function RootLayout({ children }) {
 export const load: PageServerLoad = () => ({
 	frameworks: FRAMEWORKS.map(({ steps, ...f }) => ({
 		...f,
+		install: steps[0].code,
 		steps: steps.map(({ code, lang, ...s }) => ({ ...s, html: highlight(code, lang) }))
 	}))
 });

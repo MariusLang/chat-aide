@@ -12,11 +12,38 @@
 	import { page } from '$app/state';
 
 	let { data } = $props();
+	/** Shared by the hero's install command and the setup steps, so one choice sets both. */
+	let framework = $state('sveltekit');
+	const tabTrigger =
+		'border-border data-active:border-foreground data-active:bg-primary data-active:text-primary-foreground! dark:data-active:text-primary-foreground! dark:data-active:bg-primary dark:data-active:border-foreground flex-none border-[3px] font-semibold data-active:shadow-none';
 	const chatOn = $derived(Boolean(page.data.chat));
 
 	const providers = [
 		['Anthropic', 'OpenAI', 'Google Gemini', 'Mistral', 'Groq', 'xAI', 'DeepSeek', 'Cohere', 'OpenRouter'],
 		['Amazon Bedrock', 'Azure OpenAI', 'Vertex AI', 'Together AI', 'Fireworks', 'DeepInfra', 'Cerebras', 'Perplexity', 'Ollama']
+	];
+	const stacks = [
+		{
+			title: 'Svelte, on SvelteKit',
+			server: ['svelte-chat-aide', 'One line in hooks.server.ts.'],
+			widget: ['svelte-chat-aide', 'Svelte components: shadcn, plain or headless.'],
+			guide: '/docs/getting-started',
+			guideLabel: 'SvelteKit guide'
+		},
+		{
+			title: 'React and Next.js',
+			server: ['@chat-aide/next', 'App Router route handlers.'],
+			widget: ['@chat-aide/react', 'React components: plain theme or headless parts.'],
+			guide: '/docs/nextjs',
+			guideLabel: 'Next.js and React guide'
+		},
+		{
+			title: 'Astro, React Router, Hono, Nuxt, Bun',
+			server: ['@chat-aide/core', 'createAide, on web-standard Request and Response.'],
+			widget: ['@chat-aide/react', 'Where React runs. There is no Vue widget yet.'],
+			guide: '/docs/other-frameworks',
+			guideLabel: 'Other frameworks guide'
+		}
 	];
 	const points = [
 		['Nothing to index', 'It reads the running app. No embeddings, no build step, nothing to commit.'],
@@ -36,13 +63,13 @@
 <div use:parallax>
 	<!-- hero -->
 	<section class="relative overflow-hidden">
-		<div class="mx-auto grid max-w-6xl items-center gap-10 px-4 pt-14 pb-20 sm:px-6 md:grid-cols-[1.05fr_1fr] md:pt-20 md:pb-28">
-			<div class="hero-copy">
+		<div class="mx-auto grid max-w-6xl items-center gap-10 px-4 pt-14 pb-14 sm:px-6 md:grid-cols-[1.05fr_1fr] md:pt-20 md:pb-20">
+			<div class="hero-copy min-w-0">
 				<h1 class="font-display text-[clamp(3.4rem,9vw,6.6rem)] leading-[0.9] text-balance">
 					Let your site answer back.
 				</h1>
 				<p class="text-muted-foreground mt-6 max-w-md text-lg leading-relaxed text-pretty">
-					A drop-in AI chat that has read every page of your site. One package, one hook, one component.
+					A drop-in AI chat that has read every page of your site. A few lines on the server, one component in your layout.
 				</p>
 				<div class="mt-8 flex flex-wrap gap-3">
 					<Button size="lg" href="/docs/introduction#pick-your-framework" class="h-11 px-5 text-[0.95rem]">Get started</Button>
@@ -54,17 +81,59 @@
 						<Button size="lg" variant="outline" href="/docs" class="h-11 px-5 text-[0.95rem]">Read the docs</Button>
 					{/if}
 				</div>
-				<div class="mt-8">
-					<InstallCommand />
-				</div>
-				<p class="text-muted-foreground mt-4 text-sm">
-					For SvelteKit, Next.js and React, and any server that speaks <code class="font-mono">fetch</code>.
-				</p>
+				<Tabs.Root bind:value={framework} class="mt-8 gap-3">
+					<div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+						<span class="text-sm font-semibold">Install for</span>
+						<Tabs.List aria-label="Install command for" class="bg-transparent h-auto gap-2 p-0">
+							{#each data.frameworks as f (f.id)}
+								<Tabs.Trigger value={f.id} class="{tabTrigger} h-9 px-3 text-sm">{f.label}</Tabs.Trigger>
+							{/each}
+						</Tabs.List>
+						<a href="#frameworks" class="text-sm font-semibold underline underline-offset-4">Something else?</a>
+					</div>
+					{#each data.frameworks as f (f.id)}
+						<Tabs.Content value={f.id}>
+							<InstallCommand command={f.install} />
+						</Tabs.Content>
+					{/each}
+				</Tabs.Root>
 			</div>
 			<div class="relative mx-auto w-full max-w-xl">
 				<HeroScene />
 			</div>
 		</div>
+	</section>
+
+	<!-- frameworks -->
+	<section id="frameworks" class="mx-auto max-w-6xl px-4 pb-20 sm:px-6 md:pb-28">
+		<h2 class="font-display max-w-3xl text-4xl text-balance sm:text-5xl">
+			Svelte, React, or any server that speaks fetch.
+		</h2>
+		<p class="text-muted-foreground mt-4 max-w-2xl text-lg text-pretty">
+			One core underneath: the same crawler, providers, limits and security rules. Every setup needs a
+			server at run time, so static-only sites are out.
+		</p>
+		<ul class="mt-10 grid gap-6 lg:grid-cols-3">
+			{#each stacks as s (s.title)}
+				<li class="bg-card px-border m-[3px] flex min-w-0 flex-col p-6 lg:row-span-3 lg:grid lg:grid-rows-subgrid lg:gap-0">
+					<h3 class="font-display text-3xl text-balance">{s.title}</h3>
+					<dl class="mt-5 space-y-4 text-sm">
+						{#each [['Server', s.server], ['Widget', s.widget]] as const as [label, [pkg, note]] (label)}
+							<div>
+								<dt class="text-muted-foreground text-xs font-semibold tracking-wide uppercase">{label}</dt>
+								<dd class="mt-1">
+									<code class="block font-mono font-semibold">{pkg}</code>
+									<span class="text-muted-foreground mt-0.5 block">{note}</span>
+								</dd>
+							</div>
+						{/each}
+					</dl>
+					<a href={s.guide} class="bg-marker mt-6 inline-flex w-fit items-center gap-1.5 px-1 font-semibold text-black">
+						{s.guideLabel} <PixelIcon name="arrowRight" />
+					</a>
+				</li>
+			{/each}
+		</ul>
 	</section>
 
 	<!-- scroll story -->
@@ -98,15 +167,10 @@
 			<h2 class="font-display max-w-xl text-4xl text-balance sm:text-5xl">
 				Running in three steps.
 			</h2>
-			<Tabs.Root value="sveltekit" class="mt-12">
+			<Tabs.Root bind:value={framework} class="mt-12">
 				<Tabs.List class="bg-transparent h-auto gap-3 p-0">
 					{#each data.frameworks as f (f.id)}
-						<Tabs.Trigger
-							value={f.id}
-							class="border-border data-active:border-foreground data-active:bg-primary data-active:text-primary-foreground! dark:data-active:text-primary-foreground! dark:data-active:bg-primary dark:data-active:border-foreground h-11 flex-none border-[3px] px-5 text-base font-semibold data-active:shadow-none"
-						>
-							{f.label}
-						</Tabs.Trigger>
+							<Tabs.Trigger value={f.id} class="{tabTrigger} h-11 px-5 text-base">{f.label}</Tabs.Trigger>
 					{/each}
 				</Tabs.List>
 				{#each data.frameworks as f (f.id)}
@@ -137,7 +201,7 @@
 				{/each}
 			</Tabs.Root>
 			<p class="text-muted-foreground mt-6">
-				On Astro, React Router, Hono, Nuxt or Bun, mount the same server with <code class="font-mono text-sm">createAide</code>:
+				On another framework, mount the same server with <code class="font-mono text-sm">createAide</code>:
 				<a href="/docs/other-frameworks" class="text-foreground font-semibold underline underline-offset-4">other frameworks</a>.
 			</p>
 		</div>

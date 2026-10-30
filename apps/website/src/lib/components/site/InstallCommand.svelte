@@ -11,9 +11,9 @@
 	}
 </script>
 
-<div class="bg-card px-border m-[3px] inline-flex max-w-full items-center gap-3 py-1.5 pr-1.5 pl-4 font-mono text-sm">
+<div class="bg-card px-border m-[3px] inline-flex max-w-[calc(100%-6px)] items-center gap-3 py-1.5 pr-1.5 pl-4 font-mono text-sm">
 	<span class="text-muted-foreground select-none">$</span>
-	<code class="truncate">{command}</code>
+	<code class="min-w-0">{command}</code>
 	<button
 		type="button"
 		onclick={copy}
