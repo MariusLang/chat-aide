@@ -675,7 +675,7 @@ Latest stable on npm, 2026-09-26, the floor L1 starts from:
 | `publint` / `svelte-check` | 0.3.24 / 4.7.6 | CI |
 | `typescript` | 6.0.3 | 7.0.2 is `latest`, but `svelte-check` 4.7.6 (its latest) declares peer `typescript ^5 \|\| ^6` and npm refuses to install it with 7. The library stays on the latest 6.x and moves to 7 in the Renovate PR where `svelte-check` accepts it; this is the one deliberate exception to "latest stable" |
 | `eslint` | 10.11.0 | lint |
-| Node | 24 LTS (Krypton) | engines `>=24`; 22 is tested in CI until its end of life |
+| Node | 24 LTS (Krypton) | engines `>=24`; CI runs on 24 |
 | pnpm | latest 10 | workspace |
 
 AI SDK 7 is what the API names in this spec follow. Checked against the type declarations of
