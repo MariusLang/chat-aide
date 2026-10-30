@@ -1,16 +1,39 @@
 /**
- * The site's own chat-aide. The provider comes from the CHAT_AIDE_* variables;
- * without them the site still runs and the chat is hidden. AIDE_PREVIEW=1 shows the chat with a
- * fixed-answer model, for working on the site without a key.
+ * The site's own chat-aide, on Vercel. The chat only exists once everything that bounds its cost
+ * is configured: the CHAT_AIDE_* provider variables, ORIGIN, and a shared store (UPSTASH_REDIS_REST_*
+ * and AIDE_SALT). Missing any of them, the site still runs and the chat is hidden, so a deployment
+ * can never spend the key with per-instance limits. AIDE_PREVIEW=1 shows the chat with a
+ * fixed-answer model and no key, for working on the site.
  */
 import { env } from '$env/dynamic/private';
 import type { Handle } from '@sveltejs/kit';
 import { aide, fromEnv, type AideHandle } from '@chat-aide/sveltekit/server';
 import { previewModel } from './preview-model';
+import { redisStore } from './store';
 
 const preview = (): boolean => env.AIDE_PREVIEW === '1';
 
-export const chatConfigured = (): boolean => preview() || Boolean(env.CHAT_AIDE_PROVIDER);
+const live = (): boolean =>
+	Boolean(
+		env.CHAT_AIDE_PROVIDER &&
+			env.ORIGIN &&
+			env.UPSTASH_REDIS_REST_URL &&
+			env.UPSTASH_REDIS_REST_TOKEN &&
+			env.AIDE_SALT
+	);
+
+export const chatConfigured = (): boolean => preview() || live();
+
+/**
+ * Vercel's file tracing cannot follow the core's `import(pkg)`, so an adapter must be imported by
+ * name to reach the function. A provider without an entry here is refused at the first request.
+ */
+const adapters: Record<string, () => Promise<Record<string, unknown>>> = {
+	'@ai-sdk/anthropic': () => import('@ai-sdk/anthropic')
+};
+
+const importer = (pkg: string): Promise<Record<string, unknown>> =>
+	adapters[pkg]?.() ?? Promise.reject(new Error(`chat-aide: add ${pkg} to the adapters in lib/server/aide.ts`));
 
 let instance: AideHandle | undefined;
 
@@ -19,6 +42,7 @@ function aideHandle(): AideHandle {
 	instance ??= aide({
 		provider: preview() ? { name: 'custom', model: 'preview', instance: previewModel() } : fromEnv(env),
 		origin: env.ORIGIN || undefined,
+		...(preview() ? {} : { store: redisStore(env.UPSTASH_REDIS_REST_URL!, env.UPSTASH_REDIS_REST_TOKEN!), salt: env.AIDE_SALT }),
 		persona: {
 			name: 'Aide',
 			tone: 'friendly, concise, practical; show code when it helps',
@@ -35,7 +59,7 @@ function aideHandle(): AideHandle {
 			'/docs/deployment': ['Does it work on Vercel?'],
 			'/docs/security': ['Can someone abuse my API key?']
 		}
-	});
+	}, { importer });
 	return instance;
 }
 

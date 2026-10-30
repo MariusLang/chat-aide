@@ -76,7 +76,7 @@ export function markHooked(event: AideEvent): void {
 }
 
 export interface ChatHandlerDeps {
-	/** How adapters are imported (tests). */
+	/** How adapters are imported (tests, and hosts whose file tracing cannot follow `import(pkg)`). */
 	importer?: Importer;
 	now?: () => number;
 	/** The fetch used for network reads of the configured origin (default `globalThis.fetch`). */

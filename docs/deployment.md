@@ -97,6 +97,30 @@ Misses for invented routes expire after 60 seconds; how many can be written is b
 limit, since each costs a request. A failing store degrades to the in-memory cache for pages.
 The serverless warning above also fires, on the first request, when no `store` is configured.
 
+## Vercel
+
+Use `@sveltejs/adapter-vercel` and `pnpm add @vercel/functions`, and set `origin`, `store` and
+`salt`. Two things differ from a Node server:
+
+- **Import the provider's adapter by name.** The library loads it with a dynamic `import()`, which
+  Vercel's file tracing cannot follow, so without this the function has no adapter and every chat
+  request fails. Add the adapter to your dependencies and pass an importer:
+
+  ```ts
+  export const handle = aide(config, {
+  	importer: async (pkg) => {
+  		if (pkg === '@ai-sdk/anthropic') return import('@ai-sdk/anthropic');
+  		throw new Error(`no adapter for ${pkg}`);
+  	}
+  });
+  ```
+
+- **Keep the chat off preview deployments.** `origin` points at production, so a preview would
+  read production's pages and refuse requests from its own URL. Set the provider's variables for
+  the production environment only.
+
+A shared store must fail closed: when `incr` throws, the request is refused before any model call.
+
 ## Crawl cost
 
 Every crawled page is a full server render — `load` functions and database queries included — so
