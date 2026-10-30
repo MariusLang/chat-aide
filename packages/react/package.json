@@ -1,0 +1,52 @@
+{
+	"name": "@chat-aide/react",
+	"version": "0.0.0",
+	"description": "React widget and hook for chat-aide: an AI chat for your own site that answers from its pages.",
+	"license": "MIT",
+	"type": "module",
+	"engines": {
+		"node": ">=24"
+	},
+	"files": [
+		"dist"
+	],
+	"sideEffects": [
+		"**/*.css"
+	],
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./plain.css": "./dist/plain.css"
+	},
+	"scripts": {
+		"build": "node scripts/build.mjs",
+		"check": "tsc --noEmit -p tsconfig.json",
+		"lint": "eslint .",
+		"pretest": "test -f dist/index.js || pnpm build",
+		"test": "vitest run",
+		"publint": "publint"
+	},
+	"dependencies": {
+		"@ai-sdk/react": "^4.0.125",
+		"@chat-aide/core": "workspace:*",
+		"ai": "^7.0.122"
+	},
+	"peerDependencies": {
+		"react": "^18 || ^19"
+	},
+	"devDependencies": {
+		"@testing-library/react": "^16.3.3",
+		"@types/react": "^19.3.0",
+		"@types/react-dom": "^19.3.0",
+		"eslint": "^10.11.0",
+		"happy-dom": "^20.14.5",
+		"publint": "^0.3.24",
+		"react": "^19.3.0",
+		"react-dom": "^19.3.0",
+		"typescript": "~6.0.3",
+		"vitest": "^5.0.2"
+	}
+}

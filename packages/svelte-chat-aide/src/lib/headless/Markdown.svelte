@@ -3,8 +3,8 @@
   component renders it recursively. No HTML string, no image, ever.
 -->
 <script lang="ts">
-	import { parseAnswer, type MdBlock } from '../shared/markdown.js';
-	import { DEFAULT_STRINGS, type Strings } from '../shared/strings.js';
+	import { parseAnswer, type MdBlock } from '@chat-aide/core/client';
+	import { DEFAULT_STRINGS, type Strings } from '@chat-aide/core/client';
 	import MdInline from './MdInline.svelte';
 	import Self from './Markdown.svelte';
 

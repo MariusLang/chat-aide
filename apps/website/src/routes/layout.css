@@ -1,0 +1,415 @@
+@import 'tailwindcss';
+@import "tw-animate-css";
+@import "shadcn-svelte/tailwind.css";
+@import "@fontsource-variable/archivo/wdth.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Palette: two spot colours on black and white, like a two-colour print. Cobalt is the
+ * assistant (its bubbles, primary actions); highlighter yellow marks what was read. Dark mode is
+ * neutral grey with white ink and yellow actions.
+ */
+:root {
+	--background: oklch(1 0 0);
+	--foreground: oklch(0 0 0);
+	--card: oklch(1 0 0);
+	--card-foreground: oklch(0 0 0);
+	--popover: oklch(1 0 0);
+	--popover-foreground: oklch(0 0 0);
+	--primary: oklch(0.47 0.26 264);
+	--primary-foreground: oklch(1 0 0);
+	--secondary: oklch(0.955 0 0);
+	--secondary-foreground: oklch(0 0 0);
+	--muted: oklch(0.965 0 0);
+	--muted-foreground: oklch(0.45 0 0);
+	--accent: oklch(0.955 0 0);
+	--accent-foreground: oklch(0 0 0);
+	--destructive: oklch(0.577 0.245 27.325);
+	--border: oklch(0.87 0 0);
+	--input: oklch(0.87 0 0);
+	--ring: oklch(0.47 0.26 264);
+	--chart-1: oklch(0.87 0 0);
+	--chart-2: oklch(0.556 0 0);
+	--chart-3: oklch(0.439 0 0);
+	--chart-4: oklch(0.371 0 0);
+	--chart-5: oklch(0.269 0 0);
+	--radius: 0rem;
+	--sidebar: oklch(1 0 0);
+	--sidebar-foreground: oklch(0 0 0);
+	--sidebar-primary: oklch(0.47 0.26 264);
+	--sidebar-primary-foreground: oklch(1 0 0);
+	--sidebar-accent: oklch(0.955 0 0);
+	--sidebar-accent-foreground: oklch(0 0 0);
+	--sidebar-border: oklch(0.87 0 0);
+	--sidebar-ring: oklch(0.47 0.26 264);
+
+	--spot: oklch(0.47 0.26 264);
+	--spot-ink: oklch(1 0 0);
+	--marker: oklch(0.9 0.185 100);
+	--marker-ink: oklch(0 0 0);
+	/* illustration inks */
+	--ill-line: oklch(0 0 0);
+	--ill-paper: oklch(1 0 0);
+	--ill-shade: oklch(0.93 0 0);
+	--ill-fill: oklch(0.93 0 0);
+	--ill-skin-1: oklch(0.83 0.06 60);
+	--ill-skin-2: oklch(0.66 0.08 52);
+	--ill-skin-3: oklch(0.47 0.07 45);
+	--ill-hair: oklch(0 0 0);
+	--ill-pants: oklch(0.22 0 0);
+	--ill-blush: oklch(0.75 0.12 25);
+	--pix-ink: oklch(0.16 0 0);
+}
+
+.dark {
+	--background: oklch(0.235 0 0);
+	--foreground: oklch(0.97 0 0);
+	--card: oklch(0.27 0 0);
+	--card-foreground: oklch(0.97 0 0);
+	--popover: oklch(0.27 0 0);
+	--popover-foreground: oklch(0.97 0 0);
+	--primary: oklch(0.9 0.185 100);
+	--primary-foreground: oklch(0 0 0);
+	--secondary: oklch(0.3 0 0);
+	--secondary-foreground: oklch(0.97 0 0);
+	--muted: oklch(0.275 0 0);
+	--muted-foreground: oklch(0.74 0 0);
+	--accent: oklch(0.31 0 0);
+	--accent-foreground: oklch(0.97 0 0);
+	--destructive: oklch(0.704 0.191 22.216);
+	--border: oklch(1 0 0 / 13%);
+	--input: oklch(1 0 0 / 17%);
+	--ring: oklch(0.9 0.185 100);
+	--chart-1: oklch(0.87 0 0);
+	--chart-2: oklch(0.556 0 0);
+	--chart-3: oklch(0.439 0 0);
+	--chart-4: oklch(0.371 0 0);
+	--chart-5: oklch(0.269 0 0);
+	--sidebar: oklch(0.235 0 0);
+	--sidebar-foreground: oklch(0.97 0 0);
+	--sidebar-primary: oklch(0.9 0.185 100);
+	--sidebar-primary-foreground: oklch(0 0 0);
+	--sidebar-accent: oklch(0.3 0 0);
+	--sidebar-accent-foreground: oklch(0.97 0 0);
+	--sidebar-border: oklch(1 0 0 / 13%);
+	--sidebar-ring: oklch(0.9 0.185 100);
+
+	--spot: oklch(0.62 0.2 264);
+	--spot-ink: oklch(1 0 0);
+	--marker: oklch(0.9 0.185 100);
+	--marker-ink: oklch(0 0 0);
+	--ill-line: oklch(0.96 0 0);
+	--ill-paper: oklch(0.235 0 0);
+	--ill-shade: oklch(1 0 0 / 16%);
+	--ill-fill: oklch(0.34 0 0);
+	--ill-hair: oklch(0.14 0 0);
+	--ill-pants: oklch(0.16 0 0);
+	--ill-blush: oklch(0.7 0.12 25);
+	--pix-ink: oklch(0.14 0 0);
+}
+
+@theme inline {
+	--font-sans: 'Archivo Variable', system-ui, sans-serif;
+	--font-display: 'Archivo Variable', system-ui, sans-serif;
+	--color-spot: var(--spot);
+	--color-marker: var(--marker);
+	--color-sidebar-ring: var(--sidebar-ring);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar: var(--sidebar);
+	--color-chart-5: var(--chart-5);
+	--color-chart-4: var(--chart-4);
+	--color-chart-3: var(--chart-3);
+	--color-chart-2: var(--chart-2);
+	--color-chart-1: var(--chart-1);
+	--color-ring: var(--ring);
+	--color-input: var(--input);
+	--color-border: var(--border);
+	--color-destructive: var(--destructive);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-accent: var(--accent);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-muted: var(--muted);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-secondary: var(--secondary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-primary: var(--primary);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-popover: var(--popover);
+	--color-card-foreground: var(--card-foreground);
+	--color-card: var(--card);
+	--color-foreground: var(--foreground);
+	--color-background: var(--background);
+	--radius-sm: calc(var(--radius) * 0.6);
+	--radius-md: calc(var(--radius) * 0.8);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) * 1.4);
+	--radius-2xl: calc(var(--radius) * 1.8);
+	--radius-3xl: calc(var(--radius) * 2.2);
+	--radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+	body {
+		@apply bg-background text-foreground;
+	}
+	html {
+		@apply font-sans;
+	}
+}
+
+@layer base {
+	html {
+		scroll-padding-top: 5rem;
+	}
+	::selection {
+		background: var(--marker);
+		color: var(--marker-ink);
+	}
+	.font-display {
+		font-stretch: 72%;
+		font-weight: 800;
+		letter-spacing: 0;
+		word-spacing: 0.1em;
+	}
+	:focus-visible {
+		outline: 2px solid var(--ring);
+		outline-offset: 2px;
+	}
+}
+
+/* Rendered markdown of the docs pages. */
+.prose {
+	--prose-gap: 1.1rem;
+	line-height: 1.7;
+	font-size: 0.975rem;
+	color: color-mix(in oklch, var(--foreground) 88%, transparent);
+}
+.prose > * + * {
+	margin-top: var(--prose-gap);
+}
+.prose h2,
+.prose h3,
+.prose h4 {
+	position: relative;
+	font-family: var(--font-display);
+	font-stretch: 80%;
+	color: var(--foreground);
+	letter-spacing: -0.005em;
+	line-height: 1.2;
+}
+.prose h2 {
+	font-size: 1.7rem;
+	font-weight: 800;
+	margin-top: 3rem;
+	padding-top: 1.5rem;
+	border-top: 1px solid var(--border);
+}
+.prose h3 {
+	font-size: 1.3rem;
+	font-weight: 750;
+	margin-top: 2.2rem;
+}
+.prose h4 {
+	font-size: 1rem;
+	font-weight: 620;
+	margin-top: 1.8rem;
+}
+.prose .anchor {
+	position: absolute;
+	left: -1.1em;
+	padding-right: 0.3em;
+	color: var(--muted-foreground);
+	opacity: 0;
+	text-decoration: none;
+	transition: opacity 0.15s;
+}
+.prose h2:hover .anchor,
+.prose h3:hover .anchor,
+.prose .anchor:focus-visible {
+	opacity: 1;
+}
+.prose a:not(.anchor) {
+	color: var(--foreground);
+	font-weight: 550;
+	text-decoration: none;
+	background: linear-gradient(transparent 62%, var(--marker) 62% 92%, transparent 92%);
+	transition: background-size 0.15s;
+}
+.dark .prose a:not(.anchor) {
+	color: var(--marker);
+	background: none;
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+.prose a:not(.anchor):hover {
+	background: var(--marker);
+	color: var(--marker-ink);
+}
+.prose strong {
+	color: var(--foreground);
+	font-weight: 620;
+}
+.prose ul,
+.prose ol {
+	padding-left: 1.3rem;
+}
+.prose ul {
+	list-style: disc;
+}
+.prose ol {
+	list-style: decimal;
+}
+.prose li + li {
+	margin-top: 0.35rem;
+}
+.prose li::marker {
+	color: var(--muted-foreground);
+}
+.prose :not(pre) > code {
+	font-size: 0.85em;
+	padding: 0.12em 0.35em;
+	border-radius: 0;
+	background: var(--muted);
+	border: 1px solid var(--border);
+	color: var(--foreground);
+	overflow-wrap: anywhere;
+}
+.prose .code-block {
+	position: relative;
+	margin-inline: 3px;
+	background: var(--card);
+	box-shadow:
+		0 -3px 0 0 var(--border),
+		0 3px 0 0 var(--border),
+		-3px 0 0 0 var(--border),
+		3px 0 0 0 var(--border);
+	overflow: hidden;
+}
+.prose .code-block pre {
+	overflow-x: auto;
+	padding: 1rem 1.1rem;
+	font-size: 0.83rem;
+	line-height: 1.6;
+	tab-size: 2;
+	background: transparent !important;
+}
+.prose .code-block pre span {
+	color: var(--shiki-light);
+}
+.dark .prose .code-block pre span {
+	color: var(--shiki-dark);
+}
+.prose .table-wrap {
+	overflow-x: auto;
+	margin-inline: 3px;
+	box-shadow:
+		0 -3px 0 0 var(--border),
+		0 3px 0 0 var(--border),
+		-3px 0 0 0 var(--border),
+		3px 0 0 0 var(--border);
+}
+.prose table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.86rem;
+	line-height: 1.5;
+}
+.prose th {
+	text-align: left;
+	font-weight: 600;
+	color: var(--foreground);
+	background: var(--muted);
+}
+.prose th,
+.prose td {
+	padding: 0.55rem 0.8rem;
+	border-bottom: 1px solid var(--border);
+	vertical-align: top;
+}
+.prose tr:last-child td {
+	border-bottom: 0;
+}
+.prose blockquote {
+	border-left: 3px solid var(--marker);
+	padding-left: 1rem;
+	color: var(--muted-foreground);
+}
+.prose hr {
+	border-color: var(--border);
+}
+.prose td code,
+.prose th code {
+	white-space: nowrap;
+	overflow-wrap: normal;
+}
+
+/*
+ * Pixel borders: a border drawn as four offset shadows, which leaves each corner cut by one
+ * "pixel". `.px-raised` adds a hard drop shadow that a pressed button gives up.
+ */
+@utility px-border {
+	--px: 3px;
+	--px-c: var(--foreground);
+	border-color: transparent !important;
+	border-width: 0 !important;
+	box-shadow:
+		0 calc(-1 * var(--px)) 0 0 var(--px-c),
+		0 var(--px) 0 0 var(--px-c),
+		calc(-1 * var(--px)) 0 0 0 var(--px-c),
+		var(--px) 0 0 0 var(--px-c);
+}
+@utility px-raised {
+	box-shadow:
+		0 calc(-1 * var(--px)) 0 0 var(--px-c),
+		0 var(--px) 0 0 var(--px-c),
+		calc(-1 * var(--px)) 0 0 0 var(--px-c),
+		var(--px) 0 0 0 var(--px-c),
+		calc(2 * var(--px)) calc(2 * var(--px)) 0 0 var(--px-c);
+	transition: translate 0.05s steps(1);
+	&:active {
+		translate: var(--px) var(--px);
+		box-shadow:
+			0 calc(-1 * var(--px)) 0 0 var(--px-c),
+			0 var(--px) 0 0 var(--px-c),
+			calc(-1 * var(--px)) 0 0 0 var(--px-c),
+			var(--px) 0 0 0 var(--px-c);
+	}
+}
+@utility px-soft {
+	--px-c: var(--border);
+}
+
+/* The chat widget follows the same square, pixel-edged look. */
+[data-aide-theme='shadcn'],
+[data-aide-theme='shadcn'] * {
+	border-radius: 0 !important;
+}
+
+/* Its window, launcher, input and suggestions get the same notched pixel border. */
+:is([data-aide-theme='shadcn'][data-part], [data-aide-theme='shadcn'] [data-part]):is(
+		[data-part='window'],
+		[data-part='launcher'],
+		[data-part='composer'],
+		[data-part='suggestion']
+	) {
+	--px: 3px;
+	--px-c: var(--foreground);
+	border-color: transparent !important;
+	box-shadow:
+		0 calc(-1 * var(--px)) 0 0 var(--px-c),
+		0 var(--px) 0 0 var(--px-c),
+		calc(-1 * var(--px)) 0 0 0 var(--px-c),
+		var(--px) 0 0 0 var(--px-c) !important;
+}
+:is([data-aide-theme='shadcn'] [data-part='suggestion']) {
+	--px-c: var(--border);
+}

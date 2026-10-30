@@ -7,9 +7,14 @@ import { with_request_store } from '@sveltejs/kit/internal/server';
 import { MockLanguageModelV4 } from 'ai/test';
 import { aide } from '../../../src/lib/server/hook';
 import { llmsFullTxt, llmsTxt, pageMarkdown } from '../../../src/lib/llms/index';
-import { parseLlmsTxt } from '../../../src/lib/site/llms';
-import { INTERNAL_HEADER, INTERNAL_MARKER, SERVED_HEADER, SERVED_MARKER } from '../../../src/lib/site/transport';
-import type { AideConfig } from '../../../src/lib/shared/types';
+import {
+	INTERNAL_HEADER,
+	INTERNAL_MARKER,
+	SERVED_HEADER,
+	SERVED_MARKER,
+	parseLlmsTxt
+} from '@chat-aide/core/internal';
+import type { AideConfig } from '../../../src/lib/server/hook';
 import { htmlPage } from '../../fixtures/site';
 
 const BASE = 'http://localhost:5173';
