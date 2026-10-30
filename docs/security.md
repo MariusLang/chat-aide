@@ -2,9 +2,9 @@
 
 ## The key stays on the server
 
-`svelte-chat-aide/server` maps its `browser` export condition to a module that imports a
+`@chat-aide/sveltekit/server` maps its `browser` export condition to a module that imports a
 specifier that does not exist, so a client bundle importing it fails to build with
-`svelte-chat-aide/server-only-imported-in-browser` in the error. Errors to the client are opaque
+`@chat-aide/sveltekit/server-only-imported-in-browser` in the error. Errors to the client are opaque
 `{ error, message }` JSON; the provider's real error goes to `onError` only. Nothing is logged
 except the few one-time setup warnings listed in [Deployment](deployment.md#warnings).
 
@@ -121,7 +121,7 @@ provider; set `disclosure` to the sentence your policy needs, and render the wid
 
 No inline scripts. The shadcn theme's styles are a stylesheet imported by its components. The
 plain theme injects one `<style>`, which takes `nonce`, or `stylesheet={false}` when you link
-`svelte-chat-aide/themes/plain/plain.css` yourself. The `offset` prop is applied as an inline
+`@chat-aide/sveltekit/themes/plain/plain.css` yourself. The `offset` prop is applied as an inline
 `style` attribute, so under a strict `style-src` without `'unsafe-inline'` leave `offset` unset and
 set `--aide-offset-x` / `--aide-offset-y` from your own stylesheet instead ([Theming](theming.md#csp)).
 

@@ -6,7 +6,7 @@ Router, Hono, Nuxt or Bun see [Other frameworks](other-frameworks.md).
 ## 1. Install
 
 ```sh
-pnpm add svelte-chat-aide
+pnpm add @chat-aide/sveltekit
 ```
 
 That is the whole install: the AI SDK (`ai` 7) and the adapter of every provider in
@@ -18,7 +18,7 @@ adapters are server-only and loaded on demand, so they never reach the browser b
 
 ```ts
 // src/hooks.server.ts
-import { aide } from 'svelte-chat-aide/server';
+import { aide } from '@chat-aide/sveltekit/server';
 import { ANTHROPIC_API_KEY } from '$env/static/private';
 import { env } from '$env/dynamic/private';
 
@@ -70,13 +70,13 @@ Without it, see [Deployment → without `origin`](deployment.md#without-origin).
 ### Choosing the provider per deployment
 
 ```ts
-import { aide, fromEnv } from 'svelte-chat-aide/server';
+import { aide, fromEnv } from '@chat-aide/sveltekit/server';
 import { env } from '$env/dynamic/private';
 
 export const handle = aide({ provider: fromEnv(env), origin: env.ORIGIN });
 ```
 
-with `SVELTE_CHAT_AIDE_PROVIDER`, `SVELTE_CHAT_AIDE_MODEL` and `SVELTE_CHAT_AIDE_API_KEY` set.
+with `CHAT_AIDE_PROVIDER`, `CHAT_AIDE_MODEL` and `CHAT_AIDE_API_KEY` set.
 The library reads no environment variable itself; `fromEnv` reads only the object you hand it.
 See [Providers → fromEnv](providers.md#fromenv).
 
@@ -85,7 +85,7 @@ See [Providers → fromEnv](providers.md#fromenv).
 ```svelte
 <!-- src/routes/+layout.svelte -->
 <script>
-	import { ChatWidget } from 'svelte-chat-aide'; // the shadcn theme
+	import { ChatWidget } from '@chat-aide/sveltekit'; // the shadcn theme
 	let { children } = $props();
 </script>
 
@@ -127,7 +127,7 @@ The hook is the recommended mount. If you mount the handlers as routes yourself:
 
 ```ts
 // src/lib/server/chat.ts — one handler, so one site map and one cache
-import { createChatHandler } from 'svelte-chat-aide/server';
+import { createChatHandler } from '@chat-aide/sveltekit/server';
 import { ANTHROPIC_API_KEY } from '$env/static/private';
 import { env } from '$env/dynamic/private';
 
@@ -146,7 +146,7 @@ export const POST = chat;
 
 ```ts
 // src/routes/llms.txt/+server.ts
-import { llmsTxt } from 'svelte-chat-aide/llms';
+import { llmsTxt } from '@chat-aide/sveltekit/llms';
 import { chat } from '$lib/server/chat';
 export const GET = llmsTxt(chat);
 ```

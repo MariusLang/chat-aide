@@ -1,5 +1,5 @@
 /*
- * svelte-chat-aide plain theme (spec 3.9 layer 2).
+ * @chat-aide/sveltekit plain theme (spec 3.9 layer 2).
  *
  * CSS only, no dependencies. Every rule is scoped to [data-aide-theme="plain"] and styles the
  * data-part structure of the headless components. Every colour, radius, font and shadow is a
@@ -10,7 +10,7 @@
  *
  * Light by default; dark from prefers-color-scheme or data-theme="dark" on the theme root or any
  * ancestor (data-theme="light" pins light). The component inlines this file; hosts that prefer a
- * link import svelte-chat-aide/themes/plain/plain.css and pass stylesheet={false}.
+ * link import @chat-aide/sveltekit/themes/plain/plain.css and pass stylesheet={false}.
  */
 
 /* ---------- Tokens ---------- */

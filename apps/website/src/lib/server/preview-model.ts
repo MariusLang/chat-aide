@@ -5,8 +5,8 @@
 import { MockLanguageModelV4, simulateReadableStream } from 'ai/test';
 
 const ANSWER =
-	'This is a preview without a model, so I cannot answer yet. Set `SVELTE_CHAT_AIDE_PROVIDER`, ' +
-	'`SVELTE_CHAT_AIDE_MODEL` and `SVELTE_CHAT_AIDE_API_KEY` and restart. Meanwhile, see ' +
+	'This is a preview without a model, so I cannot answer yet. Set `CHAT_AIDE_PROVIDER`, ' +
+	'`CHAT_AIDE_MODEL` and `CHAT_AIDE_API_KEY` and restart. Meanwhile, see ' +
 	'[Getting started](/docs/getting-started).';
 
 const USAGE = {

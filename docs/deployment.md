@@ -68,7 +68,7 @@ multiply by the instance count and every cold start re-crawls. Pass a shared `St
 `salt` (the schema refuses one without the other):
 
 ```ts
-import type { Store } from 'svelte-chat-aide/server';
+import type { Store } from '@chat-aide/sveltekit/server';
 import Redis from 'ioredis';
 
 const redis = new Redis(env.REDIS_URL);

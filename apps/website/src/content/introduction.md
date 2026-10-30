@@ -36,7 +36,7 @@ So when you publish a page, the chat knows about it after the next cache refresh
 
 | framework | install | guide |
 |---|---|---|
-| SvelteKit | `pnpm add svelte-chat-aide` | [SvelteKit](/docs/getting-started) |
+| SvelteKit | `pnpm add @chat-aide/sveltekit` | [SvelteKit](/docs/getting-started) |
 | Next.js | `pnpm add @chat-aide/next @chat-aide/react` | [Next.js and React](/docs/nextjs) |
 | Astro, React Router, Hono, Nuxt, Bun | `pnpm add @chat-aide/core` | [Other frameworks](/docs/other-frameworks) |
 

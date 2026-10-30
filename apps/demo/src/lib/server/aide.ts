@@ -1,11 +1,11 @@
 /**
- * The demo's svelte-chat-aide hook. With AIDE_MOCK=1 the provider is the mock model, the rate
+ * The demo's @chat-aide/sveltekit hook. With AIDE_MOCK=1 the provider is the mock model, the rate
  * limit and budgets are off (one Playwright worker sends many turns from one address), and every
  * outbound `fetch` of the server is recorded for the network audit (acceptance #2).
  */
 import { env } from '$env/dynamic/private';
 import type { Handle } from '@sveltejs/kit';
-import { aide, fromEnv, type AideHandle } from 'svelte-chat-aide/server';
+import { aide, fromEnv, type AideHandle } from '@chat-aide/sveltekit/server';
 import { mockModel } from './mock-model';
 
 export const MOCK = (): boolean => env.AIDE_MOCK === '1';

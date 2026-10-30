@@ -26,7 +26,7 @@ export const HOSTILE_ANSWER = [
 ].join('\n');
 
 /** A phrase that only the /docs/install page contains; the answer quotes it. */
-export const INSTALL_PHRASE = 'pnpm add svelte-chat-aide ai';
+export const INSTALL_PHRASE = 'pnpm add @chat-aide/sveltekit ai';
 
 export function echoAnswer(text: string): string {
 	return `You asked: ${text}. See [Privacy](/privacy).`;

@@ -22,7 +22,7 @@ and again after changing one.
 | path | what |
 |---|---|
 | `packages/core` | `@chat-aide/core`: the framework-neutral server, site reader, llms.txt and widget helpers |
-| `packages/svelte-chat-aide` | `svelte-chat-aide`: the SvelteKit hook and the three Svelte widget layers |
+| `packages/sveltekit` | `@chat-aide/sveltekit`: the SvelteKit hook and the three Svelte widget layers |
 | `packages/react` | `@chat-aide/react`: the React widget and `useAide` |
 | `packages/next` | `@chat-aide/next`: Next.js route handlers |
 | `apps/demo` | a SvelteKit test site with a mock model, and its Playwright suite |
@@ -41,9 +41,9 @@ widgets share. The Svelte package adds `src/lib/server/hook.ts`, `src/lib/headle
 
 ```sh
 cd apps/website
-SVELTE_CHAT_AIDE_PROVIDER=anthropic \
-SVELTE_CHAT_AIDE_MODEL=claude-haiku-4-5 \
-SVELTE_CHAT_AIDE_API_KEY=sk-… \
+CHAT_AIDE_PROVIDER=anthropic \
+CHAT_AIDE_MODEL=claude-haiku-4-5 \
+CHAT_AIDE_API_KEY=sk-… \
 pnpm dev
 ```
 

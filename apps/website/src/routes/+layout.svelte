@@ -1,7 +1,7 @@
 <script lang="ts">
 	import './layout.css';
 	import { ModeWatcher } from 'mode-watcher';
-	import { ChatWidget } from 'svelte-chat-aide';
+	import { ChatWidget } from '@chat-aide/sveltekit';
 	import SiteHeader from '$lib/components/site/SiteHeader.svelte';
 	import SiteFooter from '$lib/components/site/SiteFooter.svelte';
 	import { chatUi } from '$lib/chat.svelte';

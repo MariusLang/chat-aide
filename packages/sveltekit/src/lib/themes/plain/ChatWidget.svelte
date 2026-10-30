@@ -21,7 +21,7 @@
 		nonce?: string;
 		/** Pins light or dark; by default the theme follows `prefers-color-scheme` or an ancestor's `data-theme`. */
 		theme?: 'light' | 'dark';
-		/** `false` injects no `<style>`: the host links `svelte-chat-aide/themes/plain/plain.css` itself. */
+		/** `false` injects no `<style>`: the host links `@chat-aide/sveltekit/themes/plain/plain.css` itself. */
 		stylesheet?: boolean;
 	} = $props();
 </script>

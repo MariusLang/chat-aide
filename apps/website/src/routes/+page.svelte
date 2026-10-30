@@ -25,8 +25,8 @@
 	const stacks = [
 		{
 			title: 'Svelte, on SvelteKit',
-			server: ['svelte-chat-aide', 'One line in hooks.server.ts.'],
-			widget: ['svelte-chat-aide', 'Svelte components: shadcn, plain or headless.'],
+			server: ['@chat-aide/sveltekit', 'One line in hooks.server.ts.'],
+			widget: ['@chat-aide/sveltekit', 'Svelte components: shadcn, plain or headless.'],
 			guide: '/docs/getting-started',
 			guideLabel: 'SvelteKit guide'
 		},

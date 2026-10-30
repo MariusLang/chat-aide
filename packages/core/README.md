@@ -7,7 +7,7 @@ every widget shares.
 
 Most sites use it through a framework package:
 
-- SvelteKit: [`svelte-chat-aide`](../svelte-chat-aide) (hook and Svelte widgets)
+- SvelteKit: [`@chat-aide/sveltekit`](../sveltekit) (hook and Svelte widgets)
 - Next.js: [`@chat-aide/next`](../next) with [`@chat-aide/react`](../react)
 - Anything with web-standard `Request` / `Response` (Astro, React Router, Hono, Nuxt, Bun):
   `createAide` from this package

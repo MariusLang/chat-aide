@@ -1,7 +1,7 @@
 # Configuration
 
 `aide(config)` and `createChatHandler(config)` take the same `AideConfig` (exported as a type from
-`svelte-chat-aide/server`). It is validated with zod when the handler is created; an invalid
+`@chat-aide/sveltekit/server`). It is validated with zod when the handler is created; an invalid
 config throws `AideConfigError` with the path that failed, e.g.
 `limits.pageChars: 1200000 is above the ceiling 50000; raise it deliberately with limitCeilings: { pageChars: 1200000 }`.
 Unknown keys are refused.
@@ -111,7 +111,7 @@ not pad it.
 For a site whose content lives in a CMS, is too large to crawl, or cannot be rendered by the app:
 
 ```ts
-import type { Page } from 'svelte-chat-aide/server';
+import type { Page } from '@chat-aide/sveltekit/server';
 
 aide({
 	provider,

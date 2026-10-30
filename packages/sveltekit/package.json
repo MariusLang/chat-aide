@@ -1,5 +1,5 @@
 {
-	"name": "svelte-chat-aide",
+	"name": "@chat-aide/sveltekit",
 	"version": "0.0.0",
 	"description": "An AI chat and llms.txt for your own SvelteKit site, derived from the site at run time.",
 	"license": "MIT",

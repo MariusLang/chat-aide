@@ -15,7 +15,7 @@ outline. Change any of them in the `aide()` config:
 
 ```ts
 // src/hooks.server.ts
-import { aide } from 'svelte-chat-aide/server';
+import { aide } from '@chat-aide/sveltekit/server';
 
 export const handle = aide({
 	provider,
@@ -122,7 +122,7 @@ attribute to style against:
 
 ```svelte
 <script>
-	import { createChat, ChatWindow } from 'svelte-chat-aide/headless';
+	import { createChat, ChatWindow } from '@chat-aide/sveltekit/headless';
 	const chat = createChat({ endpoint: '/api/chat' });
 </script>
 

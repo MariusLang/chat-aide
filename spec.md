@@ -1,8 +1,8 @@
-# svelte-chat-aide — an AI chat for your own SvelteKit site
+# @chat-aide/sveltekit — an AI chat for your own SvelteKit site
 
 **Status:** specification, v0.2, 2026-09-26 (v0.1 revised after review). This file is the seed of a new repository; it is
 kept here until that repository exists, and `docs/plans/M17-site-chat.md` is the milestone
-that consumes it. The npm name `svelte-chat-aide` was free on 2026-09-26; registering it is the first step of L1.
+that consumes it. The npm name `@chat-aide/sveltekit` was free on 2026-09-26; registering it is the first step of L1.
 
 ## 1. What it is
 
@@ -14,7 +14,7 @@ adding two lines and setting one provider key.
 
 The developer:
 
-1. installs `svelte-chat-aide`,
+1. installs `@chat-aide/sveltekit`,
 2. mounts the server handler on one route and passes it a provider and a key,
 3. drops `<ChatWidget />` into the root layout.
 
@@ -26,7 +26,7 @@ limits.
 
 ## 2. What it is not
 
-- Not a hosted service. There is no svelte-chat-aide backend, no account, no telemetry to its author.
+- Not a hosted service. There is no @chat-aide/sveltekit backend, no account, no telemetry to its author.
   The only network calls are from the visitor's browser to the site's own server and from the
   site's server to the provider the developer chose (plus, for prerendered routes the app
   cannot render in process, reads of the site's own configured origin, §3.4).
@@ -49,7 +49,7 @@ limits.
 
 ### 3.1 Installation and wiring
 
-- `pnpm add svelte-chat-aide` is the whole install. `ai` and every adapter of §3.2 are
+- `pnpm add @chat-aide/sveltekit` is the whole install. `ai` and every adapter of §3.2 are
   regular dependencies of the package, so no provider needs a second install; peer
   dependencies are only `svelte ^5` and `@sveltejs/kit ^2` (and `@vercel/functions`, optional,
   for `waitUntil` on Vercel). The adapters are server-only and loaded on demand, so they never
@@ -58,7 +58,7 @@ limits.
 
   ```ts
   // src/hooks.server.ts
-  import { aide } from 'svelte-chat-aide/server';
+  import { aide } from '@chat-aide/sveltekit/server';
   import { ANTHROPIC_API_KEY } from '$env/static/private';
 
   export const handle = aide({
@@ -68,7 +68,7 @@ limits.
 
   `aide(config)` is a SvelteKit `Handle` (compose it with `sequence()` beside an existing
   one). A site that picks its provider per deployment writes `provider: fromEnv(env)` instead
-  and sets `SVELTE_CHAT_AIDE_PROVIDER`, `_MODEL` and `_API_KEY` (§3.2). It answers four paths itself and passes everything else through: the chat endpoint
+  and sets `CHAT_AIDE_PROVIDER`, `_MODEL` and `_API_KEY` (§3.2). It answers four paths itself and passes everything else through: the chat endpoint
   (`endpoint`, default `/api/chat`), `/llms.txt`, `/llms-full.txt` and `<route>.md` for every
   mapped page — all rendered at request time from the site map of §3.4, cached in memory,
   never written to disk. So a site that adds this one line has a chat *and* an `llms.txt`,
@@ -83,7 +83,7 @@ limits.
 
   ```svelte
   <script>
-    import { ChatWidget } from 'svelte-chat-aide/themes/shadcn';
+    import { ChatWidget } from '@chat-aide/sveltekit/themes/shadcn';
   </script>
   <ChatWidget />
   ```
@@ -168,17 +168,17 @@ Rules:
 
   | variable | maps to | required |
   |---|---|---|
-  | `SVELTE_CHAT_AIDE_PROVIDER` | `provider.name` | yes |
-  | `SVELTE_CHAT_AIDE_MODEL` | `provider.model` | yes |
-  | `SVELTE_CHAT_AIDE_API_KEY` | `provider.apiKey` | for every key-based provider |
-  | `SVELTE_CHAT_AIDE_BASE_URL` | `provider.baseURL` | for `openai-compatible`; optional elsewhere |
-  | `SVELTE_CHAT_AIDE_REGION` | `provider.region` | `amazon-bedrock` |
-  | `SVELTE_CHAT_AIDE_PROJECT`, `SVELTE_CHAT_AIDE_LOCATION` | `provider.project`, `provider.location` | `google-vertex` |
-  | `SVELTE_CHAT_AIDE_RESOURCE_NAME` | `provider.resourceName` | `azure` |
-  | `SVELTE_CHAT_AIDE_OPTIONS` | `provider.options`, parsed as JSON | optional |
+  | `CHAT_AIDE_PROVIDER` | `provider.name` | yes |
+  | `CHAT_AIDE_MODEL` | `provider.model` | yes |
+  | `CHAT_AIDE_API_KEY` | `provider.apiKey` | for every key-based provider |
+  | `CHAT_AIDE_BASE_URL` | `provider.baseURL` | for `openai-compatible`; optional elsewhere |
+  | `CHAT_AIDE_REGION` | `provider.region` | `amazon-bedrock` |
+  | `CHAT_AIDE_PROJECT`, `CHAT_AIDE_LOCATION` | `provider.project`, `provider.location` | `google-vertex` |
+  | `CHAT_AIDE_RESOURCE_NAME` | `provider.resourceName` | `azure` |
+  | `CHAT_AIDE_OPTIONS` | `provider.options`, parsed as JSON | optional |
 
   ```ts
-  import { aide, fromEnv } from 'svelte-chat-aide/server';
+  import { aide, fromEnv } from '@chat-aide/sveltekit/server';
   import { env } from '$env/dynamic/private';
 
   export const handle = aide({ provider: fromEnv(env) });
@@ -375,7 +375,7 @@ site's, and a missing one is a `404`, not the library reading itself back.
   shadows a route the app answers itself (`llms.serve: false` turns the serving off
   entirely). Pages that came from `pages.source` are not served on these routes unless the
   developer sets `llms.serveSource: true` (below). The same three are exported as handlers (`llmsTxt()`, `llmsFullTxt()`,
-  `pageMarkdown()`) from `svelte-chat-aide/llms` for a site that mounts routes by hand. The
+  `pageMarkdown()`) from `@chat-aide/sveltekit/llms` for a site that mounts routes by hand. The
   library's own outline is that same text, so what the chat is told about the site and what
   the site tells the world are one document.
 
@@ -449,8 +449,8 @@ puts in it is whatever the developer's function returns.
 
 - **The key never leaves the server.** The `./server` export maps its `browser` condition to
   `server/browser-guard.js`, which imports a specifier that does not exist
-  (`svelte-chat-aide/server-only-imported-in-browser`), so a client bundle that imports
-  `svelte-chat-aide/server` fails to build with that name in the error. A runtime check that
+  (`@chat-aide/sveltekit/server-only-imported-in-browser`), so a client bundle that imports
+  `@chat-aide/sveltekit/server` fails to build with that name in the error. A runtime check that
   throws when `window` is defined backs it up but is not what the test relies on; a test builds
   a client bundle that imports it and asserts the build fails.
 - **The endpoint refuses other sites' pages.** `Sec-Fetch-Site` must be `same-origin`, or
@@ -574,14 +574,14 @@ Client side, on the component: `onopen`, `onclose`, `onsend(text)`, `onresponse(
 
 Three layers, each importable on its own:
 
-1. **`svelte-chat-aide/headless`** — `createChat(options)` (a runes store: messages, status, send,
+1. **`@chat-aide/sveltekit/headless`** — `createChat(options)` (a runes store: messages, status, send,
    stop, retry, open/close) and unstyled components that render structure with `data-part`
    attributes (`launcher`, `window`, `header`, `transcript`, `message`, `composer`, …) and no
    CSS. A custom theme is these plus a stylesheet, or its own components over the store.
-2. **`svelte-chat-aide/themes/plain`** — CSS only, no dependencies, every colour, radius and font a
+2. **`@chat-aide/sveltekit/themes/plain`** — CSS only, no dependencies, every colour, radius and font a
    `--aide-*` custom property; light and dark from `prefers-color-scheme` and a
    `data-theme` attribute.
-3. **`svelte-chat-aide/themes/shadcn`** — the default theme, what `.` re-exports and what the
+3. **`@chat-aide/sveltekit/themes/shadcn`** — the default theme, what `.` re-exports and what the
    reference site uses. Built from shadcn-svelte components and Tailwind 4:
    - *Components.* shadcn-svelte is a CLI that copies component source into a project, not a
      runtime package, so the theme's components (button, textarea, scroll-area, sheet,
@@ -615,8 +615,8 @@ the visitor's.
 ## 4. Package layout
 
 ```
-svelte-chat-aide/
-  packages/svelte-chat-aide/            the library (svelte-package)
+@chat-aide/sveltekit/
+  packages/sveltekit/            the library (svelte-package)
     src/lib/
       server/                   createChatHandler, providers, prompt, window, store, guards
       site/                     extract (shared with the widget), readPage, crawl, cache
@@ -713,7 +713,7 @@ AI SDK 7 is what the API names in this spec follow. Checked against the type dec
 ## 5. Configuration
 
 `createChatHandler(config)` takes the whole configuration; a site that wants it in one file
-exports the same object from `svelte-chat-aide.config.ts` and imports it there. The schema:
+exports the same object from `chat-aide.config.ts` and imports it there. The schema:
 
 ```ts
 type AideConfig = {
@@ -746,7 +746,7 @@ so a misconfiguration fails the build's smoke test rather than a visitor's first
 
 ## 6. Wire protocol
 
-`POST {endpoint}` with the AI SDK UI message format plus svelte-chat-aide's fields:
+`POST {endpoint}` with the AI SDK UI message format plus @chat-aide/sveltekit's fields:
 
 ```json
 { "id": "…", "messages": [ { "role": "user", "parts": [ { "type": "text", "text": "…" } ] } ],
@@ -781,7 +781,7 @@ rate limit as the `POST`, since it can start a crawl.
 2. No request leaves the visitor's browser to any origin but the site's, and none leaves the
    site's server to any host but the configured provider's and the configured `origin`;
    recorded by a Playwright network audit and a server-side fetch spy.
-3. The build of a client bundle that imports `svelte-chat-aide/server` fails, naming
+3. The build of a client bundle that imports `@chat-aide/sveltekit/server` fails, naming
    `server-only-imported-in-browser`.
 4. Every registry row hands `streamText` a model object; `gateway` is not a row and is
    refused by name; a grep for `gateway` in `src/lib` finds only the schema's refusal.
