@@ -7,7 +7,7 @@ import { tool, type Tool } from 'ai';
 import { z } from 'zod';
 import type { PageEntry } from '../shared/types.js';
 import { acceptRoute } from '../site/route.js';
-import { dataBlock } from './prompt.js';
+import { attr, dataBlock } from './prompt.js';
 
 export const NOT_A_PAGE = 'Not a page of this site.';
 
@@ -16,15 +16,6 @@ export interface ReadPageToolOptions {
 	exclude: string[];
 	siteMap: { readForTool(route: string): Promise<PageEntry | null> };
 	pageChars: number;
-}
-
-function attr(value: string): string {
-	return value
-		.replace(/&/g, '&amp;')
-		.replace(/"/g, '&quot;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;')
-		.replace(/[\r\n]+/g, ' ');
 }
 
 export function createReadPageTool(opts: ReadPageToolOptions): Tool<{ route: string }, string> {

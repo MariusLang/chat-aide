@@ -57,7 +57,7 @@ export function dataBlock(label: string, body: string): string {
 	return `<${label}>\n${safe}\n</${name}>`;
 }
 
-function attr(value: string): string {
+export function attr(value: string): string {
 	return value
 		.replace(/&/g, '&amp;')
 		.replace(/"/g, '&quot;')
