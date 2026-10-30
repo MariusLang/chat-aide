@@ -69,7 +69,7 @@ pnpm check
 
 runs the type checks, eslint, vitest, both Playwright suites (SvelteKit and Next.js), publint and
 `pnpm audit`. CI runs the same
-command on Node 24 and 22.
+command on Node 24.
 
 ## Release
 
