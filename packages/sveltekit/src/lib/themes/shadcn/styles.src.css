@@ -256,6 +256,11 @@
 	text-decoration: inherit;
 }
 
+/* The transcript does not hand its scroll on to the page at either end. */
+[data-aide-theme='shadcn'] [data-slot='scroll-area-viewport'] {
+	overscroll-behavior: contain;
+}
+
 /* ---- Answer markdown (rendered by the headless Markdown component) ---------------------------- */
 
 [data-aide-theme='shadcn'] [data-part='markdown'] {

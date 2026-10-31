@@ -29,12 +29,15 @@
 	} = $props();
 
 	const line = $derived(disclosure ?? chat.strings.disclosure(chat.provider ?? "the site's AI provider"));
-	const titleClass = 'aide:flex-1 aide:truncate aide:text-sm aide:font-semibold aide:text-foreground';
+	const titleClass =
+		'aide:flex-1 aide:truncate aide:text-sm aide:font-semibold aide:text-foreground aide:max-[480px]:text-base';
 </script>
 
+<!-- Focusable so a touch screen can open on the header rather than the keyboard (initialFocus). -->
 <header
 	data-part="header"
-	class="aide:flex aide:shrink-0 aide:items-center aide:gap-3 aide:border-b aide:border-border aide:px-4 aide:py-3"
+	tabindex="-1"
+	class="aide:flex aide:shrink-0 aide:items-center aide:gap-3 aide:border-b aide:border-border aide:px-4 aide:py-3 aide:outline-none aide:max-[480px]:pt-[max(0.75rem,env(safe-area-inset-top))] aide:max-[480px]:pr-[max(1rem,env(safe-area-inset-right))] aide:max-[480px]:pl-[max(1rem,env(safe-area-inset-left))]"
 >
 	<span
 		class="aide:flex aide:size-8 aide:shrink-0 aide:items-center aide:justify-center aide:rounded-full aide:bg-primary aide:text-primary-foreground"
@@ -53,7 +56,7 @@
 			size="icon-sm"
 			data-part="close"
 			aria-label={chat.strings.close}
-			class="aide:-mr-1.5 aide:text-muted-foreground"
+			class="aide:-mr-1.5 aide:text-muted-foreground aide:pointer-coarse:-mr-3 aide:pointer-coarse:size-11 aide:pointer-coarse:[&_svg]:size-5"
 			onclick={() => chat.close()}
 		>
 			<X />
@@ -61,7 +64,9 @@
 	{/if}
 </header>
 <ChatTranscript {chat} />
-<div class="aide:shrink-0 aide:px-3 aide:pt-1 aide:pb-3">
+<div
+	class="aide:shrink-0 aide:px-3 aide:pt-1 aide:pb-3 aide:max-[480px]:pr-[max(0.75rem,env(safe-area-inset-right))] aide:max-[480px]:pb-[max(0.75rem,env(safe-area-inset-bottom))] aide:max-[480px]:pl-[max(0.75rem,env(safe-area-inset-left))]"
+>
 	<ChatComposer {chat} />
 	{#if line}
 		<p

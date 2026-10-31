@@ -49,7 +49,8 @@
 		rows={1}
 		placeholder={chat.strings.placeholder}
 		aria-label={chat.strings.placeholder}
-		class="aide:max-h-40 aide:min-h-9 aide:flex-1 aide:resize-none aide:rounded-lg aide:border-0 aide:bg-transparent aide:px-2 aide:py-2 aide:text-sm aide:shadow-none aide:focus-visible:ring-0 aide:md:text-sm aide:dark:bg-transparent"
+		enterkeyhint="send"
+		class="aide:max-h-40 aide:min-h-9 aide:flex-1 aide:resize-none aide:rounded-lg aide:border-0 aide:bg-transparent aide:px-2 aide:py-2 aide:text-base aide:shadow-none aide:focus-visible:ring-0 aide:md:text-base aide:pointer-fine:text-sm aide:pointer-coarse:max-h-32 aide:pointer-coarse:min-h-10 aide:dark:bg-transparent"
 	/>
 	{#if busy}
 		<Button
@@ -58,7 +59,7 @@
 			size="icon-sm"
 			aria-label={chat.strings.stop}
 			title={chat.strings.stop}
-			class="aide:rounded-lg"
+			class="aide:rounded-lg aide:pointer-coarse:size-10"
 			onclick={() => chat.stop()}
 		>
 			<Square class="aide:size-3 aide:fill-current" />
@@ -70,7 +71,7 @@
 			size="icon-sm"
 			aria-label={chat.strings.send}
 			title={chat.strings.send}
-			class="aide:rounded-lg"
+			class="aide:rounded-lg aide:pointer-coarse:size-10"
 			disabled={!value.trim()}
 		>
 			<ArrowUp />

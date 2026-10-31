@@ -12,6 +12,15 @@ export function cn(...inputs: ClassValue[]): string {
 	return merge(clsx(inputs));
 }
 
+/**
+ * What the open dialog focuses first: the input, or on a touch screen the header, since the
+ * keyboard would otherwise cover the greeting and suggestions.
+ */
+export function initialFocus(): string {
+	const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+	return touch ? '[data-part="header"]' : '[data-part="input"]';
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type WithoutChild<T> = T extends { child?: any } ? Omit<T, 'child'> : T;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
