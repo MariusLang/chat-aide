@@ -13,12 +13,12 @@
  */
 import { MAX_ROUTE_LENGTH } from '../shared/limits.js';
 import { normalizeOrigin } from '../shared/schemas.js';
+import { SIDE_EFFECT_SEGMENTS } from '../shared/side-effects.js';
+
+export { SIDE_EFFECT_SEGMENTS };
 
 /** Sentinel origin used for in-process reads when no origin is configured. */
 export const IN_PROCESS_ORIGIN = 'http://aide.internal';
-
-/** Last path segments where a GET may act (spec §3.4). */
-export const SIDE_EFFECT_SEGMENTS = ['logout', 'logoff', 'signout', 'sign-out', 'unsubscribe', 'delete', 'remove'];
 
 /**
  * Default excludes as globs. The extension rule (last segment containing `.` followed by 1–8
@@ -64,6 +64,8 @@ export function normalizeRoute(input: unknown, origin?: string): string | null {
 		return null;
 	}
 	if (url.origin !== base) return null;
+	// Dot segments can leave a protocol-relative pathname behind: `/.//evil.example` → `//evil.example`.
+	if (url.pathname.startsWith('//')) return null;
 	const decoded = decodeSveltePathname(url.pathname);
 	if (decoded === null || CONTROL_CHAR.test(decoded) || decoded.includes('\\')) return null;
 	return url.pathname;
@@ -104,7 +106,9 @@ export function matchesPattern(pathname: string, pattern: string): boolean {
 
 /**
  * User excludes + defaults (including the extension rule), matched against the SvelteKit-decoded
- * pathname; an undecodable pathname counts as excluded. A pattern written percent-encoded is
+ * pathname; an undecodable pathname counts as excluded. Defaults match in any letter case, so
+ * `/API/x` is excluded behind a backend that routes case-insensitively; user excludes match as
+ * written. A pattern written percent-encoded is
  * decoded the same way, so `/über/**` and `/%C3%BCber/**` are equivalent.
  */
 export function isExcluded(pathname: string, exclude: string[]): boolean {
@@ -113,7 +117,8 @@ export function isExcluded(pathname: string, exclude: string[]): boolean {
 	const parts = segments(decoded);
 	const last = parts[parts.length - 1] ?? '';
 	if (EXTENSION.test(last)) return true;
-	for (const pattern of DEFAULT_EXCLUDES) if (matchesPattern(decoded, pattern)) return true;
+	const lower = decoded.toLowerCase();
+	for (const pattern of DEFAULT_EXCLUDES) if (matchesPattern(lower, pattern)) return true;
 	for (const pattern of exclude) {
 		if (matchesPattern(decoded, pattern)) return true;
 		const decodedPattern = decodeSveltePathname(pattern);

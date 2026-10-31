@@ -65,6 +65,11 @@ describe('route rule', () => {
 			expect(normalizeRoute(r)).toBeNull();
 	});
 
+	it('refuses a protocol-relative pathname left by dot segments', () => {
+		for (const r of ['/.//evil.example/x', '/a/..//evil.example', '/././/evil.example'])
+			expect(normalizeRoute(r, 'https://site.dev')).toBeNull();
+	});
+
 	it('normalizes dot segments before excludes', () => {
 		expect(normalizeRoute('/a/../api/x')).toBe('/api/x');
 		expect(isExcluded('/api/x', [])).toBe(true);
@@ -104,6 +109,11 @@ describe('excludes', () => {
 		}
 		expect(isExcluded('/logout-help', [])).toBe(false);
 		expect(isExcluded('/remove/x', [])).toBe(false);
+	});
+
+	it('default excludes match in any letter case; user excludes as written', () => {
+		for (const p of ['/API/x', '/Api/x', '/%41pi/x', '/a/LogOut', '/DELETE']) expect(isExcluded(p, [])).toBe(true);
+		expect(isExcluded('/Private/x', ['/private/**'])).toBe(false);
 	});
 
 	it('extension rule: dot plus 1-8 alnum in the last segment', () => {

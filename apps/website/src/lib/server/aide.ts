@@ -44,6 +44,8 @@ function aideHandle(): AideHandle {
 		provider: preview() ? { name: 'custom', model: 'preview', instance: previewModel() } : fromEnv(env),
 		origin: env.ORIGIN || undefined,
 		...(preview() ? {} : { store: redisStore(env.KV_REST_API_URL!, env.KV_REST_API_TOKEN!), salt: env.AIDE_SALT }),
+		// What the key may spend per UTC day, well under the library's defaults: anyone can script the endpoint.
+		budget: { tokensPerDay: 100_000, siteTokensPerDay: 1_000_000 },
 		persona: {
 			name: 'Aide',
 			tone: 'friendly, concise, practical; show code when it helps',

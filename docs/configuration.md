@@ -75,17 +75,20 @@ stuck on `400`.
 
 ## Budgets and their overshoot
 
-Budgets count `inputTokens + outputTokens`. The usage of every finished model step is added up
-and charged when the turn ends, however it ends (a later step failing, the visitor
-disconnecting), and the budget is checked before the next turn starts. So:
+Budgets count `inputTokens + outputTokens`. Before the model is called, a turn reserves an
+estimate of its cost (`maxSteps` × the prompt, a page read and `maxOutputTokens`) on the visitor's
+and the site's day counters; the turn is refused when a budget was used up before that. When the
+turn ends, however it ends (a later step failing, the visitor disconnecting), the estimate is
+replaced by the usage of every finished step. So:
 
 - a single turn can overshoot a budget by at most its own cost (bounded by the input limits and
   `maxOutputTokens × maxSteps`);
-- concurrent requests are each checked before any of them is charged, so each can overshoot by
-  one turn.
+- concurrent requests count against the budget as they start, so turns started together
+  overshoot it by at most one estimate, not one turn each. While turns run, the reservations can
+  refuse a turn the real usage would have let through.
 
-`budget.siteTokensPerDay` is the number that bounds your bill: a per-visitor key is an address,
-and addresses are cheap to rotate. Day counters are per UTC day.
+`budget.siteTokensPerDay` is the number that bounds your bill: a per-visitor key is an address
+(an IPv6 /64), and addresses are cheap to rotate. Day counters are per UTC day.
 
 ## The prompt, and when it caches
 

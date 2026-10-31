@@ -475,6 +475,14 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 			read_page: createReadPageTool({ origin, exclude, siteMap, pageChars: limits.pageChars })
 		};
 
+		// Counted before the call, so turns started together cannot all pass one budget check:
+		// every step may resend the prompt plus a page read, and write up to maxOutputTokens.
+		const estimate =
+			limits.maxSteps *
+			(Math.ceil((JSON.stringify(prompt).length + limits.pageChars) / 4) + limits.maxOutputTokens);
+		const reservation = await guards.reserve(id, estimate);
+		if (typeof reservation === 'string') return refuse('budget_exhausted', waitUntil, sessionId);
+
 		let spent = 0;
 		const result = streamText({
 			model: model.model,
@@ -515,7 +523,7 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 		// Run the turn to its end even when the visitor disconnects, so usage is charged.
 		const consumed = Promise.resolve(result.consumeStream())
 			.catch(() => {})
-			.then(() => guards.charge(id, spent))
+			.then(() => reservation.settle(spent))
 			.catch((error: unknown) => reportError(error));
 		waitUntil(consumed);
 

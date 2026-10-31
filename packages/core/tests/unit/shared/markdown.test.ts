@@ -74,6 +74,19 @@ describe('parseAnswer — hostile corpus', () => {
 		}
 	});
 
+	it.each([
+		'[x](/logout)',
+		'[x](/account/delete?id=1)',
+		'[x](https://site.dev/a/Sign-Out/)',
+		'[x](/%64elete)'
+	])('drops the same-origin link that may act, %j', (md) => {
+		for (const opts of [SAME, ANY]) expect(links(parseAnswer(md, opts))).toHaveLength(0);
+	});
+
+	it('keeps same-origin links that only look alike', () => {
+		expect(links(parseAnswer('[x](/delete/how-to) [y](/logout-help)', SAME))).toHaveLength(2);
+	});
+
 	it('keeps the text of a dropped link', () => {
 		const out = parseAnswer('[click me](javascript:alert(1))', ANY);
 		expect(out).toEqual([{ t: 'p', c: [{ t: 'text', v: 'click me' }] }]);

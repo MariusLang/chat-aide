@@ -87,6 +87,8 @@ const store: Store = {
 export const handle = aide({ provider, origin: env.ORIGIN, store, salt: env.AIDE_SALT });
 ```
 
+`incr` must accept a negative `by`: a turn's budget reservation is settled by adding the difference.
+
 What the library keeps in it: rate-limit counters (`aide:rl:*`, one window), day token counters
 (`aide:tok:*`, a UTC day plus a minute), pages (`aide:page:*`, kept `2 × cache.ttlSeconds`) and
 misses (`aide:miss:*`, 60 s).
