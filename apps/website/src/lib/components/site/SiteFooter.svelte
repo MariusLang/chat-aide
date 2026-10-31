@@ -4,7 +4,7 @@
 </script>
 
 <footer class="border-t">
-	<div class="text-muted-foreground mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10 text-sm sm:flex-row sm:items-center sm:px-6">
+	<div class="text-muted-foreground mx-auto flex max-w-6xl flex-col gap-6 px-4 pt-10 pb-24 text-sm sm:flex-row sm:items-center sm:px-6">
 		<div class="flex items-center gap-2">
 			<Logo class="text-foreground h-[30px] w-auto" />
 			<span>

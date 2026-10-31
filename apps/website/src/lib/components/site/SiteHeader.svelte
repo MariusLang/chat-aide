@@ -12,7 +12,7 @@
 	];
 </script>
 
-<header class="bg-background/80 supports-[backdrop-filter]:bg-background/65 sticky top-0 z-40 border-b backdrop-blur-md">
+<header class="bg-background sticky top-0 z-40 border-b">
 	<div class="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4 sm:px-6">
 		<a href="/" class="mr-3 flex items-center gap-2 font-display text-[1.05rem]">
 			<Logo class="h-[30px] w-auto" />
