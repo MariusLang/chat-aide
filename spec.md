@@ -1,8 +1,8 @@
 # @chat-aide/sveltekit — an AI chat for your own SvelteKit site
 
-**Status:** specification, v0.2, 2026-09-26 (v0.1 revised after review). This file is the seed of a new repository; it is
-kept here until that repository exists, and `docs/plans/M17-site-chat.md` is the milestone
-that consumes it. The npm name `@chat-aide/sveltekit` was free on 2026-09-26; registering it is the first step of L1.
+**Status:** the design specification chat-aide is built against, v0.2, 2026-09-26. It was written
+for the SvelteKit package first; the other packages share its server, rules and limits. Code comments
+cite its sections as §n.
 
 ## 1. What it is
 
