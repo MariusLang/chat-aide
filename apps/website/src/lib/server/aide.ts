@@ -4,10 +4,14 @@
  * and AIDE_SALT). Missing any of them, the site still runs and the chat is hidden, so a deployment
  * can never spend the key with per-instance limits. AIDE_PREVIEW=1 shows the chat with a
  * fixed-answer model and no key, for working on the site.
+ *
+ * The pages come from the markdown bundled with the site instead of a crawl: every instance knows
+ * every page from its first request, and no read can fail. The crawl is what the demo apps test.
  */
 import { env } from '$env/dynamic/private';
 import type { Handle } from '@sveltejs/kit';
 import { aide, fromEnv, type AideHandle } from '@chat-aide/sveltekit/server';
+import { chatPages } from './doc-sources';
 import { previewModel } from './preview-model';
 import { redisStore } from './store';
 
@@ -46,6 +50,11 @@ function aideHandle(): AideHandle {
 		...(preview() ? {} : { store: redisStore(env.KV_REST_API_URL!, env.KV_REST_API_TOKEN!), salt: env.AIDE_SALT }),
 		// What the key may spend per UTC day, well under the library's defaults: anyone can script the endpoint.
 		budget: { tokensPerDay: 100_000, siteTokensPerDay: 1_000_000 },
+		pages: { source: async () => chatPages() },
+		llms: { serveSource: true },
+		// The outline holds every page's headings, so the model picks the right page at the first
+		// read. A question across pages takes two reads and an answer; a setup answer runs long.
+		limits: { outlineChars: 12_000, maxSteps: 4, maxOutputTokens: 1_500 },
 		persona: {
 			name: 'Aide',
 			tone: 'friendly, concise, practical; show code when it helps',
@@ -53,7 +62,7 @@ function aideHandle(): AideHandle {
 		},
 		facts: [
 			'This website is itself built with SvelteKit and uses chat-aide for this chat, with the default shadcn theme.',
-			'chat-aide is MIT licensed.',
+			'chat-aide is free and MIT licensed. It is a library, not a hosted service: the site owner pays their model provider for each answer, with their own API key.',
 			'chat-aide works on SvelteKit (the @chat-aide/sveltekit package), on Next.js with React (@chat-aide/next and @chat-aide/react), and on any framework with web-standard Request/Response through createAide from @chat-aide/core (Astro, React Router, Hono, Nuxt, Bun).'
 		],
 		suggestions: {

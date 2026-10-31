@@ -53,6 +53,9 @@ The crawl starts at the root, follows links, and reads your `/sitemap.xml` and `
 you have them. If your `llms.txt` lists pages, its order becomes the outline's order. For content
 in a CMS, return pages yourself with `pages.source` ([Configuration](configuration.md#pagessource)).
 
+To keep part of a page out, such as comments or reviews, put `data-aide-ignore` on its element. Do
+this for all visitor-written text ([Security → prompt injection](security.md#prompt-injection)).
+
 ## Suggest first questions
 
 Suggestions appear as buttons before the first message. Set them on the server, per route:

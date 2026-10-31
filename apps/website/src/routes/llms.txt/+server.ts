@@ -2,8 +2,8 @@ import { DOCS_NAV } from '$lib/docs-nav';
 import type { RequestHandler } from './$types';
 
 /**
- * The site's own llms.txt. The chat reads it first: its order becomes the outline's order and its
- * descriptions fill the outline before any page is read. /llms-full.txt is still generated.
+ * The site's own llms.txt, for other readers: the chat gets its pages from `chatPages`.
+ * /llms-full.txt is still generated.
  */
 export const GET: RequestHandler = () => {
 	const lines = [
