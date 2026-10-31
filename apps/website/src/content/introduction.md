@@ -50,9 +50,10 @@ at run time. It stores nothing on the server beyond an in-memory cache.
 
 ## This website runs on it
 
-The chat in the corner of this site is chat-aide itself, with the shadcn theme and the
-default settings. It has read these docs the same way it would read yours. Ask it how to install,
-which provider to pick or how to restyle the widget.
+The chat in the corner of this site is chat-aide itself, with the shadcn theme. It gets these docs
+through [`pages.source`](/docs/configuration#pagessource) rather than a crawl, because their
+markdown ships with the site. Ask it how to install, which provider to pick or how to restyle the
+widget.
 
 ## Where next
 

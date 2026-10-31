@@ -6,22 +6,7 @@
 import { Marked, type Tokens } from 'marked';
 import { createHighlighter } from 'shiki';
 import { DOCS_NAV, type DocLink } from '$lib/docs-nav';
-
-const repoDocs = import.meta.glob('../../../../../docs/*.md', {
-	query: '?raw',
-	import: 'default',
-	eager: true
-}) as Record<string, string>;
-const localDocs = import.meta.glob('../../content/*.md', {
-	query: '?raw',
-	import: 'default',
-	eager: true
-}) as Record<string, string>;
-
-const sources = new Map<string, string>();
-for (const [path, raw] of Object.entries({ ...repoDocs, ...localDocs })) {
-	sources.set(path.split('/').pop()!.replace(/\.md$/, ''), raw);
-}
+import { sources } from './doc-sources';
 
 export interface TocEntry {
 	id: string;
