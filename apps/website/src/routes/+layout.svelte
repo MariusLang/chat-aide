@@ -1,5 +1,7 @@
 <script lang="ts">
 	import './layout.css';
+	import { dev } from '$app/environment';
+	import { injectAnalytics } from '@vercel/analytics/sveltekit';
 	import { ModeWatcher } from 'mode-watcher';
 	import { ChatWidget } from '@chat-aide/sveltekit';
 	import SiteHeader from '$lib/components/site/SiteHeader.svelte';
@@ -7,6 +9,8 @@
 	import { chatUi } from '$lib/chat.svelte';
 
 	let { children, data } = $props();
+
+	injectAnalytics({ mode: dev ? 'development' : 'production' });
 </script>
 
 <svelte:head><link rel="icon" href="/favicon.svg" type="image/svg+xml" /></svelte:head>
