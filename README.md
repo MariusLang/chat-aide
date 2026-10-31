@@ -58,6 +58,36 @@ export const handle = aide({
 
 That's it. On Next.js or another framework? See the [Next.js](https://chat-aide.dev/docs/nextjs) and [other frameworks](https://chat-aide.dev/docs/other-frameworks) guides.
 
+## Who pays, and what stops abuse
+
+**You pay.** Every answer is billed to the provider key you put in the hook. chat-aide is not a hosted service and visitors never bring a key. The key stays on your server: importing the server module into client code fails the build.
+
+**A script can call the endpoint.** The origin check stops other web pages from spending your key through a visitor's browser, but a script can send whatever headers it likes. These limits bound what it can spend:
+
+| Limit | Default | Past it |
+|---|---|---|
+| `rateLimit.requests` | 20 messages per visitor per 10 minutes | `429 rate_limited` |
+| `budget.tokensPerDay` | 200,000 tokens per visitor per UTC day | `429 budget_exhausted` |
+| `budget.siteTokensPerDay` | 5,000,000 tokens for the whole site per UTC day | `429 budget_exhausted` |
+
+A visitor is an IP address (an IPv6 /64), and addresses are cheap to rotate, so `siteTokensPerDay` is the number that bounds your bill. Price the default for your model and set it to what you are willing to pay per day:
+
+```ts
+export const handle = aide({
+	provider,
+	origin: env.ORIGIN,
+	budget: { siteTokensPerDay: 1_000_000 }
+});
+```
+
+Three things to know before you rely on it:
+
+- **Hitting the site budget turns the chat off for everyone** until the next UTC day. A script can't exceed your cap, but it can use it up. Add `authorize` if the chat should only serve signed-in visitors.
+- **The default store is in memory, per process.** On serverless or several instances the limits multiply by the instance count, so pass a [shared `store` and `salt`](https://chat-aide.dev/docs/deployment#shared-store).
+- **Behind a proxy or CDN** every visitor can share one rate-limit bucket until you [configure the client address](https://chat-aide.dev/docs/security#behind-a-proxy).
+
+A budget can overshoot by about one turn's cost, since usage is settled when a turn ends ([details](https://chat-aide.dev/docs/configuration#budgets-and-their-overshoot)). The [security guide](https://chat-aide.dev/docs/security) covers the rest.
+
 ## Packages
 
 | Package | For |
