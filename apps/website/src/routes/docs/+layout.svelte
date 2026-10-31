@@ -3,6 +3,7 @@
 	import { buttonVariants } from '$lib/components/ui/button/index.js';
 	import PixelIcon from '$lib/components/site/PixelIcon.svelte';
 	import DocsNav from '$lib/components/site/DocsNav.svelte';
+	import { cn } from '$lib/utils.js';
 
 	let { children } = $props();
 	let open = $state(false);
@@ -16,9 +17,9 @@
 	</aside>
 
 	<div class="min-w-0 flex-1">
-		<div class="bg-background/90 sticky top-14 z-30 -mx-4 border-b px-4 py-2 backdrop-blur md:hidden">
+		<div class="bg-background sticky top-14 z-30 -mx-4 border-b px-4 py-1 sm:-mx-6 sm:px-6 md:hidden">
 			<Sheet.Root bind:open>
-				<Sheet.Trigger class={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+				<Sheet.Trigger class={cn(buttonVariants({ variant: 'ghost' }), '-ml-3 h-11 px-3')}>
 					<PixelIcon name="menu" /> Menu
 				</Sheet.Trigger>
 				<Sheet.Content side="left" class="w-72 overflow-y-auto p-6">

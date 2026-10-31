@@ -21,7 +21,7 @@
 	import ChatPanel from './ChatPanel.svelte';
 	import ChatWindow from './ChatWindow.svelte';
 	import * as Sheet from './ui/sheet/index.js';
-	import { cn } from './utils.js';
+	import { cn, initialFocus } from './utils.js';
 
 	let {
 		endpoint,
@@ -143,8 +143,9 @@
 		cn(
 			'aide:fixed aide:z-50 aide:h-[min(40rem,calc(100dvh-7.5rem))] aide:w-[25rem] aide:max-w-[calc(100vw-16px)] aide:rounded-2xl aide:shadow-2xl aide:motion-safe:animate-pop',
 			windowPlace,
-			// Full-screen on small viewports (spec §3.8).
-			'aide:max-[480px]:inset-0 aide:max-[480px]:h-full aide:max-[480px]:w-full aide:max-[480px]:max-w-none aide:max-[480px]:rounded-none aide:max-[480px]:border-0'
+			// Full-screen on small viewports (spec §3.8), sized to the visible box above the keyboard
+			// (`fitViewport` in ChatWindow sets the two variables).
+			'aide:max-[480px]:inset-x-0 aide:max-[480px]:top-[var(--aide-vt,0px)] aide:max-[480px]:bottom-auto aide:max-[480px]:h-[var(--aide-vh,100dvh)] aide:max-[480px]:w-full aide:max-[480px]:max-w-none aide:max-[480px]:rounded-none aide:max-[480px]:border-0 aide:max-[480px]:shadow-none'
 		)
 	);
 </script>
@@ -191,7 +192,7 @@
 				>
 					<div
 						class="aide:flex aide:h-full aide:min-h-0 aide:flex-col"
-						use:trapFocus={{ initial: '[data-part="input"]' }}
+						use:trapFocus={{ initial: initialFocus() }}
 					>
 						<ChatPanel {chat} {titleId} sheet {disclosure} />
 					</div>

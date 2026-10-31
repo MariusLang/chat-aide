@@ -142,7 +142,7 @@
 	</div>
 
 	<!-- how it reads -->
-	<section class="mx-auto grid max-w-6xl items-center gap-12 px-4 py-24 sm:px-6 md:grid-cols-2 md:py-32">
+	<section class="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 sm:py-24 md:grid-cols-2 md:py-32">
 		<div class="order-2 md:order-1">
 			<MapScene />
 		</div>
@@ -150,7 +150,7 @@
 			<h2 class="font-display text-4xl text-balance sm:text-5xl">
 				It reads your site like a visitor does.
 			</h2>
-			<dl class="mt-10 space-y-7">
+			<dl class="mt-8 space-y-6 sm:mt-10 sm:space-y-7">
 				{#each points as [title, text] (title)}
 					<div>
 						<dt class="font-semibold">{title}</dt>
@@ -163,7 +163,7 @@
 
 	<!-- setup -->
 	<section class="bg-muted/50 border-y">
-		<div class="mx-auto max-w-6xl px-4 py-24 sm:px-6 md:py-32">
+		<div class="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24 md:py-32">
 			<h2 class="font-display max-w-xl text-4xl text-balance sm:text-5xl">
 				Running in three steps.
 			</h2>
@@ -208,7 +208,7 @@
 	</section>
 
 	<!-- providers -->
-	<section class="overflow-hidden py-24 md:py-32">
+	<section class="overflow-hidden py-16 sm:py-24 md:py-32">
 		<div class="mx-auto max-w-6xl px-4 sm:px-6">
 			<h2 class="font-display text-4xl sm:text-5xl">Bring any model.</h2>
 			<p class="text-muted-foreground mt-4 max-w-lg text-lg">
@@ -234,7 +234,7 @@
 
 	<!-- closing -->
 	<section class="border-t">
-		<div class="mx-auto grid max-w-6xl items-center gap-12 px-4 py-24 sm:px-6 md:grid-cols-[1fr_1.1fr] md:py-28">
+		<div class="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 sm:py-24 md:grid-cols-[1fr_1.1fr] md:py-28">
 			<div>
 				<h2 class="font-display text-4xl text-balance sm:text-5xl">Ask it something.</h2>
 				<p class="text-muted-foreground mt-4 max-w-md text-lg">

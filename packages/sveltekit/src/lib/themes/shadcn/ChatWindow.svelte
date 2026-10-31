@@ -6,9 +6,9 @@
 <script lang="ts">
 	import './styles.css';
 	import type { ChatStore } from '../../headless/create-chat.svelte.js';
-	import { trapFocus } from '@chat-aide/core/client';
+	import { fitViewport, trapFocus } from '@chat-aide/core/client';
 	import ChatPanel from './ChatPanel.svelte';
-	import { cn } from './utils.js';
+	import { cn, initialFocus } from './utils.js';
 
 	let {
 		chat,
@@ -29,6 +29,7 @@
 	const uid = $props.id();
 	const windowId = $derived(id ?? `aide-window-${uid}`);
 	const titleId = `aide-title-${uid}`;
+	const initial = initialFocus();
 
 	function onkeydown(event: KeyboardEvent): void {
 		if (modal && event.key === 'Escape') {
@@ -53,7 +54,8 @@
 		className
 	)}
 	{onkeydown}
-	use:trapFocus={{ enabled: modal, initial: '[data-part="input"]' }}
+	use:trapFocus={{ enabled: modal, initial }}
+	use:fitViewport={{ enabled: modal }}
 >
 	<ChatPanel {chat} {titleId} closable={modal} {disclosure} />
 </section>

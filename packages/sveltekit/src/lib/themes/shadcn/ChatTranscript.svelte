@@ -29,12 +29,19 @@
 	});
 
 	let viewport: HTMLElement | null = $state(null);
+	// The content height at the last follow: whether the reader was at the end is measured against
+	// it, before the new text grew the transcript.
+	let followedHeight = 0;
 	$effect(() => {
-		// Follow the newest text while it streams.
+		// Follow the newest text while it streams, unless the reader scrolled up to reread; a new
+		// question always follows.
 		void chat.messages.length;
 		const last = chat.messages.at(-1);
 		void (last ? messageText(last).length : 0);
-		if (viewport && typeof viewport.scrollTo === 'function') viewport.scrollTo({ top: viewport.scrollHeight });
+		if (!viewport || typeof viewport.scrollTo !== 'function') return;
+		const atEnd = followedHeight - viewport.scrollTop - viewport.clientHeight < 48;
+		if (atEnd || last?.role === 'user') viewport.scrollTo({ top: viewport.scrollHeight });
+		followedHeight = viewport.scrollHeight;
 	});
 
 	const bubble = {
@@ -48,11 +55,12 @@
 	<div
 		data-part="transcript"
 		aria-live="polite"
-		class="aide:flex aide:min-h-full aide:flex-col aide:gap-3 aide:px-4 aide:py-4 aide:text-sm aide:leading-relaxed"
+		class="aide:flex aide:min-h-full aide:flex-col aide:gap-3 aide:px-4 aide:py-4 aide:text-sm aide:leading-relaxed aide:max-[480px]:text-base aide:max-[480px]:leading-normal"
 	>
 		{#if visible.length === 0}
+			<!-- On a phone the greeting and suggestions sit at the bottom, within reach of the thumb. -->
 			<div
-				class="aide:my-auto aide:flex aide:flex-col aide:items-center aide:gap-4 aide:px-2 aide:py-6 aide:text-center"
+				class="aide:my-auto aide:flex aide:flex-col aide:items-center aide:gap-4 aide:px-2 aide:py-6 aide:text-center aide:max-[480px]:mt-auto aide:max-[480px]:mb-0 aide:max-[480px]:pb-2"
 			>
 				<span
 					class="aide:flex aide:size-11 aide:items-center aide:justify-center aide:rounded-full aide:bg-muted aide:text-foreground"
@@ -64,14 +72,14 @@
 					{chat.strings.greeting}
 				</p>
 				{#if chat.suggestions.length}
-					<ul data-part="suggestions" class="aide:flex aide:flex-wrap aide:justify-center aide:gap-2">
+					<ul data-part="suggestions" class="aide:flex aide:flex-wrap aide:justify-center aide:gap-2 aide:pointer-coarse:gap-3">
 						{#each chat.suggestions as suggestion (suggestion)}
 							<li>
 								<Button
 									variant="outline"
 									size="sm"
 									data-part="suggestion"
-									class="aide:h-auto aide:min-h-8 aide:rounded-full aide:px-3 aide:py-1.5 aide:text-left aide:font-normal aide:whitespace-normal"
+									class="aide:h-auto aide:min-h-8 aide:pointer-coarse:min-h-11 aide:pointer-coarse:px-4 aide:pointer-coarse:text-[15px] aide:rounded-full aide:px-3 aide:py-1.5 aide:text-left aide:font-normal aide:whitespace-normal"
 									onclick={() => chat.send(suggestion)}>{suggestion}</Button
 								>
 							</li>
