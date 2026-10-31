@@ -1,38 +1,33 @@
-# chat-aide
+<div align="center">
+  <h1>chat-aide</h1>
+  <p><strong>Let your site answer back.</strong></p>
+  <br/>
+  <p>
+    A drop-in AI chat that has read every page of your site.<br/>
+    A few lines on the server, one component in your layout. No indexing, no vector DB, no build step.
+    <br/><br/>
+    For <a href="https://svelte.dev/docs/kit">SvelteKit</a>, <a href="https://nextjs.org/">Next.js</a>, and any server that speaks web-standard <code>Request</code> and <code>Response</code>.
+  </p>
 
-An AI chat for your own site, and an `llms.txt` for it, both derived from the site at run time.
-It runs on SvelteKit, on Next.js with React, and on any server that speaks web-standard
-`Request` and `Response`. Nothing is generated, indexed or committed: the server reads your pages
-anonymously and keeps a map of them in memory.
+  <p>
+    <a href="https://chat-aide.dev/docs/getting-started">Get Started</a> •
+    <a href="https://chat-aide.dev/docs/configuration">Configuration</a> •
+    <a href="https://chat-aide.dev/docs/providers">Providers</a>
+  </p>
+</div>
 
-- **Knows the site.** The model gets the page the visitor is on, an outline of every other page,
-  and one tool, `read_page`, that reads one page of this site and nothing else.
-- **Any provider the AI SDK has an adapter for**, called directly. No request goes through
-  Vercel's AI Gateway; SDK telemetry is switched off on every call.
-- **Bounded cost.** Every limit, a per-visitor rate limit, a per-visitor and a site-wide daily
-  token budget, prompt caching where the provider has it.
-- **Serves `/llms.txt` and `/llms-full.txt`** from the same map, and `<route>.md` on SvelteKit and
-  through `createAide`, unless your app already answers those paths.
-- **Widgets for Svelte and React.** Svelte has headless components, a dependency-free plain theme
-  and a shadcn-svelte theme (the default). React has the plain theme and headless parts.
+---
 
-It is not a hosted service, not a RAG platform, not for static-only sites (it needs a server at
-run time), and it stores nothing on the server beyond what you give it a shared store for.
+## Features
 
-## Which package
+- 🧠 **Knows your site** — Reads your pages at run time, sees the page the visitor is on, and can open any other page
+- 🔌 **Any model** — Anthropic, OpenAI, Google, Mistral, and every other AI SDK provider, called directly
+- 💸 **Bounded cost** — Per-visitor rate limits, daily token budgets, and prompt caching built in
+- 📄 **Free `llms.txt`** — Serves `/llms.txt`, `/llms-full.txt`, and Markdown twins of your pages
+- 🎨 **Widgets included** — shadcn-svelte, plain, or headless for Svelte; plain or headless for React
+- 🔒 **Locked down** — The model can only read your own site; nothing is stored on the server
 
-Requirements everywhere: Node 24+. The AI SDK and every provider adapter come with the packages.
-
-| framework | install | server | widget | guide |
-|---|---|---|---|---|
-| SvelteKit (Svelte 5, Kit 2) | `pnpm add @chat-aide/sveltekit` | hook | shadcn, plain, headless | [SvelteKit](https://chat-aide.dev/docs/getting-started) |
-| Next.js 15.1+ (React 18, 19) | `pnpm add @chat-aide/next @chat-aide/react` | route handlers | plain, headless parts | [Next.js and React](https://chat-aide.dev/docs/nextjs) |
-| Astro, React Router, Hono, Nuxt, Bun, … | `pnpm add @chat-aide/core` | `createAide` | `@chat-aide/react` where React runs | [Other frameworks](https://chat-aide.dev/docs/other-frameworks) |
-
-`@chat-aide/core` is the shared server underneath all of them: the same crawler, prompt,
-providers, limits and security rules.
-
-## Quick start: SvelteKit
+## Quick start
 
 ```sh
 pnpm add @chat-aide/sveltekit
@@ -46,7 +41,7 @@ import { env } from '$env/dynamic/private';
 
 export const handle = aide({
 	provider: { name: 'anthropic', apiKey: ANTHROPIC_API_KEY, model: 'claude-haiku-4-5' },
-	origin: env.ORIGIN // your public origin, e.g. https://example.com — strongly recommended
+	origin: env.ORIGIN // your public origin, e.g. https://example.com
 });
 ```
 
@@ -61,101 +56,27 @@ export const handle = aide({
 <ChatWidget />
 ```
 
-## Quick start: Next.js
+That's it. On Next.js or another framework? See the [Next.js](https://chat-aide.dev/docs/nextjs) and [other frameworks](https://chat-aide.dev/docs/other-frameworks) guides.
+
+## Packages
+
+| Package | For |
+|---|---|
+| `@chat-aide/sveltekit` | SvelteKit hook and Svelte widgets |
+| `@chat-aide/next` + `@chat-aide/react` | Next.js route handlers and the React widget |
+| `@chat-aide/core` | Astro, React Router, Hono, Nuxt, Bun, … |
+
+## Development
+
+Use Node.js 24 or newer and the pnpm version pinned in `package.json`.
 
 ```sh
-pnpm add @chat-aide/next @chat-aide/react
+pnpm install
+AIDE_PREVIEW=1 pnpm --filter website dev
 ```
 
-```js
-// next.config.mjs: the core loads the provider's adapter at run time
-export default { serverExternalPackages: ['@chat-aide/core'] };
-```
+Run `pnpm check` before submitting changes.
 
-```ts
-// app/api/chat/route.ts
-import { createAide, fromEnv } from '@chat-aide/next';
+## License
 
-const aide = createAide(() => ({
-	provider: fromEnv(process.env),
-	origin: process.env.SITE_ORIGIN! // required: the site is read over the network from it
-}));
-
-export const { GET, POST } = aide.chat;
-```
-
-```tsx
-// app/layout.tsx
-import '@chat-aide/react/plain.css';
-import { ChatWidget } from '@chat-aide/react';
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-	return (
-		<html lang="en">
-			<body>
-				{children}
-				<ChatWidget />
-			</body>
-		</html>
-	);
-}
-```
-
-## Quick start: any other server
-
-```sh
-pnpm add @chat-aide/core
-```
-
-```ts
-import { createAide, fromEnv } from '@chat-aide/core';
-
-export const aide = createAide({
-	provider: fromEnv(process.env),
-	origin: 'https://example.com' // required: the site is read over the network from it
-});
-
-// Mount aide.chat at /api/chat, or send everything to aide.fetch, which answers the endpoint,
-// /llms.txt, /llms-full.txt and *.md, and 404 for anything else.
-```
-
-The [Other frameworks](https://chat-aide.dev/docs/other-frameworks) guide shows the mount for Astro, React Router, Hono,
-Nuxt and Bun. There is no Vue widget yet.
-
-## Documentation
-
-- [SvelteKit](https://chat-aide.dev/docs/getting-started) — install, wire, verify, mount by hand
-- [Next.js and React](https://chat-aide.dev/docs/nextjs) — route handlers, the React widget, `useAide`
-- [Other frameworks](https://chat-aide.dev/docs/other-frameworks) — `createAide` on Astro, React Router, Hono, Nuxt, Bun
-- [Configuration](https://chat-aide.dev/docs/configuration) — every option, every limit and its ceiling
-- [Providers](https://chat-aide.dev/docs/providers) — the registry, install lines, credentials, `fromEnv`
-- [Security](https://chat-aide.dev/docs/security) — what the endpoint refuses, what it cannot, what answers may render
-- [Deployment](https://chat-aide.dev/docs/deployment) — `origin`, serverless, shared `Store`, proxies, crawl cost
-- [Theming](https://chat-aide.dev/docs/theming) — the widget's props, the three themes, CSP
-- [llms.txt](https://chat-aide.dev/docs/llms-txt) — how the site's own `llms.txt` is read and how one is served
-
-## Not in this version
-
-- No Vue or plain-HTML widget yet; the React widget covers React, Next.js and Astro islands.
-- Next.js does not serve the `<route>.md` twins yet (the crawler reads the HTML instead).
-- The live check that a provider actually reports a prompt-cache read is not automated (it needs
-  a real key); the tests assert the cache markers and a byte-identical prefix.
-- Per-adapter measurements (Vercel, Netlify, Cloudflare: whether prerendered routes are
-  reachable in process, whether `event.fetch` outlives the response, how `waitUntil` is found)
-  have not been made; see [Deployment](https://chat-aide.dev/docs/deployment#untested-adapters).
-
-## Repository
-
-- `packages/core` — `@chat-aide/core`: the framework-neutral server, site reader, `llms.txt` and widget helpers
-- `packages/sveltekit` — `@chat-aide/sveltekit`: the SvelteKit hook and the Svelte widgets
-- `packages/react` — `@chat-aide/react`: the React widget and `useAide`
-- `packages/next` — `@chat-aide/next`: Next.js App Router route handlers
-- `apps/demo` — a SvelteKit site using it (adapter-node, mock model) and the Playwright suite
-- `apps/demo-next` — a Next.js site with the React widget (mock model) and its Playwright suite
-- `apps/website` — the project website and rendered docs, running chat-aide on itself
-  (`AIDE_PREVIEW=1 pnpm --filter website dev` runs it without a provider key)
-- `spec.md` — the specification
-
-`pnpm check` runs svelte-check, eslint, vitest, Playwright, publint and `pnpm audit`.
-
-MIT licence.
+MIT
