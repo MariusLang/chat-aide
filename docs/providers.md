@@ -100,7 +100,10 @@ for what keeps the prefix stable.
 ## fromEnv
 
 `fromEnv(env)` builds a `ProviderConfig` from the object you hand it (`$env/dynamic/private`,
-`process.env`, `platform.env`). It reads only these variables and nothing from the process:
+`process.env`, `platform.env`). It reads only these variables and nothing from the process.
+On SvelteKit 3, pass `import * as env from '$app/env/private'` and declare each variable you use
+in `src/env.ts`, since undeclared ones are `undefined` there
+([Getting started → On SvelteKit 3](getting-started.md#on-sveltekit-3)):
 
 | variable | maps to | required |
 |---|---|---|

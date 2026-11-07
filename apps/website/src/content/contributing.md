@@ -28,6 +28,7 @@ and again after changing one.
 | `apps/demo` | a SvelteKit test site with a mock model, and its Playwright suite |
 | `apps/demo-next` | a Next.js test site with the React widget, and its Playwright suite |
 | `apps/demo-plain-host` | a site without Tailwind or shadcn, for the plain theme |
+| `apps/demo-kit3` | a SvelteKit 3 site, so the suite also runs against Kit 3 |
 | `apps/website` | this website |
 | `docs/` | the documentation, rendered on this site |
 | `spec.md` | the specification the library is built against |

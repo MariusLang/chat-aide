@@ -13,7 +13,7 @@
 		"start": "node build",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"test:e2e": "pnpm --filter @chat-aide/sveltekit build && pnpm build && pnpm --filter demo-plain-host build && playwright test"
+		"test:e2e": "pnpm --filter @chat-aide/sveltekit build && pnpm build && pnpm --filter demo-plain-host build && pnpm --filter demo-kit3 build && playwright test"
 	},
 	"dependencies": {
 		"@chat-aide/sveltekit": "workspace:*",
