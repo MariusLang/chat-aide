@@ -106,7 +106,7 @@ and nothing in an answer makes the browser send a request without a click:
 - **Links** keep only `http(s)` and same-origin targets. With `answerLinks: 'same-origin'` (the
   default) a link to another host renders as its text; `'any'` keeps it with
   `rel="noopener noreferrer"` and `target="_blank"`. Same-origin links navigate with `goto` on
-  click, and carry `data-sveltekit-preload-data="off"` and `data-sveltekit-preload-code="off"`, so
+  click, and carry `data-sveltekit-preload-data="false"` and `data-sveltekit-preload-code="false"`, so
   hovering one does not run a `load`. A same-origin link whose last segment is one of the
   side-effect segments above (`/logout`, `/account/delete`) renders as its text, so page text
   read by the model cannot hand a signed-in visitor a click that acts on their session. Links to
