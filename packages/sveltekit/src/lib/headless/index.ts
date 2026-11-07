@@ -13,7 +13,7 @@ export {
 	type WidgetMode,
 	type WidgetPosition
 } from './create-chat.svelte.js';
-export { trapFocus, focusableIn, type FocusTrapOptions } from '@chat-aide/core/client';
+export { trapFocus, focusableIn, focusInWindow, type FocusTrapOptions } from '@chat-aide/core/client';
 export { default as ChatWidget } from './ChatWidget.svelte';
 export { default as ChatLauncher } from './ChatLauncher.svelte';
 export { default as ChatWindow } from './ChatWindow.svelte';

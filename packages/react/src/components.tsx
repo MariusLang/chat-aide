@@ -6,6 +6,7 @@
  */
 import {
 	DEFAULT_STRINGS,
+	focusInWindow,
 	LIMIT_DEFAULTS,
 	messageText,
 	parseAnswer,
@@ -262,7 +263,10 @@ export function Transcript({ chat, navigate }: { chat: AideChat; navigate?: Navi
 							<ul data-part="suggestions">
 								{chat.suggestions.map((s) => (
 									<li key={s}>
-										<button type="button" data-part="suggestion" onClick={() => void chat.send(s)}>
+										<button type="button" data-part="suggestion" onClick={(e) => {
+												focusInWindow(e.currentTarget);
+												void chat.send(s);
+											}}>
 											{s}
 										</button>
 									</li>
@@ -285,7 +289,10 @@ export function Transcript({ chat, navigate }: { chat: AideChat; navigate?: Navi
 				{chat.error && (
 					<div data-part="error" role="alert" data-code={chat.error.code}>
 						<p>{chat.error.message}</p>
-						<button type="button" data-part="retry" onClick={() => void chat.retry()}>
+						<button type="button" data-part="retry" onClick={(e) => {
+								focusInWindow(e.currentTarget);
+								void chat.retry();
+							}}>
 							{chat.strings.retry}
 						</button>
 					</div>

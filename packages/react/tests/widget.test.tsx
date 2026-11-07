@@ -102,6 +102,33 @@ describe('ChatWidget (React)', () => {
 		expect(onerror).toHaveBeenCalledWith('rate_limited');
 	});
 
+	it('keeps focus inside the dialog after a suggestion, so Escape still closes it', async () => {
+		render(<ChatWidget fetch={fakeFetch().fetch} />);
+		fireEvent.click(screen.getByRole('button', { name: 'Open chat' }));
+		const suggestion = await screen.findByRole('button', { name: 'What is this?' });
+		suggestion.focus();
+		fireEvent.click(suggestion);
+		await screen.findByRole('link', { name: 'pricing' });
+		const dialog = screen.getByRole('dialog');
+		expect(document.activeElement?.getAttribute('data-part')).toBe('input');
+		expect(dialog.contains(document.activeElement)).toBe(true);
+		act(() => {
+			fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+		});
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+	});
+
+	it('keeps focus inside the dialog after a retry', async () => {
+		const f = fakeFetch({ post: () => json({ error: 'rate_limited', message: 'Slow down.' }, 429) });
+		render(<ChatWidget fetch={f.fetch} />);
+		fireEvent.click(screen.getByRole('button', { name: 'Open chat' }));
+		fireEvent.click(await screen.findByRole('button', { name: 'What is this?' }));
+		const retry = await screen.findByRole('button', { name: 'Retry' });
+		retry.focus();
+		fireEvent.click(retry);
+		expect(document.activeElement?.getAttribute('data-part')).toBe('input');
+	});
+
 	it('keeps the thread for the tab and restores it after a remount', async () => {
 		const f = fakeFetch();
 		const first = render(<ChatWidget fetch={f.fetch} />);

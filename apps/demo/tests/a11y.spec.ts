@@ -62,6 +62,17 @@ for (const theme of THEMES) {
 			await expect(button).toHaveAttribute('aria-expanded', 'false');
 		});
 
+		test('clicking a suggestion keeps focus in the dialog, so Escape still closes it', async ({ page }) => {
+			await openChat(page);
+			const suggestion = part(page, 'suggestion').first();
+			await suggestion.click();
+			await expect(part(page, 'suggestions')).toHaveCount(0);
+			expect(await insideWindow(page), 'focus stays in the dialog').toBe(true);
+			await page.keyboard.press('Escape');
+			await expect(chatWindow(page)).toHaveCount(0);
+			await expect(launcher(page)).toBeFocused();
+		});
+
 		test('the transcript is aria-live and the finished answer is announced once', async ({ page }) => {
 			await openChat(page);
 			await expect(part(page, 'transcript')).toHaveAttribute('aria-live', 'polite');

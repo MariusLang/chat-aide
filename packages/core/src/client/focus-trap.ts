@@ -74,3 +74,13 @@ export function trapFocus(
 		}
 	};
 }
+
+/**
+ * Moves focus to `selector` inside the chat window that holds `from`. Call it before an action
+ * that removes the focused control (a suggestion, retry): focus would otherwise fall to `<body>`,
+ * outside the dialog, and Escape would stop closing it.
+ */
+export function focusInWindow(from: Element | null, selector = '[data-part="input"]'): void {
+	const target = from?.closest('[data-part="window"]')?.querySelector<HTMLElement>(selector);
+	target?.focus();
+}
