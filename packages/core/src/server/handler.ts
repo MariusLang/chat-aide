@@ -28,7 +28,7 @@ import type {
 } from '../shared/types.js';
 import { createPageCache, type PageCache } from '../site/cache.js';
 import { createReader, type Reader } from '../site/read-page.js';
-import { acceptRoute } from '../site/route.js';
+import { visitorRoute } from '../site/route.js';
 import { createSiteMap, type SiteMap } from '../site/site-map.js';
 import { createTransport, type FetchLike, type Transport } from '../site/transport.js';
 import { resolveWaitUntil, runCallback, VERCEL_CONTEXT, type WaitUntil } from './background.js';
@@ -389,14 +389,16 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 	}
 
 	async function warmup(event: E, waitUntil: WaitUntil): Promise<Response> {
-		const route = acceptRoute(event.url.searchParams.get('route'), { origin, exclude });
-		if (route === null) return refuse('invalid_request', waitUntil, null, { path: 'route' });
+		const visitor = visitorRoute(event.url.searchParams.get('route'), { origin, exclude });
+		if (visitor === null) return refuse('invalid_request', waitUntil, null, { path: 'route' });
+		const { route, excluded } = visitor;
 		siteMap.ensureStarted(waitUntil);
-		const entry = await reader.readPage(route, { waitUntil });
+		// An excluded page is never read, and its DOM text is not asked for either.
+		const entry = excluded ? null : await reader.readPage(route, { waitUntil });
 		const body: WarmupResponse = {
-			pageSource: wantsDom(entry) ? 'dom' : 'server',
+			pageSource: !excluded && wantsDom(entry) ? 'dom' : 'server',
 			suggestions: suggestionsFor(plain, route),
-			mapped: siteMap.isMapped(route),
+			mapped: !excluded && siteMap.isMapped(route),
 			provider,
 			limits: { messages: limits.messages, messageChars: limits.messageChars, pageChars: limits.pageChars }
 		};
@@ -420,8 +422,9 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 		}
 		const body = parsed.data;
 		const sessionId = body.aide.sessionId;
-		const route = acceptRoute(body.aide.route, { origin, exclude });
-		if (route === null) return refuse('invalid_request', waitUntil, sessionId, { path: 'aide.route' });
+		const visitor = visitorRoute(body.aide.route, { origin, exclude });
+		if (visitor === null) return refuse('invalid_request', waitUntil, sessionId, { path: 'aide.route' });
+		const { route, excluded } = visitor;
 
 		const windowed = windowHistory(textOnly(body.messages), limits);
 		if (windowed.length === 0 || windowed[windowed.length - 1]!.role !== 'user') {
@@ -443,9 +446,10 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 
 		siteMap.ensureStarted(waitUntil);
 		await siteMap.waitFor(limits.crawlBudgetMs);
-		const entry = await reader.readPage(route, { waitUntil });
-		const dom = body.aide.dom === null ? null : body.aide.dom.slice(0, limits.pageChars);
-		const page = currentPage(route, entry, dom);
+		// The chat works on an excluded page, without that page: no read, and its DOM text is dropped.
+		const entry = excluded ? null : await reader.readPage(route, { waitUntil });
+		const dom = excluded || body.aide.dom === null ? null : body.aide.dom.slice(0, limits.pageChars);
+		const page = excluded ? null : currentPage(route, entry, dom);
 
 		let history;
 		try {
@@ -464,6 +468,7 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 			outlinePartial: outline.partial,
 			ctx,
 			page,
+			pageExcluded: excluded,
 			history,
 			cache: model.row.cache,
 			caching: config.caching,

@@ -7,7 +7,8 @@ import {
 	matchesPattern,
 	isExcluded,
 	acceptRoute,
-	acceptHref
+	acceptHref,
+	visitorRoute
 } from '../../../src/site/route';
 
 const opts = { exclude: [] as string[] };
@@ -130,6 +131,15 @@ describe('excludes', () => {
 		expect(acceptRoute('/private/a/b', o)).toBeNull();
 		expect(acceptRoute('/private', o)).toBeNull();
 		expect(acceptRoute('/privately', o)).toBe('/privately');
+	});
+
+	it('visitorRoute keeps an excluded route, flagged, and refuses a malformed one', () => {
+		const o = { exclude: ['/impressum'] };
+		expect(visitorRoute('/impressum', o)).toEqual({ route: '/impressum', excluded: true });
+		expect(visitorRoute('/about', o)).toEqual({ route: '/about', excluded: false });
+		expect(visitorRoute('/api/x', o)).toEqual({ route: '/api/x', excluded: true });
+		expect(visitorRoute('//evil.example/x', o)).toBeNull();
+		expect(visitorRoute('/%E0%A4%A', o)).toBeNull();
 	});
 
 	it('user excludes match the SvelteKit-decoded pathname', () => {

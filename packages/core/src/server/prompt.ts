@@ -23,6 +23,8 @@ export interface PromptInput {
 	outlinePartial: boolean;
 	ctx: PromptContext;
 	page: { route: string; title?: string; text: string } | null;
+	/** The current route is in `pages.exclude`: its text is never read, not even with read_page. */
+	pageExcluded?: boolean;
 	/** Already windowed; the last message is the visitor's. */
 	history: ModelMessage[];
 	cache: CacheMarker;
@@ -98,7 +100,10 @@ function renderOutline(outline: string, partial: boolean): string {
 	return parts.join('\n\n');
 }
 
-function renderPage(page: PromptInput['page'], ctx: PromptContext, pageChars: number): string {
+function renderPage(page: PromptInput['page'], ctx: PromptContext, pageChars: number, excluded = false): string {
+	if (excluded) {
+		return `## Current page\n\nThe visitor is on ${ctx.route}, a page you cannot read. Answer from the outline and the other pages of the site.`;
+	}
 	if (!page) {
 		return `## Current page\n\nThe visitor is on ${ctx.route}, but its text is not available. Use the outline or read_page.`;
 	}
@@ -134,7 +139,7 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
 
 	const pageMessage: SystemModelMessage = {
 		role: 'system',
-		content: renderPage(input.page, input.ctx, input.pageChars)
+		content: renderPage(input.page, input.ctx, input.pageChars, input.pageExcluded)
 	};
 
 	const messages = input.history.slice();

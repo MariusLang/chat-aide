@@ -14,7 +14,7 @@ Unknown keys are refused.
 | `origin` | none | the site's public origin (`https://example.com`, no path). Never taken from the request. See [Deployment](deployment.md#origin) |
 | `endpoint` | `'/api/chat'` | the chat path; pass the same to the widget |
 | `pages.include` | `[]` | extra crawl seeds |
-| `pages.exclude` | `[]` | globs never read, mapped or served: `*` one segment, `**` any depth (`/blog/drafts/**`) |
+| `pages.exclude` | `[]` | globs never read, mapped or served: `*` one segment, `**` any depth (`/blog/drafts/**`). The chat still works on an excluded page, without that page's text |
 | `pages.source` | none | `async () => Page[]` in place of the crawl, see below |
 | `llms.read` | `true` | read the site's own `/llms.txt` and `/llms-full.txt` |
 | `llms.preferMarkdown` | `true` | ask for `<route>.md` before the HTML of each page |
