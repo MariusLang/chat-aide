@@ -78,7 +78,7 @@
 		"tailwind-variants": "^3.3.1"
 	},
 	"peerDependencies": {
-		"@sveltejs/kit": "^2",
+		"@sveltejs/kit": "^2 || ^3",
 		"svelte": "^5"
 	},
 	"devDependencies": {

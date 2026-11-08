@@ -11,7 +11,7 @@ pnpm add @chat-aide/sveltekit
 
 That is the whole install: the AI SDK (`ai` 7) and the adapter of every provider in
 [Providers](providers.md) are dependencies of the package, so no second `pnpm add` is needed
-whichever provider you pick. The library needs Node 24+, Svelte 5 and SvelteKit 2 (peers). The
+whichever provider you pick. The library needs Node 24+, Svelte 5 and SvelteKit 2 or 3 (peers). The
 adapters are server-only and loaded on demand, so they never reach the browser bundle.
 
 ## 2. Mount the server hook
@@ -79,6 +79,45 @@ export const handle = aide({ provider: fromEnv(env), origin: env.ORIGIN });
 with `CHAT_AIDE_PROVIDER`, `CHAT_AIDE_MODEL` and `CHAT_AIDE_API_KEY` set.
 The library reads no environment variable itself; `fromEnv` reads only the object you hand it.
 See [Providers → fromEnv](providers.md#fromenv).
+
+### On SvelteKit 3
+
+SvelteKit 3 deprecates `$env/*` in favor of `$app/env/private`, which exposes **only the
+variables declared in `src/env.ts`**. An undeclared one is `undefined` there, with no error, so
+an undeclared `ORIGIN` silently leaves the library without an origin. Declare `ORIGIN`, your
+key, and for `fromEnv` the `CHAT_AIDE_*` variables your provider needs
+([Providers → fromEnv](providers.md#fromenv)):
+
+```ts
+// src/env.ts
+import { defineEnvVars } from '@sveltejs/kit/env';
+
+export const variables = defineEnvVars({
+	ORIGIN: { description: 'The public origin, e.g. https://example.com' },
+	ANTHROPIC_API_KEY: {}
+	// for fromEnv instead: CHAT_AIDE_PROVIDER: {}, CHAT_AIDE_MODEL: {}, CHAT_AIDE_API_KEY: {}
+});
+```
+
+A variable without a `schema` is required. For an optional one, such as `CHAT_AIDE_BASE_URL`, pass
+`schema: (value) => value`. Then import from `$app/env/private`:
+
+```ts
+// src/hooks.server.ts
+import { aide } from '@chat-aide/sveltekit/server';
+import { ANTHROPIC_API_KEY, ORIGIN } from '$app/env/private';
+
+export const handle = aide({
+	provider: { name: 'anthropic', apiKey: ANTHROPIC_API_KEY, model: 'claude-haiku-4-5' },
+	origin: ORIGIN
+});
+```
+
+With `fromEnv`, hand it the module: `import * as env from '$app/env/private'`, then
+`fromEnv(env)`. On Kit 3, `Handle` and `sequence` come from `@sveltejs/kit/hooks`.
+`aide()` fits Kit 2's and Kit 3's `Handle` alike.
+
+If you prerender, the hook runs during `vite build` too, so the variables must be set there.
 
 ## 3. Add the widget
 

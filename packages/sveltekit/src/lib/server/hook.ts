@@ -9,7 +9,7 @@
  * creation (a hook has no access to the app's manifest), so it is given once, at the first
  * request to the endpoint that the app answers with anything but a `404`.
  */
-import type { Handle, RequestEvent, RequestHandler } from '@sveltejs/kit';
+import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
 import { createChatHandler, type AideConfig as CoreAideConfig, type ChatHandler, type ChatHandlerDeps } from '@chat-aide/core';
 import {
 	INTERNAL_HEADER,
@@ -26,6 +26,16 @@ import {
 
 /** The configuration, with `authorize` and `clientKey` receiving SvelteKit's `RequestEvent`. */
 export type AideConfig = CoreAideConfig<RequestEvent>;
+
+/**
+ * SvelteKit's `Handle`, written out: Kit 2 exports it from `@sveltejs/kit` and Kit 3 from
+ * `@sveltejs/kit/hooks`, so importing either breaks the other. This shape is assignable to both.
+ * `resolve` only ever gets the event here, so its options are typed `never`.
+ */
+type Handle = (input: {
+	event: RequestEvent;
+	resolve: (event: RequestEvent, opts?: never) => Response | Promise<Response>;
+}) => Promise<Response>;
 
 export type AideHandle = Handle & { handler: ChatHandler<RequestEvent> };
 

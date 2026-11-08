@@ -56,6 +56,8 @@ export const handle = aide({
 <ChatWidget />
 ```
 
+On SvelteKit 3, declare `ORIGIN` and your key in `src/env.ts` and import them from `$app/env/private` instead ([guide](https://chat-aide.dev/docs/getting-started#on-sveltekit-3)).
+
 That's it. On Next.js or another framework? See the [Next.js](https://chat-aide.dev/docs/nextjs) and [other frameworks](https://chat-aide.dev/docs/other-frameworks) guides.
 
 ## Who pays, and what stops abuse

@@ -1,3 +1,8 @@
 packages:
   - 'packages/*'
   - 'apps/*'
+
+# demo-kit3 takes @chat-aide/sveltekit injected (copied, so its peers resolve to Kit 3, as for a
+# real install); re-copy it after each build.
+syncInjectedDepsAfterScripts:
+  - build
