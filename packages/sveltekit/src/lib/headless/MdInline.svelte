@@ -35,8 +35,8 @@
 			>{:else}<a
 				data-part="link"
 				href={node.href}
-				data-sveltekit-preload-data="off"
-				data-sveltekit-preload-code="off"
+				data-sveltekit-preload-data="false"
+				data-sveltekit-preload-code="false"
 				onclick={(e) => navigate(e, node.href)}><Self nodes={node.c} /></a
 			>{/if}{/if}
 {/each}

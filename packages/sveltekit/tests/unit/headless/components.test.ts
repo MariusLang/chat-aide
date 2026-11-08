@@ -148,8 +148,8 @@ describe('Markdown (server render)', () => {
 			props: { text: 'See [privacy](/privacy).', origin: 'https://site.test' }
 		});
 		expect(body).toContain('href="/privacy"');
-		expect(body).toContain('data-sveltekit-preload-data="off"');
-		expect(body).toContain('data-sveltekit-preload-code="off"');
+		expect(body).toContain('data-sveltekit-preload-data="false"');
+		expect(body).toContain('data-sveltekit-preload-code="false"');
 	});
 
 	it('renders nested lists and headings', () => {
