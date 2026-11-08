@@ -3,6 +3,7 @@
   with a retry, and a status node that receives each finished answer once for screen readers.
 -->
 <script lang="ts">
+	import { focusInWindow } from '@chat-aide/core/client';
 	import type { ChatStore } from './create-chat.svelte.js';
 	import { messageText } from './create-chat.svelte.js';
 	import Message from './Message.svelte';
@@ -23,6 +24,12 @@
 		previous = status;
 	});
 
+	// Sending a suggestion or retrying removes the clicked button: move focus to the input first,
+	// so it stays inside the dialog and Escape still closes it.
+	function keepFocus(event: Event): void {
+		focusInWindow(event.currentTarget as Element);
+	}
+
 	let node: HTMLElement | undefined = $state();
 	$effect(() => {
 		// Follow the newest text while it streams.
@@ -39,7 +46,10 @@
 			<ul data-part="suggestions">
 				{#each chat.suggestions as suggestion (suggestion)}
 					<li>
-						<button type="button" data-part="suggestion" onclick={() => chat.send(suggestion)}
+						<button type="button" data-part="suggestion" onclick={(e) => {
+							keepFocus(e);
+							void chat.send(suggestion);
+						}}
 							>{suggestion}</button
 						>
 					</li>
@@ -61,7 +71,10 @@
 	{#if chat.error}
 		<div data-part="error" role="alert" data-code={chat.error.code}>
 			<p>{chat.error.message}</p>
-			<button type="button" data-part="retry" onclick={() => chat.retry()}>{chat.strings.retry}</button>
+			<button type="button" data-part="retry" onclick={(e) => {
+					keepFocus(e);
+					void chat.retry();
+				}}>{chat.strings.retry}</button>
 		</div>
 	{/if}
 </div>

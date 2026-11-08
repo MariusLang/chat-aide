@@ -10,7 +10,8 @@
 	import Message from '../../headless/Message.svelte';
 	import { Button } from './ui/button/index.js';
 	import { ScrollArea } from './ui/scroll-area/index.js';
-	import { cn } from './utils.js';
+	import { focusInWindow } from '@chat-aide/core/client';
+	import { cn, initialFocus } from './utils.js';
 
 	let { chat, class: className }: { chat: ChatStore; class?: string } = $props();
 
@@ -27,6 +28,12 @@
 		}
 		previous = status;
 	});
+
+	// Sending a suggestion or retrying removes the clicked button: move focus to where the dialog
+	// starts (the input, or the header on a touch screen) so it stays inside and Escape still closes.
+	function keepFocus(event: Event): void {
+		focusInWindow(event.currentTarget as Element, initialFocus());
+	}
 
 	let viewport: HTMLElement | null = $state(null);
 	// The content height at the last follow: whether the reader was at the end is measured against
@@ -80,7 +87,10 @@
 									size="sm"
 									data-part="suggestion"
 									class="aide:h-auto aide:min-h-8 aide:pointer-coarse:min-h-11 aide:pointer-coarse:px-4 aide:pointer-coarse:text-[15px] aide:rounded-full aide:px-3 aide:py-1.5 aide:text-left aide:font-normal aide:whitespace-normal"
-									onclick={() => chat.send(suggestion)}>{suggestion}</Button
+									onclick={(e: MouseEvent) => {
+										keepFocus(e);
+										void chat.send(suggestion);
+									}}>{suggestion}</Button
 								>
 							</li>
 						{/each}
@@ -124,7 +134,10 @@
 					size="xs"
 					data-part="retry"
 					class="aide:shrink-0 aide:text-foreground"
-					onclick={() => chat.retry()}
+					onclick={(e: MouseEvent) => {
+						keepFocus(e);
+						void chat.retry();
+					}}
 				>
 					<RotateCcw />
 					{chat.strings.retry}

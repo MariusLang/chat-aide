@@ -14,7 +14,7 @@ export { DEFAULT_STRINGS, REFUSAL_MESSAGES, type Strings } from '../shared/strin
 export { LIMIT_DEFAULTS } from '../shared/limits.js';
 export { parseAnswer, type MdBlock, type MdInline, type MdOptions } from '../shared/markdown.js';
 export { extract, type Extracted } from '../site/extract.js';
-export { trapFocus, focusableIn, type FocusTrapOptions } from './focus-trap.js';
+export { trapFocus, focusableIn, focusInWindow, type FocusTrapOptions } from './focus-trap.js';
 export { fitViewport, PHONE_QUERY, type FitViewportOptions } from './viewport.js';
 export type { Suggestions, Usage, WarmupResponse } from '../shared/types.js';
 
