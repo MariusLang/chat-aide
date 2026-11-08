@@ -237,7 +237,6 @@ describe('createChatHandler: read_page', () => {
 		'//evil.example/x',
 		'//169.254.169.254/latest/meta-data/',
 		'/\\evil.example',
-		'/a/../api/x',
 		'/%2e%2e/api/x',
 		'/%2F%2Fevil.example',
 		'http://evil.example/',
@@ -403,7 +402,6 @@ describe('createChatHandler: route rule on the body and the warm-up', () => {
 		'//evil.example/x',
 		'//169.254.169.254/latest/meta-data/',
 		'/\\evil.example',
-		'/a/../api/x',
 		'/%2e%2e/api/x',
 		'/%2F%2Fevil.example',
 		'http://evil.example/'
@@ -429,6 +427,52 @@ describe('createChatHandler: route rule on the body and the warm-up', () => {
 		expect(res.status).toBe(400);
 		expect((await res.json()).error).toBe('invalid_request');
 		expect(site.calls).toHaveLength(0);
+	});
+});
+
+describe('createChatHandler: chatting from an excluded page', () => {
+	const config = { pages: { exclude: ['/hidden'] } };
+
+	it.each(['/hidden', '/hidden/'])('warm-up on %s answers without reading the page', async (route) => {
+		const { site, handler, settle } = setup({ config });
+		const res = await handler(makeEvent(site, { method: 'GET', url: `${ORIGIN}/api/chat?route=${route}` }));
+		expect(res.status).toBe(200);
+		expect(await res.json()).toMatchObject({ pageSource: 'server', mapped: false });
+		await settle();
+		expect(site.calls.filter((c) => c.path.startsWith('/hidden'))).toHaveLength(0);
+	});
+
+	it('a message from an excluded page is answered without that page or its DOM text', async () => {
+		const { site, handler, model, settle } = setup({ config: { ...config, pageContext: 'dom' } });
+		const res = await handler(
+			makeEvent(site, { body: chatBody('What is this?', { route: '/hidden', dom: 'DOM-SECRET of the page' }) })
+		);
+		expect(res.status).toBe(200);
+		await res.text();
+		await settle();
+		expect(model.doStreamCalls).toHaveLength(1);
+		const prompt = promptText(model);
+		expect(prompt).not.toContain('DOM-SECRET');
+		expect(prompt).not.toContain('Hidden page.');
+		expect(prompt).toContain('a page you cannot read');
+		expect(site.calls.filter((c) => c.path.startsWith('/hidden'))).toHaveLength(0);
+	});
+
+	it('a dot-segment route into a default exclude is a page without text, never read', async () => {
+		const { site, handler, model, settle } = setup();
+		const res = await handler(makeEvent(site, { body: chatBody('hi', { route: '/a/../api/x' }) }));
+		expect(res.status).toBe(200);
+		await res.text();
+		await settle();
+		expect(model.doStreamCalls).toHaveLength(1);
+		expect(site.calls.filter((c) => c.path.startsWith('/api'))).toHaveLength(0);
+	});
+
+	it('an undecodable route is still refused', async () => {
+		const { site, handler } = setup({ config });
+		const res = await handler(makeEvent(site, { body: chatBody('hi', { route: '/%E0%A4%A' }) }));
+		expect(res.status).toBe(400);
+		expect((await res.json()).path).toBe('aide.route');
 	});
 });
 

@@ -52,7 +52,9 @@ character, resolving to the configured origin (or the in-process sentinel withou
 segments are resolved and query and hash dropped. Excludes are then matched against the pathname
 **as SvelteKit decodes it for routing**, so `/%61pi/x` is `/api/x` and excluded; an undecodable
 pathname is refused. A refused route is `400 invalid_request` or, from `read_page`, "Not a page of
-this site.", and no read is made. The route that results from resolving dot segments must still
+this site.", and no read is made. The visitor's own route (`aide.route`, `GET ?route=`) is the
+exception for excludes: on an excluded page the chat still answers, but that page is not read,
+its DOM text is dropped and the model is told it cannot read it. The route that results from resolving dot segments must still
 start with exactly one `/`, so `/.//evil.example` is refused too.
 
 Default excludes: `/api/**`, any last segment with a file extension, and last segments `logout`,

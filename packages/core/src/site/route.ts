@@ -127,6 +127,20 @@ export function isExcluded(pathname: string, exclude: string[]): boolean {
 	return false;
 }
 
+/**
+ * The visitor's current route (`aide.route`, `GET ?route=`): normalizeRoute, and whether it is
+ * excluded. An excluded route is still a page the visitor can chat from; it is only never read.
+ * An undecodable pathname is refused like a malformed one.
+ */
+export function visitorRoute(
+	input: unknown,
+	opts: { origin?: string; exclude: string[] }
+): { route: string; excluded: boolean } | null {
+	const pathname = normalizeRoute(input, opts.origin);
+	if (pathname === null || decodeSveltePathname(pathname) === null) return null;
+	return { route: pathname, excluded: isExcluded(pathname, opts.exclude) };
+}
+
 /** normalizeRoute + !isExcluded */
 export function acceptRoute(input: unknown, opts: { origin?: string; exclude: string[] }): string | null {
 	const pathname = normalizeRoute(input, opts.origin);
