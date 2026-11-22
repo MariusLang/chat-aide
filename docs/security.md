@@ -28,6 +28,10 @@ budgets, above all `budget.siteTokensPerDay`, together with the single read-only
 site-scoped system prompt. Set `siteTokensPerDay` to what you are willing to pay per day, and add
 `authorize` if the chat should only serve signed-in or consenting visitors.
 
+Requests sent in parallel do not get around the budgets. Each turn holds its estimated tokens
+before the model is called, never more than a budget has left, and is stopped between steps once
+it has used them ([Budgets and their overshoot](configuration.md#budgets-and-their-overshoot)).
+
 ### Behind a proxy
 
 The rate limit and the per-visitor budget are keyed by an HMAC of `event.getClientAddress()`

@@ -82,15 +82,20 @@ export interface Guards {
 	/** Adds a finished turn's tokens to the visitor and site day counters. */
 	charge(id: string, tokens: number): Promise<void>;
 	/**
-	 * Counts a turn's estimated tokens against the budgets before it starts, so turns started
-	 * together cannot all pass one check. Refused when a budget was already used up without this
-	 * turn; the estimate is then taken back.
+	 * Holds a turn's estimated tokens in the day counters before it starts, so turns started
+	 * together cannot all pass one check. No reservation crosses a budget: one that would is cut to
+	 * what is left, and refused when nothing is left. Whatever is not held is taken back.
 	 */
 	reserve(id: string, tokens: number): Promise<Reservation | 'visitor' | 'site'>;
 }
 
 export interface Reservation {
-	/** Replaces the estimate with the turn's real tokens, on the day it was reserved. */
+	/**
+	 * The tokens held for the turn, which it may use before it is stopped: the estimate, or less
+	 * when a budget had less left. `Infinity` when no budget is on.
+	 */
+	tokens: number;
+	/** Replaces the held tokens with the turn's real tokens, on the day they were reserved. */
 	settle(tokens: number): Promise<void>;
 }
 
@@ -140,23 +145,49 @@ export function createGuards(
 		},
 
 		async reserve(id, tokens) {
+			if (budget === false || (budget.tokensPerDay === false && budget.siteTokensPerDay === false)) {
+				return { tokens: Infinity, settle: async () => {} };
+			}
+			const { tokensPerDay, siteTokensPerDay } = budget;
 			const day = utcDay(now());
-			const settle = async (spent: number) => {
-				await add(id, day, (spent > 0 ? spent : 0) - tokens);
+			const visitorKey = `aide:tok:${id}:${day}`;
+			// At least one token, so a turn is refused only when nothing is left.
+			let held = tokens >= 1 ? Math.ceil(tokens) : 1;
+
+			// The visitor's budget first: what it refuses never reaches the site counter, so a burst
+			// from one visitor cannot hold the site's budget until it is taken back.
+			if (tokensPerDay !== false) {
+				held = await hold(visitorKey, held, tokensPerDay);
+				if (held === 0) return 'visitor';
+			}
+			if (siteTokensPerDay !== false) {
+				const granted = await hold(`aide:tok:site:${day}`, held, siteTokensPerDay);
+				if (tokensPerDay !== false && granted < held) await store.incr(visitorKey, granted - held, DAY_TTL);
+				if (granted === 0) return 'site';
+				held = granted;
+			}
+
+			const reserved = held;
+			return {
+				tokens: reserved,
+				async settle(spent) {
+					await add(id, day, (spent > 0 ? spent : 0) - reserved);
+				}
 			};
-			if (budget === false || !(tokens > 0)) return { settle };
-			const [visitor, site] = await add(id, day, tokens);
-			const over =
-				visitor !== undefined && budget.tokensPerDay !== false && visitor - tokens >= budget.tokensPerDay
-					? 'visitor'
-					: site !== undefined && budget.siteTokensPerDay !== false && site - tokens >= budget.siteTokensPerDay
-						? 'site'
-						: null;
-			if (over === null) return { settle };
-			await add(id, day, -tokens);
-			return over;
 		}
 	};
+
+	/**
+	 * Adds `tokens` to a day counter and takes back what went past `cap`; resolves to what stays
+	 * held, zero when nothing was left. Only `incr` is used, and its answer decides, so this holds
+	 * for a shared store too: turns that race see each other's tokens and can only be granted less.
+	 */
+	async function hold(key: string, tokens: number, cap: number): Promise<number> {
+		const over = Math.min(tokens, (await store.incr(key, tokens, DAY_TTL)) - cap);
+		if (over <= 0) return tokens;
+		await store.incr(key, -over, DAY_TTL);
+		return tokens - over;
+	}
 
 	/** Adds to the day's counters that are on; resolves to their new values (visitor, site). */
 	async function add(id: string, day: string, tokens: number): Promise<[number?, number?]> {

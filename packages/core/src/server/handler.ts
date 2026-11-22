@@ -10,6 +10,7 @@ import {
 	streamText,
 	toUIMessageStream,
 	type LanguageModelUsage,
+	type StopCondition,
 	type TextStreamPart,
 	type ToolSet,
 	type UIMessage
@@ -32,6 +33,7 @@ import { visitorRoute } from '../site/route.js';
 import { createSiteMap, type SiteMap } from '../site/site-map.js';
 import { createTransport, type FetchLike, type Transport } from '../site/transport.js';
 import { resolveWaitUntil, runCallback, VERCEL_CONTEXT, type WaitUntil } from './background.js';
+import { estimateTurn } from './estimate.js';
 import { checkOrigin, clientId, createGuards } from './guards.js';
 import { buildPrompt } from './prompt.js';
 import { findProvider, loadProvider, type Importer, type LoadedProvider, type ProviderRow } from './providers.js';
@@ -263,6 +265,19 @@ function pickUsage(u: LanguageModelUsage | undefined): Usage {
 	};
 }
 
+/** The tokens a budget counts for one step. */
+function stepTokens(usage: LanguageModelUsage): number {
+	return (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
+}
+
+/**
+ * Stops a turn before its next step once its finished steps have used the tokens held for it.
+ * The step that passes them has run by then, so a turn overshoots by less than one step.
+ */
+function hasSpent(held: number): StopCondition<ToolSet> {
+	return ({ steps }) => steps.reduce((sum, step) => sum + stepTokens(step.usage), 0) >= held;
+}
+
 /** Platforms that announce themselves on the request, not through the environment. */
 function platformDetected(event: AideEvent): boolean {
 	const platform = (event as { platform?: unknown }).platform;
@@ -480,12 +495,8 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 			read_page: createReadPageTool({ origin, exclude, siteMap, pageChars: limits.pageChars })
 		};
 
-		// Counted before the call, so turns started together cannot all pass one budget check:
-		// every step may resend the prompt plus a page read, and write up to maxOutputTokens.
-		const estimate =
-			limits.maxSteps *
-			(Math.ceil((JSON.stringify(prompt).length + limits.pageChars) / 4) + limits.maxOutputTokens);
-		const reservation = await guards.reserve(id, estimate);
+		// Held before the call, so turns started together cannot all pass one budget check.
+		const reservation = await guards.reserve(id, estimateTurn(prompt, limits));
 		if (typeof reservation === 'string') return refuse('budget_exhausted', waitUntil, sessionId);
 
 		let spent = 0;
@@ -494,14 +505,14 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 			instructions: prompt.instructions,
 			messages: prompt.messages,
 			tools,
-			stopWhen: isStepCount(limits.maxSteps),
+			stopWhen: [isStepCount(limits.maxSteps), hasSpent(reservation.tokens)],
 			maxOutputTokens: limits.maxOutputTokens,
 			telemetry: { isEnabled: false },
 			onError: ({ error }) => reportError(error),
 			// Usage is summed per finished step, so a turn that fails in a later step still pays for
 			// the steps it ran; the sum is charged once the stream has settled, however it ended.
 			onStepEnd: (step) => {
-				spent += (step.usage.inputTokens ?? 0) + (step.usage.outputTokens ?? 0);
+				spent += stepTokens(step.usage);
 			},
 			onEnd: (e) => {
 				runCallback(

@@ -75,17 +75,27 @@ stuck on `400`.
 
 ## Budgets and their overshoot
 
-Budgets count `inputTokens + outputTokens`. Before the model is called, a turn reserves an
-estimate of its cost (`maxSteps` × the prompt, a page read and `maxOutputTokens`) on the visitor's
-and the site's day counters; the turn is refused when a budget was used up before that. When the
-turn ends, however it ends (a later step failing, the visitor disconnecting), the estimate is
-replaced by the usage of every finished step. So:
+Budgets count `inputTokens + outputTokens`. Before the model is called, a turn holds an estimate
+of its cost on the visitor's and the site's day counters: `maxSteps` × (the prompt, a page read
+and `maxOutputTokens`). The estimate uses no tokenizer and errs high: four ASCII characters count
+as one token, and so do two UTF-8 bytes of any other character, which makes a CJK character 1.5
+tokens. The page read counts at the prompt's own tokens per character.
 
-- a single turn can overshoot a budget by at most its own cost (bounded by the input limits and
-  `maxOutputTokens × maxSteps`);
-- concurrent requests count against the budget as they start, so turns started together
-  overshoot it by at most one estimate, not one turn each. While turns run, the reservations can
-  refuse a turn the real usage would have let through.
+The held tokens never take a counter past its budget. A turn whose estimate does not fit holds
+what is left, and a turn is refused only when nothing is left, so a visitor's first turn is
+answered even when its estimate is above `tokensPerDay`. A turn is stopped before its next step
+once its finished steps have used the tokens it holds. It then ends as it does at `maxSteps`: the
+stream finishes normally, with the text sent so far. When the turn ends, however it ends (a later
+step failing, the visitor disconnecting), the held tokens are replaced by the usage of every
+finished step. So:
+
+- turns started together hold no more than the budget between them, however many there are;
+- a turn passes the tokens it holds by less than one step. A budget is therefore overshot by less
+  than one step for each turn that uses up what it holds, as a rule the one turn that held the
+  last of the budget. A step costs what the provider reports for it: the estimate does not
+  bound the size of a single step;
+- while turns run, the tokens they hold can refuse a turn the real usage would have let through,
+  or stop one a step early.
 
 `budget.siteTokensPerDay` is the number that bounds your bill: a per-visitor key is an address
 (an IPv6 /64), and addresses are cheap to rotate. Day counters are per UTC day.
