@@ -3,8 +3,10 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import type { RequestEvent } from '@sveltejs/kit';
 import { MockLanguageModelV4, convertArrayToReadableStream } from 'ai/test';
+import { clientId } from '../../../src/server/guards';
 import { createChatHandler } from '../../../src/server/handler';
 import { createReadPageTool } from '../../../src/server/read-page-tool';
+import { memoryStore } from '../../../src/server/store';
 import { AideConfigError } from '../../../src/shared/schemas';
 import type { AideConfig } from '../../../src/shared/types';
 import { createFakeSite, htmlPage, type FakePage, type FakeSite } from '../../fixtures/site';
@@ -12,36 +14,41 @@ import { createFakeSite, htmlPage, type FakePage, type FakeSite } from '../../fi
 const ORIGIN = 'https://example.com';
 const LONG = 'This page explains the product in enough words to not be thin. '.repeat(6);
 
-const USAGE = {
-	inputTokens: { total: 10, noCache: 10, cacheRead: undefined, cacheWrite: undefined },
-	outputTokens: { total: 5, text: 5, reasoning: undefined }
-};
+/** What the mock provider reports for one step. */
+function usageOf(input: number, output: number) {
+	return {
+		inputTokens: { total: input, noCache: input, cacheRead: undefined, cacheWrite: undefined },
+		outputTokens: { total: output, text: output, reasoning: undefined }
+	};
+}
+
+const USAGE = usageOf(10, 5);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Part = any;
 
-function textParts(text: string): Part[] {
+function textParts(text: string, usage = USAGE): Part[] {
 	return [
 		{ type: 'stream-start', warnings: [] },
 		{ type: 'text-start', id: 't' },
 		{ type: 'text-delta', id: 't', delta: text },
 		{ type: 'text-end', id: 't' },
-		{ type: 'finish', finishReason: { unified: 'stop', raw: 'stop' }, usage: USAGE }
+		{ type: 'finish', finishReason: { unified: 'stop', raw: 'stop' }, usage }
 	];
 }
 
-function toolParts(route: string, n: number): Part[] {
+function toolParts(route: string, n: number, usage = USAGE): Part[] {
 	return [
 		{ type: 'stream-start', warnings: [] },
 		{ type: 'tool-call', toolCallId: `call-${n}`, toolName: 'read_page', input: JSON.stringify({ route }) },
-		{ type: 'finish', finishReason: { unified: 'tool-calls', raw: 'tool_use' }, usage: USAGE }
+		{ type: 'finish', finishReason: { unified: 'tool-calls', raw: 'tool_use' }, usage }
 	];
 }
 
 /** A model that answers `text` at every step. */
-function textModel(text = 'Hello from the mock.') {
+function textModel(text = 'Hello from the mock.', usage = USAGE) {
 	return new MockLanguageModelV4({
-		doStream: async () => ({ stream: convertArrayToReadableStream(textParts(text)) })
+		doStream: async () => ({ stream: convertArrayToReadableStream(textParts(text, usage)) })
 	});
 }
 
@@ -72,6 +79,7 @@ interface SetupOptions {
 	model?: MockLanguageModelV4;
 	pages?: Record<string, FakePage>;
 	withoutWaitUntil?: boolean;
+	now?: () => number;
 }
 
 function setup(opts: SetupOptions = {}) {
@@ -86,7 +94,7 @@ function setup(opts: SetupOptions = {}) {
 		...cb,
 		...opts.config
 	};
-	const handler = createChatHandler(config, { fetch: site.fetch });
+	const handler = createChatHandler(config, { fetch: site.fetch, now: opts.now });
 	/** Awaits every promise handed to waitUntil, including ones handed out while waiting. */
 	async function settle() {
 		let n = -1;
@@ -558,9 +566,15 @@ describe('createChatHandler: refusals', () => {
 				return { stream: convertArrayToReadableStream(toolParts('/about', 1)) };
 			}
 		});
-		const { site, handler, settle } = setup({ model, config: { budget: { tokensPerDay: 15 } } });
+		// 16 tokens: the first step's 15 leave room for the second, which fails.
+		const { site, handler, settle } = setup({ model, config: { budget: { tokensPerDay: 16 } } });
 		await (await handler(makeEvent(site, { body: chatBody() }))).text();
 		await settle();
+		expect(model.doStreamCalls).toHaveLength(2);
+		// One token is left: the next turn is held to it, and is charged its one step too.
+		await (await handler(makeEvent(site, { body: chatBody() }))).text();
+		await settle();
+		expect(model.doStreamCalls).toHaveLength(3);
 		const res = await handler(makeEvent(site, { body: chatBody() }));
 		expect(res.status).toBe(429);
 		expect((await res.json()).error).toBe('budget_exhausted');
@@ -595,6 +609,155 @@ describe('createChatHandler: refusals', () => {
 		expect(res.status).toBe(405);
 		expect(res.headers.get('allow')).toBe('GET, POST');
 		expect((await res.json()).error).toBe('method_not_allowed');
+	});
+});
+
+describe('createChatHandler: token budgets', () => {
+	const SALT = 'budget-test-salt';
+	const NOW = Date.UTC(2026, 8, 26, 12, 0, 0);
+	const DAY = '2026-09-26';
+
+	/** A handler over a store the test can read, on a fixed day. */
+	function budgetSetup(opts: SetupOptions) {
+		const store = memoryStore({ now: () => NOW });
+		const s = setup({ ...opts, now: () => NOW, config: { store, salt: SALT, ...opts.config } });
+		const siteTokens = async () => Number(await store.get(`aide:tok:site:${DAY}`));
+		const visitorTokens = async (address = '203.0.113.7') => {
+			const id = await clientId({ getClientAddress: () => address }, { salt: SALT });
+			return Number(await store.get(`aide:tok:${id}:${DAY}`));
+		};
+		return { ...s, siteTokens, visitorTokens };
+	}
+
+	/** A model that calls read_page at every step, reporting `usage` for each. */
+	function toolLoopModel(usage = USAGE) {
+		let n = 0;
+		return new MockLanguageModelV4({
+			doStream: async () => ({ stream: convertArrayToReadableStream(toolParts('/about', ++n, usage)) })
+		});
+	}
+
+	it('keeps both day counters within their caps when turns start together', async () => {
+		// The provider reports far more input than four characters per token would count.
+		const TURN = 30_000 + 1_024;
+		const { site, handler, model, settle, siteTokens, visitorTokens } = budgetSetup({
+			model: textModel('Answer.', usageOf(30_000, 1_024)),
+			config: {
+				budget: { tokensPerDay: 200_000, siteTokensPerDay: 2_000_000 },
+				limits: { maxOutputTokens: 1024, maxSteps: 3 },
+				rateLimit: { requests: 20, windowSeconds: 600, warmups: 60 }
+			}
+		});
+		const addresses = Array.from({ length: 10 }, (_, i) => `198.51.100.${i + 1}`);
+		const responses = await Promise.all(
+			addresses.flatMap((address) =>
+				Array.from({ length: 20 }, () =>
+					handler(makeEvent(site, { address, body: chatBody('題'.repeat(4000)) }))
+				)
+			)
+		);
+		await Promise.all(responses.map((r) => r.text()));
+		await settle();
+
+		const answered = responses.filter((r) => r.status === 200).length;
+		expect(responses.filter((r) => r.status === 429)).toHaveLength(responses.length - answered);
+		expect(answered).toBeGreaterThan(0);
+		expect(model.doStreamCalls).toHaveLength(answered);
+
+		expect(await siteTokens()).toBe(answered * TURN);
+		expect(await siteTokens()).toBeLessThanOrEqual(2_000_000 + TURN);
+		for (const address of addresses) {
+			expect(await visitorTokens(address)).toBeGreaterThan(0);
+			expect(await visitorTokens(address)).toBeLessThanOrEqual(200_000 + TURN);
+		}
+	});
+
+	it('stops a turn before its next step once it has used the tokens held for it', async () => {
+		// 20 tokens are left and held; every step uses 15 and asks for another page.
+		const model = toolLoopModel();
+		const { site, handler, cb, settle, visitorTokens } = budgetSetup({
+			model,
+			config: { budget: { tokensPerDay: 20 } }
+		});
+		const res = await handler(makeEvent(site, { body: chatBody() }));
+		expect(res.status).toBe(200);
+		const body = await res.text();
+		await settle();
+		expect(model.doStreamCalls).toHaveLength(2);
+		// The stream ends as it does at the step limit: a finish, no error.
+		expect(body).toContain('"type":"finish"');
+		expect(body.trimEnd().endsWith('data: [DONE]')).toBe(true);
+		expect(body).not.toContain('"type":"error"');
+		expect(cb.onError).not.toHaveBeenCalled();
+		expect(cb.onResponse.mock.calls[0]![0]).toMatchObject({ finishReason: 'tool-calls' });
+		expect(await visitorTokens()).toBe(30);
+	});
+
+	it('stops a turn that outruns its estimate, far below the budget', async () => {
+		const model = toolLoopModel(usageOf(1_000_000, 1_024));
+		const { site, handler, settle, visitorTokens } = budgetSetup({
+			model,
+			config: { budget: { tokensPerDay: 100_000_000, siteTokensPerDay: false } }
+		});
+		await (await handler(makeEvent(site, { body: chatBody() }))).text();
+		await settle();
+		expect(model.doStreamCalls).toHaveLength(1);
+		expect(await visitorTokens()).toBe(1_001_024);
+	});
+
+	it('keeps the text a stopped turn has streamed', async () => {
+		const input = JSON.stringify({ route: '/hidden' });
+		const model = new MockLanguageModelV4({
+			doStream: async () => ({
+				stream: convertArrayToReadableStream([
+					{ type: 'stream-start', warnings: [] },
+					{ type: 'text-start', id: 't' },
+					{ type: 'text-delta', id: 't', delta: 'Let me check. ' },
+					{ type: 'text-end', id: 't' },
+					{ type: 'tool-call', toolCallId: 'call-1', toolName: 'read_page', input },
+					{ type: 'finish', finishReason: { unified: 'tool-calls', raw: 'tool_use' }, usage: USAGE }
+				] as Part[])
+			})
+		});
+		const { site, handler } = budgetSetup({ model, config: { budget: { tokensPerDay: 10 } } });
+		const res = await handler(makeEvent(site, { body: chatBody() }));
+		expect(res.status).toBe(200);
+		const body = await res.text();
+		expect(model.doStreamCalls).toHaveLength(1);
+		expect(body).toContain('Let me check. ');
+		expect(body).toContain('"type":"finish"');
+		expect(body).not.toContain('"type":"error"');
+	});
+
+	it('runs a turn to the step limit while it stays within the tokens held', async () => {
+		const model = toolLoopModel();
+		const { site, handler, settle, visitorTokens } = budgetSetup({ model });
+		await (await handler(makeEvent(site, { body: chatBody() }))).text();
+		await settle();
+		expect(model.doStreamCalls).toHaveLength(3);
+		expect(await visitorTokens()).toBe(45);
+	});
+
+	it('never stops a turn for tokens when the budget is off', async () => {
+		const model = toolLoopModel(usageOf(1_000_000, 1_024));
+		const { site, handler, settle, siteTokens } = budgetSetup({ model, config: { budget: false } });
+		await (await handler(makeEvent(site, { body: chatBody() }))).text();
+		await settle();
+		expect(model.doStreamCalls).toHaveLength(3);
+		expect(await siteTokens()).toBe(0);
+	});
+
+	it('gives a visitor whose first turn is estimated above the whole budget that budget', async () => {
+		const model = textModel();
+		const { site, handler, settle, visitorTokens } = budgetSetup({
+			model,
+			config: { budget: { tokensPerDay: 1_000 }, limits: { maxOutputTokens: 8_192, maxSteps: 8 } }
+		});
+		const res = await handler(makeEvent(site, { body: chatBody() }));
+		expect(res.status).toBe(200);
+		expect(await res.text()).toContain('Hello from the mock.');
+		await settle();
+		expect(await visitorTokens()).toBe(15);
 	});
 });
 

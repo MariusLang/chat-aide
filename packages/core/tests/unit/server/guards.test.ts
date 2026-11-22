@@ -188,53 +188,159 @@ describe('checkOrigin', () => {
 });
 
 describe('budget reservations', () => {
-	it('turns started together cannot all pass one check', async () => {
-		const { g } = setup();
+	const VISITOR = 'aide:tok:a:2026-09-26';
+	const SITE = 'aide:tok:site:2026-09-26';
+
+	/** The reservation, or a failed test when it was refused. */
+	function held(r: Awaited<ReturnType<ReturnType<typeof setup>['g']['reserve']>>) {
+		if (typeof r === 'string') throw new Error(`refused: ${r}`);
+		return r;
+	}
+
+	it('turns started together never hold more than the budget', async () => {
+		const { g, store } = setup();
 		const results = await Promise.all(Array.from({ length: 20 }, () => g.reserve('a', 30_000)));
-		// 200k visitor budget: the 7th reservation starts at 180k, the 8th at 210k and is refused.
-		expect(results.filter((r) => typeof r !== 'string')).toHaveLength(7);
+		// 200k visitor budget: six reservations of 30k, a seventh cut to the 20k left, the rest refused.
+		const tokens = results.filter((r) => typeof r !== 'string').map((r) => r.tokens);
+		expect(tokens).toEqual([30_000, 30_000, 30_000, 30_000, 30_000, 30_000, 20_000]);
 		expect(results.filter((r) => r === 'visitor')).toHaveLength(13);
+		expect(await store.get(VISITOR)).toBe('200000');
+		expect(await store.get(SITE)).toBe('200000');
 	});
 
-	it('a refused reservation is taken back', async () => {
+	it('cuts a reservation that would cross the budget to what is left', async () => {
+		const { g, store } = setup();
+		expect(held(await g.reserve('a', 150_000)).tokens).toBe(150_000);
+		expect(held(await g.reserve('a', 150_000)).tokens).toBe(50_000);
+		expect(await store.get(VISITOR)).toBe('200000');
+		expect(await store.get(SITE)).toBe('200000');
+	});
+
+	it('refuses a reservation when nothing is left, and takes it back', async () => {
 		const { g, store } = setup();
 		await g.charge('a', 200_000);
 		expect(await g.reserve('a', 30_000)).toBe('visitor');
-		expect(await store.get('aide:tok:site:2026-09-26')).toBe('200000');
+		expect(await store.get(VISITOR)).toBe('200000');
+		expect(await store.get(SITE)).toBe('200000');
 	});
 
-	it('settle replaces the estimate with the real tokens', async () => {
+	it('holds the whole budget for a turn estimated above it', async () => {
+		const { g, store } = setup({ ...defaults, budget: { tokensPerDay: 10_000, siteTokensPerDay: 5_000_000 } });
+		expect(held(await g.reserve('a', 250_000)).tokens).toBe(10_000);
+		expect(await g.reserve('a', 250_000)).toBe('visitor');
+		expect(await store.get(VISITOR)).toBe('10000');
+		expect(await store.get(SITE)).toBe('10000');
+	});
+
+	it('settle replaces the held tokens with the real tokens', async () => {
 		const { g, store } = setup();
-		const r = await g.reserve('a', 30_000);
-		if (typeof r === 'string') throw new Error(r);
-		await r.settle(1_234);
-		expect(await store.get('aide:tok:a:2026-09-26')).toBe('1234');
-		expect(await store.get('aide:tok:site:2026-09-26')).toBe('1234');
+		await held(await g.reserve('a', 30_000)).settle(1_234);
+		expect(await store.get(VISITOR)).toBe('1234');
+		expect(await store.get(SITE)).toBe('1234');
+	});
+
+	it('settle of a cut reservation replaces only what was held', async () => {
+		const { g, store } = setup();
+		await g.charge('a', 190_000);
+		const r = held(await g.reserve('a', 30_000));
+		expect(r.tokens).toBe(10_000);
+		await r.settle(12_000);
+		expect(await store.get(VISITOR)).toBe('202000');
+		expect(await store.get(SITE)).toBe('202000');
 	});
 
 	it('settles on the day it reserved, across midnight', async () => {
 		const { g, c, store } = setup();
-		const r = await g.reserve('a', 30_000);
-		if (typeof r === 'string') throw new Error(r);
+		const r = held(await g.reserve('a', 30_000));
 		c.advance(12 * 3_600_000);
 		await r.settle(500);
-		expect(await store.get('aide:tok:a:2026-09-26')).toBe('500');
+		expect(await store.get(VISITOR)).toBe('500');
 		expect(await store.get('aide:tok:a:2026-09-27')).toBeNull();
 	});
 
-	it('the site budget refuses as "site"', async () => {
-		const { g } = setup({ ...defaults, budget: { tokensPerDay: false, siteTokensPerDay: 100 } });
-		expect(typeof (await g.reserve('a', 60))).toBe('object');
-		expect(typeof (await g.reserve('b', 60))).toBe('object');
+	it('the site budget cuts and refuses as "site", and gives the visitor budget back', async () => {
+		const { g, store } = setup({ ...defaults, budget: { tokensPerDay: 80, siteTokensPerDay: 100 } });
+		expect(held(await g.reserve('a', 60)).tokens).toBe(60);
+		expect(held(await g.reserve('b', 60)).tokens).toBe(40);
 		expect(await g.reserve('c', 60)).toBe('site');
+		expect(await store.get(VISITOR)).toBe('60');
+		expect(await store.get('aide:tok:b:2026-09-26')).toBe('40');
+		expect(await store.get('aide:tok:c:2026-09-26')).toBe('0');
+		expect(await store.get(SITE)).toBe('100');
 	});
 
-	it('budget: false reserves nothing', async () => {
+	it('a visitor out of budget does not touch the site counter', async () => {
+		const { g, store } = setup({ ...defaults, budget: { tokensPerDay: 10, siteTokensPerDay: 100 } });
+		await g.charge('a', 10);
+		const seen: number[] = [];
+		const incr = store.incr;
+		store.incr = async (key, by, ttl) => {
+			if (key === SITE) seen.push(by);
+			return incr(key, by, ttl);
+		};
+		expect(await g.reserve('a', 60)).toBe('visitor');
+		expect(seen).toEqual([]);
+	});
+
+	it('each budget holds alone', async () => {
+		const site = setup({ ...defaults, budget: { tokensPerDay: false, siteTokensPerDay: 100 } });
+		expect(held(await site.g.reserve('a', 60)).tokens).toBe(60);
+		expect(held(await site.g.reserve('b', 60)).tokens).toBe(40);
+		expect(await site.g.reserve('c', 60)).toBe('site');
+		expect(await site.store.get(VISITOR)).toBeNull();
+
+		const visitor = setup({ ...defaults, budget: { tokensPerDay: 100, siteTokensPerDay: false } });
+		expect(held(await visitor.g.reserve('a', 60)).tokens).toBe(60);
+		expect(held(await visitor.g.reserve('b', 60)).tokens).toBe(60);
+		expect(held(await visitor.g.reserve('a', 60)).tokens).toBe(40);
+		expect(await visitor.g.reserve('a', 60)).toBe('visitor');
+		expect(await visitor.store.get(SITE)).toBeNull();
+	});
+
+	it('holds over a store that answers late, as a shared store does', async () => {
+		const { c } = setup();
+		const inner = memoryStore({ now: c.now });
+		// The counter changes at once, as on the server of a shared store; the answer arrives later.
+		const store: typeof inner = {
+			...inner,
+			async incr(key, by, ttl) {
+				const n = await inner.incr(key, by, ttl);
+				await new Promise((r) => setTimeout(r, Math.random() * 5));
+				return n;
+			}
+		};
+		const g = createGuards({ ...defaults, budget: { tokensPerDay: 100_000, siteTokensPerDay: 250_000 } }, store, c.now);
+		const results = await Promise.all(
+			Array.from({ length: 60 }, (_, i) => g.reserve(`visitor${i % 6}`, 30_000))
+		);
+		const reservations = results.filter((r) => typeof r !== 'string');
+		const total = reservations.reduce((sum, r) => sum + r.tokens, 0);
+		expect(total).toBeGreaterThan(0);
+		expect(total).toBeLessThanOrEqual(250_000);
+		// Nothing is left behind by the cut and refused reservations.
+		expect(Number(await inner.get(SITE))).toBe(total);
+		let visitors = 0;
+		for (let v = 0; v < 6; v++) {
+			const n = Number(await inner.get(`aide:tok:visitor${v}:2026-09-26`));
+			expect(n).toBeLessThanOrEqual(100_000);
+			visitors += n;
+		}
+		expect(visitors).toBe(total);
+		// Every turn spends less than it held: the counters end at what was spent.
+		await Promise.all(reservations.map((r) => r.settle(1_000)));
+		expect(Number(await inner.get(SITE))).toBe(reservations.length * 1_000);
+	});
+
+	it('budget: false reserves nothing and holds no turn back', async () => {
 		const { g, store } = setup({ ...defaults, budget: false });
-		const r = await g.reserve('a', 1e9);
-		if (typeof r === 'string') throw new Error(r);
+		const r = held(await g.reserve('a', 1e9));
+		expect(r.tokens).toBe(Infinity);
 		await r.settle(1e9);
-		expect(await store.get('aide:tok:site:2026-09-26')).toBeNull();
+		expect(await store.get(SITE)).toBeNull();
+
+		const off = setup({ ...defaults, budget: { tokensPerDay: false, siteTokensPerDay: false } });
+		expect(held(await off.g.reserve('a', 1e9)).tokens).toBe(Infinity);
+		expect(await off.store.get(SITE)).toBeNull();
 	});
 });
 

@@ -88,7 +88,7 @@ Three things to know before you rely on it:
 - **The default store is in memory, per process.** On serverless or several instances the limits multiply by the instance count, so pass a [shared `store` and `salt`](https://chat-aide.dev/docs/deployment#shared-store).
 - **Behind a proxy or CDN** every visitor can share one rate-limit bucket until you [configure the client address](https://chat-aide.dev/docs/security#behind-a-proxy).
 
-A budget can overshoot by about one turn's cost, since usage is settled when a turn ends ([details](https://chat-aide.dev/docs/configuration#budgets-and-their-overshoot)). The [security guide](https://chat-aide.dev/docs/security) covers the rest.
+A budget can overshoot by about one step of a turn, since a turn is stopped between its model calls, not inside one ([details](https://chat-aide.dev/docs/configuration#budgets-and-their-overshoot)). The [security guide](https://chat-aide.dev/docs/security) covers the rest.
 
 ## Packages
 
