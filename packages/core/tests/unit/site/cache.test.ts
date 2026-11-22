@@ -143,6 +143,66 @@ describe('page cache: memory', () => {
 	});
 });
 
+describe('page cache: noindex', () => {
+	it('remembers the mark for the TTL, in place of the page and without its text', async () => {
+		const c = clock();
+		const cache = createPageCache({ maxPages: 5, ttlSeconds: 100, missSeconds: 5, now: c.now });
+		await cache.set('/a', entry('/a', c.now(), 'SECRET-TEXT'));
+		await cache.setNoindex('/a');
+		expect(await cache.get('/a')).toEqual({ miss: true, noindex: true });
+		expect(cache.peek('/a')).toEqual({ kind: 'miss', expiresAt: c.now() + 100_000, noindex: true });
+		expect(cache.routes()).toEqual(['/a']);
+		c.advance(99_999);
+		expect(await cache.get('/a')).toEqual({ miss: true, noindex: true });
+		c.advance(1);
+		expect(await cache.get('/a')).toBeNull();
+	});
+
+	it('is replaced by a later page or plain miss', async () => {
+		const c = clock();
+		const cache = createPageCache({ maxPages: 5, ttlSeconds: 100, now: c.now });
+		await cache.setNoindex('/a');
+		await cache.set('/a', entry('/a', c.now()));
+		expect(await cache.get('/a')).toMatchObject({ entry: { route: '/a' } });
+		await cache.setNoindex('/b');
+		await cache.setMiss('/b');
+		expect(await cache.get('/b')).toEqual({ miss: true });
+	});
+
+	it('is not evicted by a stream of invented routes', async () => {
+		const c = clock();
+		const cache = createPageCache({ maxPages: 3, ttlSeconds: 3600, now: c.now });
+		await cache.setNoindex('/secret');
+		for (let i = 0; i < 50; i++) await cache.setMiss(`/invented-${i}`);
+		expect(cache.peek('/secret')).toMatchObject({ kind: 'miss', noindex: true });
+		expect(await cache.get('/secret')).toEqual({ miss: true, noindex: true });
+		expect(cache.size()).toBe(4);
+	});
+
+	it('reaches another process through the store, and overwrites the stored page', async () => {
+		const c = clock();
+		const s = fakeStore(c.now);
+		const one = createPageCache({ maxPages: 5, ttlSeconds: 100, store: s.store, now: c.now });
+		await one.set('/a', entry('/a', c.now(), 'SECRET-TEXT'));
+		c.advance(1_000);
+		await one.setNoindex('/a');
+		expect(s.writes.slice(1)).toEqual(
+			expect.arrayContaining([
+				{ key: 'aide:miss:/a', ttl: 100 },
+				{ key: 'aide:page:/a', ttl: 60 }
+			])
+		);
+		for (const { value } of s.data.values()) expect(value).not.toContain('SECRET-TEXT');
+
+		const two = createPageCache({ maxPages: 5, ttlSeconds: 100, store: s.store, now: c.now });
+		expect(await two.get('/a')).toEqual({ miss: true, noindex: true });
+		expect(two.peek('/a')).toMatchObject({ kind: 'miss', noindex: true });
+		c.advance(100_000);
+		const three = createPageCache({ maxPages: 5, ttlSeconds: 100, store: s.store, now: c.now });
+		expect(await three.get('/a')).toBeNull();
+	});
+});
+
 describe('page cache: with a Store', () => {
 	it('writes entries under aide:page:<route> with 2x TTL and misses under aide:miss:<route>', async () => {
 		const c = clock();

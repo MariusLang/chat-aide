@@ -194,7 +194,16 @@ export interface Callbacks {
  */
 export interface AideConfig<E extends AideEvent = AideEvent> extends Callbacks {
 	provider: ProviderConfig;
-	pages?: { include?: string[]; exclude?: string[]; source?: () => Promise<Page[]> };
+	pages?: {
+		include?: string[];
+		exclude?: string[];
+		source?: () => Promise<Page[]>;
+		/**
+		 * Treat a page that says `noindex` (robots meta tag or `X-Robots-Tag` header) like an excluded
+		 * one, and do not follow the links of a page that says `nofollow`. Default `true`.
+		 */
+		respectNoindex?: boolean;
+	};
 	llms?: Partial<LlmsConfig>;
 	endpoint?: string;
 	cache?: { ttlSeconds?: number };
@@ -220,7 +229,7 @@ export interface AideConfig<E extends AideEvent = AideEvent> extends Callbacks {
 /** `AideConfig` after `resolveConfig`: every default filled, origins normalised. */
 export interface ResolvedConfig<E extends AideEvent = AideEvent> extends Callbacks {
 	provider: ProviderConfig;
-	pages: { include: string[]; exclude: string[]; source?: () => Promise<Page[]> };
+	pages: { include: string[]; exclude: string[]; source?: () => Promise<Page[]>; respectNoindex: boolean };
 	llms: LlmsConfig;
 	endpoint: string;
 	cache: { ttlSeconds: number; missSeconds: number };

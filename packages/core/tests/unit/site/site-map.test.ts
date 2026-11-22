@@ -26,6 +26,7 @@ function setup(pages: Record<string, FakePage>, config: Record<string, unknown> 
 		cache,
 		limits: resolved.limits,
 		preferMarkdown: resolved.llms.preferMarkdown,
+		respectNoindex: resolved.pages.respectNoindex,
 		now
 	});
 	const map = createSiteMap({ reader, transport, cache, config: resolved, now });
@@ -42,6 +43,11 @@ function setup(pages: Record<string, FakePage>, config: Record<string, unknown> 
 const text = (body: string): FakePage => ({ type: 'text/plain; charset=utf-8', body });
 const md = (body: string): FakePage => ({ type: 'text/markdown', body });
 const xml = (body: string): FakePage => ({ type: 'application/xml', body });
+
+/** `htmlPage` with a robots meta tag in its head. */
+function robotsPage(content: string, p: Parameters<typeof htmlPage>[0]): string {
+	return htmlPage(p).replace('</head>', `<meta name="robots" content="${content}"></head>`);
+}
 
 /** `count` pages /p0.. each linking to the next three, all linked from `/`. */
 function chain(count: number): Record<string, FakePage> {
@@ -354,15 +360,22 @@ describe('site map: llms.txt', () => {
 		expect(outline.match(/\(\/changelog\)/g)).toHaveLength(1);
 	});
 
-	it('uses a .md twin for a page and never requests its HTML', async () => {
-		const { site, map, crawl } = setup({
+	it('uses a .md twin for a page, and never requests its HTML when respectNoindex is off', async () => {
+		const pages = {
 			'/': { body: htmlPage({ title: 'Home', links: ['/guide'] }) },
 			'/guide': { body: htmlPage({ title: 'Guide HTML' }) },
 			'/guide.md': md('# Guide\n\nFrom markdown.')
-		});
+		};
+		const { site, map, crawl } = setup(pages, { pages: { respectNoindex: false } });
 		await crawl();
 		expect(await map.readForTool('/guide')).toMatchObject({ source: 'markdown', title: 'Guide' });
 		expect(site.htmlReads()).not.toContain('/guide');
+
+		// By default the HTML is asked for once, for what it says to robots; the text is the twin's.
+		const checked = setup(pages);
+		await checked.crawl();
+		expect(await checked.map.readForTool('/guide')).toMatchObject({ source: 'markdown', title: 'Guide' });
+		expect(checked.site.htmlReads().filter((p) => p === '/guide')).toHaveLength(1);
 	});
 
 	it('on a site without llms files reads each once, with the marker, and gets 404 (acceptance #20)', async () => {
@@ -380,6 +393,110 @@ describe('site map: llms.txt', () => {
 		const { site, crawl } = setup({ '/': { body: htmlPage({ title: 'Home' }) }, '/llms.txt': text(llms) }, { llms: { read: false } });
 		await crawl();
 		expect(site.paths()).not.toContain('/llms.txt');
+	});
+});
+
+describe('site map: noindex', () => {
+	const SECRET = 'SECRET-TEXT of a page that is not to be indexed. '.repeat(8);
+	const site3 = (secret: FakePage): Record<string, FakePage> => ({
+		'/': { body: htmlPage({ title: 'Home', links: ['/public', '/secret'] }) },
+		'/public': { body: htmlPage({ title: 'Public' }) },
+		'/secret': secret,
+		'/behind': { body: htmlPage({ title: 'Behind' }) }
+	});
+	const meta = (content: string): FakePage => ({
+		body: robotsPage(content, { title: 'Secret', body: SECRET, links: ['/behind'] })
+	});
+
+	it('leaves a noindex page out of the map, the outline and read_page, and follows its links', async () => {
+		const { site, map, cache, crawl } = setup(site3(meta('noindex')));
+		await crawl();
+		expect(map.pages().map((p) => p.route)).toEqual(['/', '/public', '/behind']);
+		expect(map.isMapped('/secret')).toBe(false);
+		expect(map.outline(10_000).text).not.toContain('/secret');
+		expect(JSON.stringify(map.pages())).not.toContain('SECRET-TEXT');
+		expect(await map.readForTool('/secret')).toBeNull();
+		// Read once: the crawl found out, the tool asks the cache.
+		expect(site.htmlReads().filter((p) => p === '/secret')).toHaveLength(1);
+		for (const route of cache.routes()) expect(JSON.stringify(cache.peek(route))).not.toContain('SECRET-TEXT');
+	});
+
+	it('does the same for X-Robots-Tag: noindex', async () => {
+		const { map, crawl } = setup(
+			site3({
+				body: htmlPage({ title: 'Secret', body: SECRET, links: ['/behind'] }),
+				headers: { 'X-Robots-Tag': 'noindex' }
+			})
+		);
+		await crawl();
+		expect(map.pages().map((p) => p.route)).toEqual(['/', '/public', '/behind']);
+		expect(await map.readForTool('/secret')).toBeNull();
+	});
+
+	it.each(['noindex, nofollow', 'none'])('does not follow the links of a page that says %s', async (content) => {
+		const { site, map, crawl } = setup(site3(meta(content)));
+		await crawl();
+		expect(map.pages().map((p) => p.route)).toEqual(['/', '/public']);
+		expect(site.paths()).not.toContain('/behind');
+	});
+
+	it('maps a page that says only nofollow, without following its links', async () => {
+		const { site, map, crawl } = setup(site3(meta('nofollow')));
+		await crawl();
+		expect(map.pages().map((p) => p.route)).toEqual(['/', '/public', '/secret']);
+		expect(site.paths()).not.toContain('/behind');
+	});
+
+	it('pages.respectNoindex: false maps the page and follows its links as before', async () => {
+		const { map, crawl } = setup(site3(meta('none')), { pages: { respectNoindex: false } });
+		await crawl();
+		expect(map.pages().map((p) => p.route)).toEqual(['/', '/public', '/secret', '/behind']);
+		expect((await map.readForTool('/secret'))!.text).toContain('SECRET-TEXT');
+	});
+
+	it('drops a seeded noindex page too: sitemap, pages.include and the site llms.txt', async () => {
+		const { map, crawl } = setup(
+			{
+				'/': { body: htmlPage({ title: 'Home' }) },
+				'/sitemap.xml': xml('<urlset><url><loc>/from-sitemap</loc></url></urlset>'),
+				'/llms.txt': text('# Site\n\n## Docs\n\n- [Listed](/from-llms): In the file\n- [Open](/open)\n'),
+				'/from-sitemap': meta('noindex'),
+				'/from-include': meta('noindex'),
+				'/from-llms': meta('noindex'),
+				'/open': { body: htmlPage({ title: 'Open' }) }
+			},
+			{ pages: { include: ['/from-include'] } }
+		);
+		await crawl();
+		expect(map.pages().map((p) => p.route).sort()).toEqual(['/', '/open']);
+		expect(JSON.stringify(map.pages())).not.toContain('SECRET-TEXT');
+		// The site's own llms.txt is the outline's base: its link to the page goes too.
+		const outline = map.outline(10_000).text;
+		expect(outline).toContain('[Open](/open)');
+		expect(outline).not.toContain('/from-llms');
+		expect(outline).not.toContain('In the file');
+	});
+
+	it('a mapped page that turns noindex leaves the map as soon as its refresh has seen it', async () => {
+		const pages = site3({ body: htmlPage({ title: 'Secret', body: SECRET }) });
+		const { site, map, handed, waitUntil, advance } = setup(pages);
+		const drain = async () => {
+			for (let i = 0; i < handed.length; i++) await handed[i];
+		};
+		map.ensureStarted(waitUntil);
+		await drain();
+		expect(map.isMapped('/secret')).toBe(true);
+
+		site.set('/secret', meta('noindex'));
+		advance(3_601_000);
+		// The revisit maps the stale page and refreshes it in the background.
+		map.ensureStarted(waitUntil);
+		await drain();
+		expect(map.isMapped('/secret')).toBe(false);
+		expect(map.pages().map((p) => p.route)).not.toContain('/secret');
+		expect(JSON.stringify(map.pages())).not.toContain('SECRET-TEXT');
+		expect(map.outline(10_000).text).not.toContain('/secret');
+		expect(await map.readForTool('/secret')).toBeNull();
 	});
 });
 

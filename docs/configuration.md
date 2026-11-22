@@ -15,6 +15,7 @@ Unknown keys are refused.
 | `endpoint` | `'/api/chat'` | the chat path; pass the same to the widget |
 | `pages.include` | `[]` | extra crawl seeds |
 | `pages.exclude` | `[]` | globs never read, mapped or served: `*` one segment, `**` any depth (`/blog/drafts/**`). The chat still works on an excluded page, without that page's text |
+| `pages.respectNoindex` | `true` | treat a page that says `noindex` (a `<meta name="robots">` tag or an `X-Robots-Tag` header) like an excluded page, and do not follow the links of a page that says `nofollow`. `false` ignores both. See [llms.txt](llms-txt.md#pages-that-say-noindex) |
 | `pages.source` | none | `async () => Page[]` in place of the crawl, see below |
 | `llms.read` | `true` | read the site's own `/llms.txt` and `/llms-full.txt` |
 | `llms.preferMarkdown` | `true` | ask for `<route>.md` before the HTML of each page |

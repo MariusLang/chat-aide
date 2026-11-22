@@ -8,7 +8,7 @@ import { createFakeSite, htmlPage, type FakePage } from '../../fixtures/site';
 
 function setup(
 	pages: Record<string, FakePage>,
-	o: { preferMarkdown?: boolean; limits?: Partial<Limits>; latency?: number } = {}
+	o: { preferMarkdown?: boolean; respectNoindex?: boolean; limits?: Partial<Limits>; latency?: number } = {}
 ) {
 	let t = 1_000_000;
 	const now = () => t;
@@ -17,8 +17,22 @@ function setup(
 	const transport = createTransport({ exclude: [] });
 	transport.setInProcessFetch(site.fetch);
 	const cache = createPageCache({ maxPages: limits.maxPages, ttlSeconds: 3600, now });
-	const reader = createReader({ transport, cache, limits, preferMarkdown: o.preferMarkdown ?? false, now });
-	return { site, cache, reader, advance: (ms: number) => (t += ms) };
+	const reader = createReader({
+		transport,
+		cache,
+		limits,
+		preferMarkdown: o.preferMarkdown ?? false,
+		respectNoindex: o.respectNoindex,
+		now
+	});
+	return { site, cache, reader, transport, limits, now, advance: (ms: number) => (t += ms) };
+}
+
+const NOINDEX_META = '<meta name="robots" content="noindex">';
+
+/** `htmlPage` with extra tags in its head. */
+function withHead(tags: string, p: Parameters<typeof htmlPage>[0]): string {
+	return htmlPage(p).replace('</head>', `${tags}</head>`);
 }
 
 const md = (body: string): FakePage => ({ type: 'text/markdown; charset=utf-8', body });
@@ -118,11 +132,11 @@ describe('readPage: HTML', () => {
 });
 
 describe('readPage: markdown twins', () => {
-	it('uses <route>.md when present and never requests the HTML', async () => {
+	it('uses <route>.md when present, and asks for the HTML only to see what it says to robots', async () => {
 		const { site, reader } = setup(
 			{
-				'/guide': { body: htmlPage({ title: 'Guide HTML' }) },
-				'/guide.md': md('# Guide\n\n> The guide.\n\n## Install\n\nRun it.\n\n### Deep\n\ntext')
+				'/guide': { body: htmlPage({ title: 'Guide HTML', links: ['/from-html'] }) },
+				'/guide.md': md('# Guide\n\n> The guide.\n\n## Install\n\nRun it.\n\n### Deep\n\n[next](/from-md)')
 			},
 			{ preferMarkdown: true }
 		);
@@ -134,15 +148,26 @@ describe('readPage: markdown twins', () => {
 			{ level: 3, text: 'Deep' }
 		]);
 		expect(entry!.text).toContain('Run it.');
-		expect(site.paths()).toEqual(['/guide.md']);
+		expect(entry!.text).not.toContain('Guide HTML');
+		expect(reader.links('/guide')).toEqual(['/from-md']);
+		expect(site.paths()).toEqual(['/guide.md', '/guide']);
 		expect(site.calls[0]!.accept).toContain('text/markdown');
+	});
+
+	it('never requests the HTML of a page with a twin when respectNoindex is off', async () => {
+		const { site, reader } = setup(
+			{ '/guide': { body: withHead(NOINDEX_META, { title: 'Guide HTML' }) }, '/guide.md': md('# Guide\n\nRun it.') },
+			{ preferMarkdown: true, respectNoindex: false }
+		);
+		expect(await reader.readPage('/guide')).toMatchObject({ title: 'Guide', source: 'markdown' });
+		expect(site.paths()).toEqual(['/guide.md']);
 		expect(site.htmlReads()).toEqual([]);
 	});
 
-	it('reads the root twin at /index.html.md', async () => {
+	it('reads the root twin at /index.html.md, also when the page itself is not HTML', async () => {
 		const { site, reader } = setup({ '/index.html.md': md('# Home\n\ntext') }, { preferMarkdown: true });
 		expect((await reader.readPage('/'))!.source).toBe('markdown');
-		expect(site.paths()).toEqual(['/index.html.md']);
+		expect(site.paths()).toEqual(['/index.html.md', '/']);
 	});
 
 	it('falls back to HTML when the twin is missing or not markdown', async () => {
@@ -158,6 +183,157 @@ describe('readPage: markdown twins', () => {
 		const { site, reader } = setup({ '/a': { body: htmlPage({ title: 'A' }) }, '/a.md': md('# A') });
 		expect((await reader.readPage('/a'))!.source).toBe('render');
 		expect(site.paths()).toEqual(['/a']);
+	});
+});
+
+describe('readPage: noindex', () => {
+	const SECRET = 'SECRET-TEXT of a page that is not to be indexed. '.repeat(8);
+	const secret = (tags = NOINDEX_META) => withHead(tags, { title: 'Secret', body: SECRET, links: ['/next'] });
+
+	it('gives no entry for a page with a noindex meta tag, and caches the mark without any text', async () => {
+		const { site, reader, cache } = setup({ '/secret': { body: secret() } });
+		expect(await reader.read('/secret')).toEqual({ entry: null, noindex: true });
+		expect(await reader.readPage('/secret')).toBeNull();
+		expect(site.paths()).toEqual(['/secret']);
+		expect(cache.peek('/secret')).toMatchObject({ kind: 'miss', noindex: true });
+		expect(JSON.stringify(cache.peek('/secret'))).not.toContain('SECRET-TEXT');
+	});
+
+	it('gives no entry for a page sent with X-Robots-Tag: noindex', async () => {
+		const { reader, cache } = setup({
+			'/secret': { body: htmlPage({ title: 'Secret', body: SECRET }), headers: { 'X-Robots-Tag': 'noindex' } }
+		});
+		expect(await reader.read('/secret')).toEqual({ entry: null, noindex: true });
+		expect(cache.peek('/secret')).toMatchObject({ kind: 'miss', noindex: true });
+	});
+
+	it('tells a noindex page from an unreadable one', async () => {
+		const { reader } = setup({ '/gone': { status: 404 } });
+		expect(await reader.read('/gone')).toEqual({ entry: null, noindex: false });
+	});
+
+	it('skips a directive for one crawler, in the tag and in the header', async () => {
+		const { reader } = setup({
+			'/a': { body: withHead('<meta name="googlebot" content="noindex">', { title: 'A' }) },
+			'/b': { body: htmlPage({ title: 'B' }), headers: { 'X-Robots-Tag': 'googlebot: noindex' } }
+		});
+		expect((await reader.read('/a')).entry).toMatchObject({ title: 'A' });
+		expect((await reader.read('/b')).entry).toMatchObject({ title: 'B' });
+	});
+
+	it('keeps the links of a noindex page for the crawl, and drops them on nofollow or none', async () => {
+		const { reader } = setup({
+			'/noindex': { body: secret() },
+			'/both': { body: secret('<meta name="robots" content="noindex, nofollow">') },
+			'/none': { body: secret('<meta name="robots" content="none">') },
+			'/nofollow': { body: secret('<meta name="robots" content="nofollow">') },
+			'/header': { body: secret(''), headers: { 'X-Robots-Tag': 'nofollow' } }
+		});
+		expect((await reader.read('/noindex')).noindex).toBe(true);
+		expect(reader.links('/noindex')).toEqual(['/next']);
+		expect((await reader.read('/both')).noindex).toBe(true);
+		expect(reader.links('/both')).toEqual([]);
+		expect((await reader.read('/none')).noindex).toBe(true);
+		expect(reader.links('/none')).toEqual([]);
+		// nofollow alone: the page is read, its links are not followed.
+		expect((await reader.read('/nofollow')).entry).toMatchObject({ title: 'Secret' });
+		expect(reader.links('/nofollow')).toEqual([]);
+		expect((await reader.read('/header')).entry).toMatchObject({ title: 'Secret' });
+		expect(reader.links('/header')).toEqual([]);
+	});
+
+	it('reads the page again only once the mark is a TTL old', async () => {
+		const { site, reader, advance } = setup({ '/secret': { body: secret() } });
+		await reader.read('/secret');
+		advance(3_600_000 - 1);
+		expect(await reader.read('/secret')).toEqual({ entry: null, noindex: true });
+		expect(site.paths()).toEqual(['/secret']);
+		site.set('/secret', { body: htmlPage({ title: 'Public now', body: 'x'.repeat(300) }) });
+		advance(1);
+		expect((await reader.read('/secret')).entry).toMatchObject({ title: 'Public now' });
+		expect(site.paths()).toEqual(['/secret', '/secret']);
+	});
+
+	it('a cached page that turns noindex is dropped by its refresh', async () => {
+		const { site, reader, cache, advance } = setup({
+			'/a': { body: htmlPage({ title: 'A', body: SECRET }) }
+		});
+		expect((await reader.read('/a')).entry).toMatchObject({ title: 'A' });
+		site.set('/a', { body: secret() });
+		advance(3_600_001);
+		const refreshes: Promise<unknown>[] = [];
+		// Stale-while-revalidate: this read still answers from the cache.
+		expect((await reader.read('/a', { waitUntil: (p) => void refreshes.push(p) })).entry).not.toBeNull();
+		await Promise.all(refreshes);
+		expect(cache.peek('/a')).toMatchObject({ kind: 'miss', noindex: true });
+		expect(JSON.stringify(cache.peek('/a'))).not.toContain('SECRET-TEXT');
+		expect(await reader.read('/a')).toEqual({ entry: null, noindex: true });
+	});
+
+	it('respectNoindex: false reads the page as before, links included', async () => {
+		const { reader, cache } = setup(
+			{ '/secret': { body: secret('<meta name="robots" content="none">'), headers: { 'X-Robots-Tag': 'noindex' } } },
+			{ respectNoindex: false }
+		);
+		const read = await reader.read('/secret');
+		expect(read.noindex).toBe(false);
+		expect(read.entry!.text).toContain('SECRET-TEXT');
+		expect(reader.links('/secret')).toEqual(['/next']);
+		expect(cache.peek('/secret')).toMatchObject({ kind: 'page' });
+	});
+
+	it('respectNoindex: false does not take a mark another reader left for an answer', async () => {
+		const { site, reader, cache, transport, limits, now } = setup({ '/secret': { body: secret() } });
+		await reader.read('/secret');
+		const other = createReader({ transport, cache, limits, preferMarkdown: false, respectNoindex: false, now });
+		expect((await other.read('/secret')).entry).toMatchObject({ title: 'Secret' });
+		expect(site.paths()).toEqual(['/secret', '/secret']);
+	});
+
+	describe('with a .md twin', () => {
+		const twin = md('# Secret\n\nSECRET-TEXT in markdown. [next](/next)');
+
+		it('drops the page when its HTML says noindex', async () => {
+			const { reader, cache } = setup({ '/secret': { body: secret() }, '/secret.md': twin }, { preferMarkdown: true });
+			expect(await reader.read('/secret')).toEqual({ entry: null, noindex: true });
+			expect(reader.links('/secret')).toEqual(['/next']);
+			expect(JSON.stringify(cache.peek('/secret'))).not.toContain('SECRET-TEXT');
+		});
+
+		it('drops the page when its HTML is sent with X-Robots-Tag: noindex', async () => {
+			const { reader } = setup(
+				{ '/secret': { body: secret(''), headers: { 'x-robots-tag': 'noindex, nofollow' } }, '/secret.md': twin },
+				{ preferMarkdown: true }
+			);
+			expect(await reader.read('/secret')).toEqual({ entry: null, noindex: true });
+			expect(reader.links('/secret')).toEqual([]);
+		});
+
+		it('takes X-Robots-Tag on the twin as being about the .md file, not the page', async () => {
+			const { reader } = setup(
+				{
+					'/guide': { body: htmlPage({ title: 'Guide HTML' }) },
+					'/guide.md': { ...md('# Guide\n\nRun it.'), headers: { 'X-Robots-Tag': 'noindex' } }
+				},
+				{ preferMarkdown: true }
+			);
+			expect((await reader.read('/guide')).entry).toMatchObject({ title: 'Guide', source: 'markdown' });
+		});
+
+		it('keeps the twin of a page that is not HTML, but not of one that could not be reached', async () => {
+			const moved = { status: 302, headers: { location: 'https://elsewhere.example/' } };
+			const { reader } = setup({ '/secret': moved, '/secret.md': twin }, { preferMarkdown: true });
+			expect((await reader.read('/secret')).entry).toMatchObject({ source: 'markdown' });
+
+			const down = setup({ '/secret.md': twin }, { preferMarkdown: true });
+			const fetch = down.site.fetch;
+			down.transport.setInProcessFetch((input, init) =>
+				String(input).endsWith('.md') ? fetch(input, init) : Promise.reject(new Error('down'))
+			);
+			expect(await down.reader.read('/secret')).toEqual({ entry: null, noindex: false });
+			expect(down.cache.peek('/secret')).toMatchObject({ kind: 'miss' });
+			expect(JSON.stringify(down.cache.peek('/secret'))).not.toContain('SECRET-TEXT');
+		});
 	});
 });
 

@@ -4,7 +4,7 @@ import { sequence } from '@sveltejs/kit/hooks';
 // What SvelteKit's server sets up around `handle`; `sequence()` reads it.
 // @ts-expect-error -- internal entry; its `types` field points at a file that declares no module.
 import { with_request_store } from '@sveltejs/kit/internal/server';
-import { MockLanguageModelV4 } from 'ai/test';
+import { MockLanguageModelV4, convertArrayToReadableStream } from 'ai/test';
 import { aide } from '../../../src/lib/server/hook';
 import { llmsFullTxt, llmsTxt, pageMarkdown } from '../../../src/lib/llms/index';
 import {
@@ -350,6 +350,191 @@ describe('aide() hook', () => {
 		expect(parseLlmsTxt(await llms.text()).links.length).toBeGreaterThan(0);
 		expect(seen).toContain('/docs/a');
 		expect(seen).toContain('/llms.txt');
+	});
+});
+
+describe('a page that says noindex', () => {
+	const SECRET = 'SECRET-TEXT of a page that is not to be indexed. ' + LONG;
+	const USAGE = {
+		inputTokens: { total: 10, noCache: 10, cacheRead: undefined, cacheWrite: undefined },
+		outputTokens: { total: 5, text: 5, reasoning: undefined }
+	};
+	const finish = (unified: string) => ({ type: 'finish', finishReason: { unified, raw: unified }, usage: USAGE });
+
+	/** Calls read_page(route) first when given one, then answers. */
+	function model(readRoute?: string) {
+		return new MockLanguageModelV4({
+			doStream: async (options) => {
+				const afterTool = options.prompt[options.prompt.length - 1]?.role === 'tool';
+				const parts =
+					readRoute && !afterTool
+						? [
+								{ type: 'stream-start', warnings: [] },
+								{ type: 'tool-call', toolCallId: 'call-1', toolName: 'read_page', input: JSON.stringify({ route: readRoute }) },
+								finish('tool-calls')
+							]
+						: [
+								{ type: 'stream-start', warnings: [] },
+								{ type: 'text-start', id: 't' },
+								{ type: 'text-delta', id: 't', delta: 'Answer from the mock.' },
+								{ type: 'text-end', id: 't' },
+								finish('stop')
+							];
+				return { stream: convertArrayToReadableStream(parts as never[]) };
+			}
+		});
+	}
+
+	const secretPage = htmlPage({ title: 'Secret', body: SECRET });
+	const byMeta: Route = html(secretPage.replace('</head>', '<meta name="robots" content="noindex"></head>'));
+	const byHeader: Route = () =>
+		new Response(secretPage, { headers: { 'content-type': 'text/html; charset=utf-8', 'X-Robots-Tag': 'noindex' } });
+
+	/** The site of the report: `/` links to `/public` and `/secret`. */
+	function site(secret: Route): Record<string, Route> {
+		return {
+			'/': html(htmlPage({ title: 'Home', body: LONG, links: ['/public', '/secret'] })),
+			'/public': html(htmlPage({ title: 'Public', body: 'Public. ' + LONG })),
+			'/secret': secret
+		};
+	}
+
+	function start(secret: Route, pages: AideConfig['pages'] = {}, readRoute?: string) {
+		const mock = model(readRoute);
+		const handle = aide({ provider: { name: 'custom', model: 'mock', instance: mock }, pages });
+		const app = createApp(handle, site(secret));
+		const chat = (route: string, dom: string | null = null) =>
+			app.request('/api/chat', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json', 'sec-fetch-site': 'same-origin' },
+				body: JSON.stringify({
+					id: 'chat-1',
+					messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'What is this page?' }] }],
+					aide: { route, sessionId: 'session-1', dom }
+				})
+			});
+		const prompt = (call: number) => JSON.stringify(mock.doStreamCalls[call]?.prompt ?? null);
+		return { app, handle, mock, chat, prompt };
+	}
+
+	const cases: [string, Route][] = [
+		['a robots meta tag', byMeta],
+		['an X-Robots-Tag header', byHeader]
+	];
+
+	describe.each(cases)('by %s', (_, secret) => {
+		it('is not listed in /llms.txt', async () => {
+			const { app } = start(secret);
+			const res = await app.request('/llms.txt');
+			expect(res.status).toBe(200);
+			const text = await res.text();
+			expect(parseLlmsTxt(text).links.map((l) => l.url)).toEqual(['/', '/public']);
+			expect(text).not.toContain('Secret');
+			expect(text).not.toContain('/secret');
+		});
+
+		it('is not in /llms-full.txt', async () => {
+			const { app } = start(secret);
+			const res = await app.request('/llms-full.txt');
+			expect(res.status).toBe(200);
+			const text = await res.text();
+			expect(text).toContain('Public.');
+			expect(text).not.toContain('SECRET-TEXT');
+			expect(text).not.toContain('/secret');
+		});
+
+		it('is not served as <route>.md, like an excluded page, crawled or not', async () => {
+			// First request of all: nothing has been crawled yet.
+			const fresh = start(secret);
+			const first = await fresh.app.request('/secret.md');
+			expect(first.status).toBe(404);
+			expect(await first.text()).not.toContain('SECRET-TEXT');
+
+			const { app } = start(secret);
+			await app.request('/llms.txt');
+			const md = await app.request('/secret.md');
+			expect(md.status).toBe(404);
+			expect(await md.text()).not.toContain('SECRET-TEXT');
+			expect((await app.request('/public.md')).status).toBe(200);
+
+			const excluded = start(html(secretPage), { exclude: ['/secret'] });
+			expect((await excluded.app.request('/secret.md')).status).toBe(md.status);
+		});
+
+		it('is not served as .md when only the site’s own llms.txt names it', async () => {
+			const mock = model();
+			const handle = aide({ provider: { name: 'custom', model: 'mock', instance: mock } });
+			const own = '# Own\n\n## Pages\n\n- [Public](/public)\n- [Secret](/secret): Listed by hand\n';
+			const routes = {
+				...site(secret),
+				'/llms.txt': () => new Response(own, { headers: { 'content-type': 'text/plain' } })
+			};
+			const app = createApp(handle, routes);
+			const md = await app.request('/secret.md');
+			expect(md.status).toBe(404);
+			expect(await md.text()).not.toContain('SECRET-TEXT');
+			expect(await (await app.request('/llms-full.txt')).text()).not.toContain('SECRET-TEXT');
+		});
+
+		it('is refused to read_page', async () => {
+			const { chat, prompt, mock, handle } = start(secret, {}, '/secret');
+			const res = await chat('/');
+			expect(res.status).toBe(200);
+			expect(await res.text()).toContain('Answer from the mock.');
+			expect(mock.doStreamCalls).toHaveLength(2);
+			expect(prompt(1)).toContain('No readable page at /secret.');
+			expect(prompt(0) + prompt(1)).not.toContain('SECRET-TEXT');
+			const { cache } = handle.handler;
+			for (const route of cache.routes()) expect(JSON.stringify(cache.peek(route))).not.toContain('SECRET-TEXT');
+		});
+
+		it('still has a working chat, without the page or its DOM text', async () => {
+			const { app, chat, prompt, mock } = start(secret, {}, '/secret');
+			const warm = await app.request('/api/chat?route=/secret', { headers: { 'sec-fetch-site': 'same-origin' } });
+			expect(warm.status).toBe(200);
+			expect(await warm.json()).toMatchObject({ pageSource: 'server', mapped: false });
+
+			const res = await chat('/secret', 'DOM-SECRET of the page');
+			expect(res.status).toBe(200);
+			expect(res.headers.get('content-type')).toMatch(/text\/event-stream/);
+			expect(await res.text()).toContain('Answer from the mock.');
+			expect(mock.doStreamCalls).toHaveLength(2);
+			const all = prompt(0) + prompt(1);
+			expect(all).not.toContain('SECRET-TEXT');
+			expect(all).not.toContain('DOM-SECRET');
+			expect(prompt(0)).toContain('a page you cannot read');
+			expect(prompt(0)).toContain('(/public)');
+		});
+
+		it('behaves like a page in pages.exclude on the chat endpoint', async () => {
+			const noindex = start(secret);
+			const excluded = start(html(secretPage), { exclude: ['/secret'] });
+			const outcome = async ({ app, chat, prompt }: ReturnType<typeof start>) => {
+				const warm = await app.request('/api/chat?route=/secret', { headers: { 'sec-fetch-site': 'same-origin' } });
+				const res = await chat('/secret', 'DOM-SECRET of the page');
+				await res.text();
+				const system = prompt(0);
+				return { warm: await warm.json(), status: res.status, page: system.slice(system.indexOf('## Current page')) };
+			};
+			expect(await outcome(noindex)).toEqual(await outcome(excluded));
+		});
+
+		it('pages.respectNoindex: false publishes and reads it as before', async () => {
+			const { app, chat, prompt } = start(secret, { respectNoindex: false }, '/secret');
+			const txt = await (await app.request('/llms.txt')).text();
+			expect(parseLlmsTxt(txt).links.map((l) => l.url)).toEqual(['/', '/public', '/secret']);
+			expect(await (await app.request('/llms-full.txt')).text()).toContain('SECRET-TEXT');
+			const md = await app.request('/secret.md');
+			expect(md.status).toBe(200);
+			expect(await md.text()).toContain('SECRET-TEXT');
+
+			const res = await chat('/secret');
+			expect(res.status).toBe(200);
+			await res.text();
+			expect(prompt(0)).toContain('SECRET-TEXT');
+			expect(prompt(0)).not.toContain('a page you cannot read');
+			expect(prompt(1)).toContain('<page route=\\"/secret\\"');
+		});
 	});
 });
 

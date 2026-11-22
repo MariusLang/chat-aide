@@ -114,6 +114,23 @@ describe('transport: request shape (acceptance #13)', () => {
 	});
 });
 
+describe('transport: X-Robots-Tag', () => {
+	it('hands the header of the final answer on, repeated lines joined, and nothing when there is none', async () => {
+		const tagged = () => {
+			const res = html();
+			res.headers.append('X-Robots-Tag', 'googlebot: nofollow');
+			res.headers.append('X-Robots-Tag', 'noindex');
+			return res;
+		};
+		const { fetch } = spy((url) => (url === '/old' ? redirect('/tagged') : url === '/tagged' ? tagged() : html()));
+		const t = createTransport({ exclude: [] });
+		t.setInProcessFetch(fetch);
+		expect(await t.read('/tagged')).toMatchObject({ ok: true, robotsTag: 'googlebot: nofollow, noindex' });
+		expect(await t.read('/old')).toMatchObject({ ok: true, finalRoute: '/tagged', robotsTag: 'googlebot: nofollow, noindex' });
+		expect(await t.read('/plain')).not.toHaveProperty('robotsTag');
+	});
+});
+
 describe('transport: content types and status', () => {
 	it.each([
 		['text/html', 'html'],

@@ -26,6 +26,7 @@
 		Themes: <a class="underline" href="/themes/shadcn">shadcn</a>, <a class="underline" href="/themes/plain">plain</a>,
 		<a class="underline" href="/themes/headless">headless</a>. Internal pages such as
 		<a class="underline" href="/secret">the secret page</a> and <a class="underline" href="/logout">log out</a> are
-		never mapped.
+		never mapped, and neither are pages that say <code>noindex</code>, in
+		<a class="underline" href="/noindex">a meta tag</a> or <a class="underline" href="/noindex-header">a header</a>.
 	</p>
 </article>

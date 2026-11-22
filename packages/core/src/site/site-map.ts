@@ -55,6 +55,12 @@ function usableLlms(state: MapState): LlmsDoc | undefined {
 	return state.llms && state.llms.links.length > 0 ? state.llms : undefined;
 }
 
+/** Takes a page that asked not to be indexed out of a map: its entry, and its link in the site's llms.txt. */
+function unmap(state: MapState, route: string): void {
+	state.order.delete(route);
+	if (state.llms) state.llms.links = state.llms.links.filter((l) => l.url !== route);
+}
+
 function decodeXml(s: string): string {
 	return s
 		.replace(/&lt;/g, '<')
@@ -246,13 +252,17 @@ export function createSiteMap(opts: {
 		for (const s of seeds) enqueue(s === '/' ? root : s);
 
 		const visit = async (route: string) => {
-			const entry = await reader.readPage(route, { waitUntil });
-			if (!entry) {
+			const { entry, noindex } = await reader.read(route, { waitUntil });
+			if (entry) {
+				const prior = state.order.get(route);
+				state.order.set(route, toMapPage(entry, false, prior?.description));
+			} else if (noindex) {
+				// Not mapped, but its links are followed: `noindex` alone does not say `nofollow`.
+				unmap(state, route);
+			} else {
 				state.order.delete(route);
 				return;
 			}
-			const prior = state.order.get(route);
-			state.order.set(route, toMapPage(entry, false, prior?.description));
 			for (const link of reader.links(route)) enqueue(href(link));
 		};
 
@@ -304,8 +314,22 @@ export function createSiteMap(opts: {
 		return rec?.kind === 'page' ? toMapPage(rec.entry, false, page.description) : page;
 	}
 
+	/**
+	 * The mapped pages. A revisit maps a stale page before its refresh has come back, so a page
+	 * whose refresh found `noindex` (its cache record is then the mark) leaves the map here, at
+	 * once, and not only at the next crawl.
+	 */
+	function mapped(): Map<string, MapPage> {
+		for (const page of current.order.values()) {
+			if (page.fromSource) continue;
+			const rec = cache.peek(page.route);
+			if (rec?.kind === 'miss' && rec.noindex) unmap(current, page.route);
+		}
+		return current.order;
+	}
+
 	function siteInfo(served = false): SiteInfo {
-		const rootPage = current.order.get('/');
+		const rootPage = mapped().get('/');
 		const hidden = served && rootPage?.fromSource && !config.llms.serveSource;
 		const root = rootPage && !hidden ? live(rootPage) : undefined;
 		const title = current.llms?.title || root?.title || '';
@@ -314,7 +338,7 @@ export function createSiteMap(opts: {
 	}
 
 	function pages(): MapPage[] {
-		return [...current.order.values()].map(live);
+		return [...mapped().values()].map(live);
 	}
 
 	return {
@@ -359,7 +383,7 @@ export function createSiteMap(opts: {
 		},
 
 		isMapped(route) {
-			return current.order.has(route);
+			return mapped().has(route);
 		}
 	};
 }
