@@ -538,8 +538,8 @@ onRefused({ sessionId, code, at })                              // rate limit, b
 onError({ sessionId, error, at })
 ```
 
-`sessionId` is minted by the widget (random, kept in `sessionStorage`) and is the only
-identifier; the library attaches nothing else to a visitor. Analytics is the use case: the
+`sessionId` is minted by the widget on first use (random, kept in `sessionStorage`) and is the
+only identifier; the library attaches nothing else to a visitor. Analytics is the use case: the
 developer forwards what they want to whatever they use, and the library sends nothing anywhere.
 
 Client side, on the component: `onopen`, `onclose`, `onsend(text)`, `onresponse(text, usage)`,
@@ -611,6 +611,10 @@ disclosure line under the composer says where it goes, and the developer sets it
 sentence their policy needs. `enabled={false}` until consent is the pattern for sites that
 need one; and DOM text is sent only on request and never cached, because a page behind a login is
 the visitor's.
+
+The widget leaves the device alone until the chat is used: it reads and writes no storage and
+sends nothing before the first open or send, which mint the `sessionId` and restore the thread.
+A disabled widget touches nothing at all.
 
 ## 4. Package layout
 

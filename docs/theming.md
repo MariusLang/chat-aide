@@ -20,7 +20,7 @@ Same props in every theme.
 | `offset` | theme default | `{ x?, y? }`, numbers are px, strings any CSS length (see [CSP](#csp)) |
 | `mode` | `'floating'` | `'inline'` renders the window in the page flow (a docs column), `'sheet'` a side panel |
 | `open` | `false` | bindable |
-| `enabled` | `true` | `false` renders nothing (gate on consent) |
+| `enabled` | `true` | `false` renders nothing and touches neither storage nor the network (gate on consent) |
 | `suggestions` | from the server | `string[]` or `{ [route]: string[], '*': string[] }`; up to four are shown |
 | `strings` | English | any subset of `DEFAULT_STRINGS`, including `errors` and `disclosure(provider)` |
 | `disclosure` | names the provider | the line under the composer; the default names the provider from the warm-up ("… sent to this site and to Anthropic …") |
@@ -49,6 +49,10 @@ Behaviour worth knowing:
 - The thread lives in `sessionStorage` for the tab (with the random `sessionId`), and survives
   reloads. Only the request is trimmed: the widget sends at most the server's `limits.messages`
   and `messageChars` (learned from the warm-up), so a long conversation never becomes a `400`.
+- Until the visitor opens the chat (or you set `open`), the widget reads and writes no storage
+  and sends nothing. The first open mints the `sessionId` and restores the thread. `mode="inline"`
+  reads the thread and warms up when it renders, and mints the `sessionId` with the first message
+  ([Security](security.md#privacy)).
 - Each open, and each client-side navigation while open, repeats the warm-up for the new route.
 - The widget root carries `data-aide-ignore`, so its transcript never ends up in page text. Put
   the same attribute on any text your visitors write ([Security](security.md#prompt-injection)).
@@ -110,6 +114,10 @@ column.
 `strings`, `suggestions`, the callbacks, `fetch`). Also exported: `ChatLauncher`, `ChatWindow`,
 `Transcript`, `Message`, `Markdown`, `MdInline`, `Composer`, `trapFocus`, `messageText`,
 `DEFAULT_STRINGS`.
+
+Creating the store touches neither storage nor the network. The `sessionId` is minted and the
+thread restored on first use: `open()`, `send()`, or the first read of `sessionId` or `messages`
+(a `Transcript` on the page reads `messages`).
 
 The components render no CSS. Style them by `data-part`:
 

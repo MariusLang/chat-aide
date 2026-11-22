@@ -126,9 +126,21 @@ is never cached. A forged `dom` reaches only the forger's own conversation.
 What leaves the browser: the visitor's messages, the route, the widget's random `sessionId`, and
 the page's text when the server asked for it. It goes to your server and from there to your
 provider; the library stores none of it. The thread is kept in the tab's `sessionStorage`
-(`persistThread={false}` to switch off). The disclosure line under the composer names the
-provider; set `disclosure` to the sentence your policy needs, and render the widget with
-`enabled={false}` until consent where you need one.
+(`persistThread={false}` to switch off), next to the `sessionId`. The disclosure line under the
+composer names the provider; set `disclosure` to the sentence your policy needs.
+
+Nothing happens on the visitor's device before the chat is used. A rendered widget reads and
+writes no storage and sends no request until the visitor opens it, or you set `open`. The first
+open mints the `sessionId`, restores the thread and sends the warm-up. `mode="inline"` has no
+opening: the window is on the page from the start, so the thread is read when it renders, and the
+SvelteKit widget sends its warm-up then. The `sessionId` is still written only with the first
+message. `persistThread={false}` keeps the thread out of storage; the `sessionId` is stored either
+way.
+
+Where you need consent before any of that, render the widget with `enabled={false}` until you
+have it. A disabled widget touches neither storage nor the network. The same holds for a store
+you pass as `chat`: `createChat` and `useAide` wait for the first `open()` or `send()`, or for
+your own code to read `messages` or `sessionId`.
 
 ## CSP
 

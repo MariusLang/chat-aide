@@ -4,6 +4,9 @@
  * (`@chat-aide/sveltekit/headless`'s `createChat`): the per-tab session and thread, the warm-up, the
  * `aide` request block, the refusal codes, the callbacks and the `aide:*` window events, all from
  * `@chat-aide/core/client`, over `@ai-sdk/react`'s `useChat`.
+ *
+ * Calling the hook touches neither `sessionStorage` nor the network. The session id is minted and
+ * the thread restored on first use: `open()`, `send()`, or a read of `sessionId` or `messages`.
  */
 import { Chat, useChat } from '@ai-sdk/react';
 import {
@@ -34,6 +37,7 @@ import { DefaultChatTransport, type UIMessage } from 'ai';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export interface AideChat {
+	/** The thread; restored from the tab's storage on the first open or send, or after it is first read. */
 	readonly messages: UIMessage[];
 	readonly status: ChatStatus;
 	readonly error: ChatError | null;
@@ -45,6 +49,7 @@ export interface AideChat {
 	/** The provider's name from the warm-up, or `null` before one answered. */
 	readonly provider: string | null;
 	readonly answerLinks: AnswerLinks;
+	/** The tab's session id; minted and stored on the first open or send, or when first read. */
 	readonly sessionId: string;
 	send(text: string): Promise<void>;
 	stop(): void;
@@ -62,13 +67,11 @@ export function useAide(options: ChatOptions = {}): AideChat {
 	opts.current = options;
 
 	const endpoint = options.endpoint ?? DEFAULT_ENDPOINT;
-	const persist = options.persistThread ?? true;
 	const answerLinks: AnswerLinks = options.answerLinks ?? 'same-origin';
 	const strings = useMemo(() => mergeStrings(options.strings), [options.strings]);
 	const stringsRef = useRef(strings);
 	stringsRef.current = strings;
 
-	const [sessionId] = useState(sessionIdForTab);
 	const [isOpen, setOpen] = useState(false);
 	const [route, setRoute] = useState('/');
 	const [serverSuggestions, setServerSuggestions] = useState<string[]>([]);
@@ -80,6 +83,10 @@ export function useAide(options: ChatOptions = {}): AideChat {
 		limits: DEFAULT_CLIENT_LIMITS,
 		open: false
 	});
+	const used = useRef({ sessionId: '', restored: false });
+
+	/** The tab's session id, minted and stored the first time it is needed. */
+	const session = useCallback(() => (used.current.sessionId ||= sessionIdForTab()), []);
 
 	const baseFetch = useCallback<typeof fetch>((...args) => (opts.current.fetch ?? globalThis.fetch)(...args), []);
 
@@ -104,7 +111,7 @@ export function useAide(options: ChatOptions = {}): AideChat {
 							{ id, messages, trigger, messageId },
 							{
 								route: path,
-								sessionId,
+								sessionId: session(),
 								limits: live.current.limits,
 								sendDom: live.current.pageSource === 'dom'
 							}
@@ -125,16 +132,27 @@ export function useAide(options: ChatOptions = {}): AideChat {
 	});
 	const helpers = useChat({ chat });
 
-	// The thread and the route are the browser's: restored after hydration, never during SSR.
+	// The route is the browser's: read after hydration, never during SSR.
 	useEffect(() => {
 		live.current.route = currentPath();
 		setRoute(live.current.route);
-		if (persist) {
-			const kept = restoreThread();
-			if (kept.length) helpers.setMessages(kept);
-		}
 		// Once, on mount.
 	}, []);
+
+	/** Reads the thread kept for the tab, once. */
+	const restore = useCallback(() => {
+		if (used.current.restored) return;
+		used.current.restored = true;
+		if (!(opts.current.persistThread ?? true)) return;
+		const kept = restoreThread();
+		if (kept.length) chat.messages = kept;
+	}, [chat]);
+
+	/** First use by the visitor: from here on the tab has its id and its thread. */
+	const start = useCallback(() => {
+		session();
+		restore();
+	}, [session, restore]);
 
 	const busy = helpers.status === 'submitted' || helpers.status === 'streaming';
 	const busyRef = useRef(busy);
@@ -144,6 +162,7 @@ export function useAide(options: ChatOptions = {}): AideChat {
 		async (text: string) => {
 			const value = text.trim();
 			if (!value || busyRef.current) return;
+			start();
 			setError(null);
 			chat.clearError();
 			opts.current.onsend?.(value);
@@ -151,10 +170,11 @@ export function useAide(options: ChatOptions = {}): AideChat {
 			await chat.sendMessage({ text: value });
 			if (opts.current.persistThread ?? true) saveThread(chat.messages);
 		},
-		[chat]
+		[chat, start]
 	);
 
 	const retry = useCallback(async () => {
+		restore();
 		if (busyRef.current || !chat.messages.some((m) => m.role === 'user')) return;
 		setError(null);
 		chat.clearError();
@@ -164,7 +184,7 @@ export function useAide(options: ChatOptions = {}): AideChat {
 		chat.messages = messages;
 		await chat.regenerate();
 		if (opts.current.persistThread ?? true) saveThread(chat.messages);
-	}, [chat]);
+	}, [chat, restore]);
 
 	const warmup = useCallback(
 		async (path: string) => {
@@ -183,11 +203,12 @@ export function useAide(options: ChatOptions = {}): AideChat {
 	const open = useCallback(() => {
 		if (live.current.open) return;
 		live.current.open = true;
+		start();
 		setOpen(true);
 		opts.current.onopen?.();
 		dispatch('aide:open', {});
 		void warmup(currentPath());
-	}, [warmup]);
+	}, [warmup, start]);
 
 	const close = useCallback(() => {
 		if (!live.current.open) return;
@@ -201,7 +222,11 @@ export function useAide(options: ChatOptions = {}): AideChat {
 	const stop = useCallback(() => void chat.stop(), [chat]);
 
 	return {
-		messages: helpers.messages,
+		get messages() {
+			// A render may not update the chat: the thread follows the first read of it.
+			if (!used.current.restored && typeof window !== 'undefined') queueMicrotask(restore);
+			return helpers.messages;
+		},
 		status: helpers.status as ChatStatus,
 		error,
 		isOpen,
@@ -210,7 +235,9 @@ export function useAide(options: ChatOptions = {}): AideChat {
 		route,
 		provider,
 		answerLinks,
-		sessionId,
+		get sessionId() {
+			return session();
+		},
 		send,
 		stop,
 		retry,

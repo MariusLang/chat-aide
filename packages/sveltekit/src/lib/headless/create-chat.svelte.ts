@@ -4,6 +4,9 @@
  * A runes store over `@ai-sdk/svelte`'s `Chat`: it adds the `aide` request fields, the warm-up,
  * the refusal codes, the client callbacks and `aide:*` events, and the per-tab thread. Safe to
  * create during SSR: every browser API is touched only when it exists.
+ *
+ * Creating the store touches neither `sessionStorage` nor the network. The session id is minted
+ * and the thread restored on first use: `open()`, `send()`, or a read of `sessionId` or `messages`.
  */
 import { Chat } from '@ai-sdk/svelte';
 import { DefaultChatTransport, type UIMessage } from 'ai';
@@ -45,6 +48,7 @@ export {
 } from '@chat-aide/core/client';
 
 export interface ChatStore {
+	/** The thread; restored from the tab's storage on the first open or send, or when first read. */
 	readonly messages: UIMessage[];
 	readonly status: ChatStatus;
 	readonly error: ChatError | null;
@@ -64,7 +68,8 @@ export interface ChatStore {
 	toggle(): void;
 	/** `GET endpoint?route=`; stores the page source and the server's suggestions. */
 	warmup(route: string): Promise<void>;
-	sessionId: string;
+	/** The tab's session id; minted and stored on the first open or send, or when first read. */
+	readonly sessionId: string;
 }
 
 export function createChat(options: ChatOptions = {}): ChatStore {
@@ -73,7 +78,8 @@ export function createChat(options: ChatOptions = {}): ChatStore {
 	const answerLinks: AnswerLinks = options.answerLinks ?? 'same-origin';
 	const strings = mergeStrings(options.strings);
 	const baseFetch: typeof fetch = (...args) => (options.fetch ?? globalThis.fetch)(...args);
-	const sessionId = sessionIdForTab();
+	let sessionId = '';
+	let restored = false;
 
 	let isOpen = $state(false);
 	let route = $state(currentPath());
@@ -96,7 +102,6 @@ export function createChat(options: ChatOptions = {}): ChatStore {
 	};
 
 	const chat = new Chat<UIMessage>({
-		messages: persist ? restoreThread() : [],
 		transport: new DefaultChatTransport<UIMessage>({
 			api: endpoint,
 			fetch: capture.fetch,
@@ -106,7 +111,7 @@ export function createChat(options: ChatOptions = {}): ChatStore {
 				return {
 					body: requestBody(
 						{ id, messages, trigger, messageId },
-						{ route: path, sessionId, limits, sendDom: pageSource === 'dom' }
+						{ route: path, sessionId: session(), limits, sendDom: pageSource === 'dom' }
 					)
 				};
 			}
@@ -124,9 +129,30 @@ export function createChat(options: ChatOptions = {}): ChatStore {
 
 	const busy = (): boolean => chat.status === 'submitted' || chat.status === 'streaming';
 
+	/** The tab's session id, minted and stored the first time it is needed. */
+	function session(): string {
+		return (sessionId ||= sessionIdForTab());
+	}
+
+	/** Reads the thread kept for the tab, once. */
+	function restore(): void {
+		if (restored) return;
+		restored = true;
+		if (!persist) return;
+		const kept = restoreThread();
+		if (kept.length) chat.messages = kept;
+	}
+
+	/** First use by the visitor: from here on the tab has its id and its thread. */
+	function start(): void {
+		session();
+		restore();
+	}
+
 	async function send(text: string): Promise<void> {
 		const value = text.trim();
 		if (!value || busy()) return;
+		start();
 		error = null;
 		chat.clearError();
 		options.onsend?.(value);
@@ -136,6 +162,7 @@ export function createChat(options: ChatOptions = {}): ChatStore {
 	}
 
 	async function retry(): Promise<void> {
+		restore();
 		if (busy() || !chat.messages.some((m) => m.role === 'user')) return;
 		error = null;
 		chat.clearError();
@@ -159,6 +186,7 @@ export function createChat(options: ChatOptions = {}): ChatStore {
 
 	function open(): void {
 		if (isOpen) return;
+		start();
 		isOpen = true;
 		options.onopen?.();
 		dispatch('aide:open', {});
@@ -174,6 +202,11 @@ export function createChat(options: ChatOptions = {}): ChatStore {
 
 	return {
 		get messages() {
+			if (!restored) {
+				// A read from a template or a `$derived` may not write state: the thread follows it.
+				if ($effect.tracking()) queueMicrotask(restore);
+				else restore();
+			}
 			return chat.messages;
 		},
 		get status() {
@@ -200,7 +233,9 @@ export function createChat(options: ChatOptions = {}): ChatStore {
 		get answerLinks() {
 			return answerLinks;
 		},
-		sessionId,
+		get sessionId() {
+			return session();
+		},
 		send,
 		stop: () => void chat.stop(),
 		retry,

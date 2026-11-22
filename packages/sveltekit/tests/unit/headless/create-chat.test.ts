@@ -304,6 +304,89 @@ describe('createChat', () => {
 	});
 });
 
+describe('createChat: storage and the network wait for the first use', () => {
+	const thread = [
+		{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'remember me' }] },
+		{ id: 'a1', role: 'assistant', parts: [{ type: 'text', text: 'I do.' }] }
+	];
+	/** Every read and write of `sessionStorage` from here on. */
+	const watchStorage = () => ({
+		reads: vi.spyOn(sessionStorage, 'getItem'),
+		writes: vi.spyOn(sessionStorage, 'setItem')
+	});
+
+	it('creating a store reads nothing, writes nothing and sends nothing', () => {
+		sessionStorage.setItem('aide:thread', JSON.stringify(thread));
+		const storage = watchStorage();
+		const f = fakeFetch({});
+		const chat = createChat({ fetch: f.fetch, suggestions: ['A?'] });
+		expect(chat.isOpen).toBe(false);
+		expect(chat.status).toBe('ready');
+		expect(chat.error).toBeNull();
+		expect(chat.suggestions).toEqual(['A?']);
+		chat.close();
+		chat.stop();
+
+		expect(storage.reads).not.toHaveBeenCalled();
+		expect(storage.writes).not.toHaveBeenCalled();
+		expect(sessionStorage.getItem('aide:session')).toBeNull();
+		expect(f.calls).toHaveLength(0);
+	});
+
+	it('open() mints the session id and restores the thread', () => {
+		sessionStorage.setItem('aide:thread', JSON.stringify(thread));
+		const storage = watchStorage();
+		const chat = createChat({ fetch: fakeFetch({}).fetch });
+		chat.open();
+
+		expect(storage.reads).toHaveBeenCalledWith('aide:thread');
+		const id = sessionStorage.getItem('aide:session');
+		expect(id).toMatch(/[0-9a-f-]{36}/);
+		expect(chat.sessionId).toBe(id);
+		expect(chat.messages.map((m) => m.id)).toEqual(['u1', 'a1']);
+	});
+
+	it('the first send mints the session id, and every later send carries the same one', async () => {
+		const f = fakeFetch({});
+		const chat = createChat({ fetch: f.fetch });
+		expect(sessionStorage.getItem('aide:session')).toBeNull();
+		await chat.send('one');
+		await settle(chat);
+		const id = sessionStorage.getItem('aide:session');
+		expect(id).toMatch(/[0-9a-f-]{36}/);
+		await chat.send('two');
+		await settle(chat);
+		chat.close();
+		chat.open();
+		await chat.send('three');
+		await settle(chat);
+
+		expect([0, 1, 2].map((n) => postBody(f.calls, n).aide.sessionId)).toEqual([id, id, id]);
+		expect(chat.sessionId).toBe(id);
+		expect(sessionStorage.getItem('aide:session')).toBe(id);
+
+		const again = createChat({ fetch: f.fetch });
+		again.open();
+		expect(again.sessionId).toBe(id);
+	});
+
+	it('persistThread: false leaves the kept thread unread, on open and on send', async () => {
+		sessionStorage.setItem('aide:thread', JSON.stringify(thread));
+		const storage = watchStorage();
+		const chat = createChat({ fetch: fakeFetch({}).fetch, persistThread: false });
+		chat.open();
+		expect(chat.messages).toEqual([]);
+		await chat.send('hi');
+		await settle(chat);
+
+		expect(storage.reads).not.toHaveBeenCalledWith('aide:thread');
+		expect(storage.writes).not.toHaveBeenCalledWith('aide:thread', expect.anything());
+		expect(chat.messages).toHaveLength(2);
+		expect(JSON.parse(sessionStorage.getItem('aide:thread')!)).toHaveLength(2);
+		expect(JSON.parse(sessionStorage.getItem('aide:thread')!)[0].id).toBe('u1');
+	});
+});
+
 describe('createChat: the outgoing body fits the server limits', () => {
 	const seed = (pairs: number, answer = 'a') => {
 		const thread = [];
