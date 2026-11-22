@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createUIMessageStream, createUIMessageStreamResponse } from 'ai';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ChatWidget } from '../src/index.js';
+import { ChatWidget, ChatWindow, useAide } from '../src/index.js';
 
 interface Call {
 	url: string;
@@ -162,7 +162,6 @@ describe('ChatWidget (React)', () => {
 
 describe('ChatWidget with an external chat', () => {
 	it('opens a chat swapped in through the chat prop', async () => {
-		const { useAide } = await import('../src/index.js');
 		function Host({ which }: { which: 'a' | 'b' }) {
 			const a = useAide({ fetch: fakeFetch().fetch });
 			const b = useAide({ fetch: fakeFetch().fetch, strings: { title: 'Second chat' } });
@@ -172,5 +171,162 @@ describe('ChatWidget with an external chat', () => {
 		await screen.findByRole('dialog');
 		rerender(<Host which="b" />);
 		expect(await screen.findByRole('heading', { name: 'Second chat' })).not.toBeNull();
+	});
+});
+
+describe('storage and the network wait for the first use (React)', () => {
+	const THREAD = [
+		{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'remember me' }] },
+		{ id: 'a1', role: 'assistant', parts: [{ type: 'text', text: 'I do.' }] }
+	];
+	/** Every read and write of `sessionStorage` from here on. */
+	const watchStorage = () => ({
+		reads: vi.spyOn(sessionStorage, 'getItem'),
+		writes: vi.spyOn(sessionStorage, 'setItem')
+	});
+	const messages = () => [...document.querySelectorAll('[data-part="message"]')].map((m) => m.textContent?.trim());
+	const posts = (calls: Call[]) => calls.filter((c) => c.init?.method === 'POST');
+	const sessionOf = (call: Call): string => JSON.parse(String(call.init!.body)).aide.sessionId;
+	const settle = () => act(() => new Promise<void>((r) => setTimeout(r, 0)));
+
+	beforeEach(() => {
+		sessionStorage.setItem('aide:thread', JSON.stringify(THREAD));
+	});
+
+	it('enabled={false} touches no storage and sends nothing', async () => {
+		const storage = watchStorage();
+		const f = fakeFetch();
+		const { container } = render(<ChatWidget enabled={false} open fetch={f.fetch} />);
+		await settle();
+
+		expect(container.innerHTML).toBe('');
+		expect(storage.reads).not.toHaveBeenCalled();
+		expect(storage.writes).not.toHaveBeenCalled();
+		expect(sessionStorage.getItem('aide:session')).toBeNull();
+		expect(f.calls).toHaveLength(0);
+	});
+
+	it('default props touch no storage and send nothing until the chat is opened', async () => {
+		const storage = watchStorage();
+		const f = fakeFetch();
+		render(<ChatWidget fetch={f.fetch} />);
+		await settle();
+
+		expect(storage.reads).not.toHaveBeenCalled();
+		expect(storage.writes).not.toHaveBeenCalled();
+		expect(f.calls).toHaveLength(0);
+
+		fireEvent.click(screen.getByRole('button', { name: 'Open chat' }));
+		await waitFor(() => expect(messages()).toEqual(['remember me', 'I do.']));
+		expect(sessionStorage.getItem('aide:session')).toMatch(/[0-9a-f-]{36}/);
+		expect(f.calls.map((c) => c.url)).toEqual(['/api/chat?route=%2Fdocs%2Finstall']);
+	});
+
+	it('an initially open widget has its id, its thread and its warm-up', async () => {
+		const f = fakeFetch();
+		render(<ChatWidget open fetch={f.fetch} />);
+		await waitFor(() => expect(messages()).toEqual(['remember me', 'I do.']));
+		expect(sessionStorage.getItem('aide:session')).toMatch(/[0-9a-f-]{36}/);
+		expect(f.calls.map((c) => c.url)).toEqual(['/api/chat?route=%2Fdocs%2Finstall']);
+	});
+
+	it('reuses the id of the tab and sends it with every message', async () => {
+		sessionStorage.removeItem('aide:thread');
+		sessionStorage.setItem('aide:session', 'kept-for-the-tab');
+		const f = fakeFetch({ post: () => streamResponse('Fine.') });
+		render(<ChatWidget fetch={f.fetch} />);
+		fireEvent.click(screen.getByRole('button', { name: 'Open chat' }));
+		fireEvent.click(await screen.findByRole('button', { name: 'What is this?' }));
+		await waitFor(() => expect(messages()).toHaveLength(2));
+		await screen.findByRole('button', { name: 'Send' });
+
+		const input = document.querySelector('[data-part="input"]') as HTMLTextAreaElement;
+		fireEvent.change(input, { target: { value: 'Second?' } });
+		fireEvent.keyDown(input, { key: 'Enter' });
+		await waitFor(() => expect(messages()).toHaveLength(4));
+
+		expect(posts(f.calls).map(sessionOf)).toEqual(['kept-for-the-tab', 'kept-for-the-tab']);
+		expect(sessionStorage.getItem('aide:session')).toBe('kept-for-the-tab');
+	});
+
+	it('mints the id with the first message when nothing opened the chat', async () => {
+		sessionStorage.removeItem('aide:thread');
+		const storage = watchStorage();
+		const f = fakeFetch({ post: () => streamResponse('Fine.') });
+		function Bare() {
+			const chat = useAide({ fetch: f.fetch });
+			return (
+				<button type="button" onClick={() => void chat.send('hello')}>
+					ask
+				</button>
+			);
+		}
+		render(<Bare />);
+		await settle();
+		expect(storage.reads).not.toHaveBeenCalled();
+		expect(storage.writes).not.toHaveBeenCalled();
+
+		fireEvent.click(screen.getByRole('button', { name: 'ask' }));
+		await waitFor(() => expect(posts(f.calls)).toHaveLength(1));
+		expect(sessionOf(posts(f.calls)[0]!)).toMatch(/[0-9a-f-]{36}/);
+		expect(sessionOf(posts(f.calls)[0]!)).toBe(sessionStorage.getItem('aide:session'));
+	});
+
+	it('persistThread={false} never reads or writes the thread', async () => {
+		const storage = watchStorage();
+		const f = fakeFetch({ post: () => streamResponse('Fine.') });
+		render(<ChatWidget persistThread={false} fetch={f.fetch} />);
+		fireEvent.click(screen.getByRole('button', { name: 'Open chat' }));
+		fireEvent.click(await screen.findByRole('button', { name: 'What is this?' }));
+		await waitFor(() => expect(messages()).toEqual(['What is this?', 'Fine.']));
+		await screen.findByRole('button', { name: 'Send' });
+
+		expect(storage.reads).not.toHaveBeenCalledWith('aide:thread');
+		expect(storage.writes).not.toHaveBeenCalledWith('aide:thread', expect.anything());
+		expect(sessionOf(posts(f.calls)[0]!)).toBe(sessionStorage.getItem('aide:session'));
+	});
+
+	it('inline mode shows the kept thread and writes no id before the first message', async () => {
+		const storage = watchStorage();
+		render(<ChatWidget mode="inline" fetch={fakeFetch().fetch} />);
+		await waitFor(() => expect(messages()).toEqual(['remember me', 'I do.']));
+		expect(storage.writes).not.toHaveBeenCalled();
+		expect(sessionStorage.getItem('aide:session')).toBeNull();
+	});
+
+	it('a window over useAide shows the kept thread without being opened', async () => {
+		function DocsChat() {
+			const chat = useAide({ fetch: fakeFetch().fetch });
+			return <ChatWindow chat={chat} modal={false} />;
+		}
+		render(<DocsChat />);
+		await waitFor(() => expect(messages()).toEqual(['remember me', 'I do.']));
+		expect(sessionStorage.getItem('aide:session')).toBeNull();
+	});
+
+	it('a chat passed as chat= is left alone while enabled is false', async () => {
+		const storage = watchStorage();
+		const f = fakeFetch();
+		function Host() {
+			const chat = useAide({ fetch: f.fetch });
+			return <ChatWidget chat={chat} enabled={false} open />;
+		}
+		render(<Host />);
+		await settle();
+
+		expect(storage.reads).not.toHaveBeenCalled();
+		expect(storage.writes).not.toHaveBeenCalled();
+		expect(f.calls).toHaveLength(0);
+	});
+
+	it('sessionId is the id of the tab once read', async () => {
+		let seen = '';
+		function Reader() {
+			seen = useAide({ fetch: fakeFetch().fetch }).sessionId;
+			return null;
+		}
+		render(<Reader />);
+		expect(seen).toMatch(/[0-9a-f-]{36}/);
+		expect(sessionStorage.getItem('aide:session')).toBe(seen);
 	});
 });

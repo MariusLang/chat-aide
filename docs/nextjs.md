@@ -128,6 +128,10 @@ an `--aide-*` custom property ([Theming → plain theme](theming.md#plain-theme)
 `Composer` render the same `data-part` structure as the Svelte headless components, so you can
 style them yourself or mix them with your own.
 
+Calling `useAide` touches neither storage nor the network. The `sessionId` is minted and the
+thread restored on first use: `open()`, `send()`, or the first read of `sessionId` or `messages`
+(a `Transcript` on the page reads `messages`).
+
 ```tsx
 'use client';
 import { ChatWindow, useAide } from '@chat-aide/react';
