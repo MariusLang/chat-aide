@@ -6,7 +6,7 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
-import { ask, at, openChat, ready } from './helpers';
+import { ask, at, openChat, part, ready } from './helpers';
 
 test('no llms file exists in the tree', () => {
 	const staticDir = fileURLToPath(new URL('../static', import.meta.url));
@@ -51,6 +51,44 @@ test('<route>.md serves a mapped page and 404s an excluded one', async ({ reques
 	expect((await request.get('/logout.md')).status()).toBe(404);
 	expect((await request.get('/no-such-page.md')).status()).toBe(404);
 });
+
+/** Pages that say `noindex`: by a robots meta tag, and by an `X-Robots-Tag` header. */
+const NOINDEX = [
+	{ route: '/noindex', marker: 'amber orchard windmill' },
+	{ route: '/noindex-header', marker: 'copper meadow ferryboat' }
+];
+
+test('a page that says noindex is in none of the three documents', async ({ request }) => {
+	expect((await request.get('/noindex-header')).headers()['x-robots-tag']).toBe('noindex');
+	expect(await (await request.get('/noindex')).text()).toMatch(/<meta name="robots" content="noindex"/);
+	const txt = await (await request.get('/llms.txt')).text();
+	const full = await (await request.get('/llms-full.txt')).text();
+	// Both are linked from the home page, which is mapped.
+	expect(txt).toContain('](/)');
+	for (const { route, marker } of NOINDEX) {
+		expect(await (await request.get(route)).text()).toContain(marker);
+		expect(txt).not.toContain(`](${route})`);
+		expect(full).not.toContain(marker);
+		expect((await request.get(`${route}.md`)).status()).toBe(404);
+	}
+});
+
+for (const { route, marker } of NOINDEX) {
+	test(`the chat works on ${route}, without the page's text`, async ({ page }) => {
+		await page.goto(at(route, { theme: 'plain' }));
+		await ready(page);
+		const warm = page.waitForResponse((r) => r.url().includes(`/api/chat?route=${encodeURIComponent(route)}`));
+		await part(page, 'launcher').click();
+		expect(await (await warm).json()).toMatchObject({ pageSource: 'server', mapped: false });
+
+		const answer = await ask(page, 'what is on this page');
+		await expect(answer).toContainText('You asked: what is on this page');
+
+		const probe = await (await page.request.get(`/api/test/last-request?marker=${encodeURIComponent(marker)}`)).json();
+		expect(probe.markerInPrompt).toBe(false);
+		expect(probe.markerInCache).toBe(false);
+	});
+}
 
 test('answers about a page it was never told about, by reading it', async ({ page }) => {
 	await page.goto(at('/', { theme: 'plain' }));

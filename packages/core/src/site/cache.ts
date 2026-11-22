@@ -3,19 +3,30 @@
  * by `limits.maxPages` (at most 2 × maxPages records), so a stream of invented routes can neither
  * grow the cache nor evict a crawled page. A stale page is kept until evicted; the
  * stale-while-revalidate decision belongs to `readPage`.
+ *
+ * A page that asked not to be indexed is kept as a miss marked `noindex`, with none of its text.
+ * It is a page of the site, so the mark lives in the pages' LRU, where invented routes cannot
+ * evict it.
  */
 import { CACHE_DEFAULTS } from '../shared/limits.js';
 import type { PageEntry, Store } from '../shared/types.js';
 
-export type CacheRecord = { kind: 'page'; entry: PageEntry } | { kind: 'miss'; expiresAt: number };
+export type CacheRecord =
+	| { kind: 'page'; entry: PageEntry }
+	| { kind: 'miss'; expiresAt: number; noindex?: true };
 
 export interface PageCache {
-	get(route: string): Promise<{ entry: PageEntry; stale: boolean } | { miss: true } | null>;
+	get(route: string): Promise<{ entry: PageEntry; stale: boolean } | { miss: true; noindex?: true } | null>;
 	set(route: string, entry: PageEntry): Promise<void>;
 	/** Remembered for `missSeconds` (60 s), without a body. */
 	setMiss(route: string): Promise<void>;
+	/**
+	 * A page that asked not to be indexed: a miss marked `noindex`, remembered for `ttlSeconds`.
+	 * None of its text is kept, and a copy stored earlier is overwritten.
+	 */
+	setNoindex(route: string): Promise<void>;
 	size(): number;
-	/** Every cached route: pages, then misses, each in LRU order, most recent last. */
+	/** Every cached route: pages and `noindex` marks, then misses, each in LRU order, most recent last. */
 	routes(): string[];
 	/** The raw in-memory record, without touching recency or the store. */
 	peek(route: string): CacheRecord | undefined;
@@ -49,15 +60,25 @@ function parseEntry(raw: string | null): PageEntry | null {
 	}
 }
 
-function parseMiss(raw: string | null): { at: number; expiresAt: number } | null {
+function parseMiss(raw: string | null): { at: number; expiresAt: number; noindex: boolean } | null {
 	if (raw === null) return null;
 	try {
-		const v = JSON.parse(raw) as { at?: unknown; expiresAt?: unknown } | null;
+		const v = JSON.parse(raw) as { at?: unknown; expiresAt?: unknown; noindex?: unknown } | null;
 		if (!v || typeof v.at !== 'number' || typeof v.expiresAt !== 'number') return null;
-		return { at: v.at, expiresAt: v.expiresAt };
+		return { at: v.at, expiresAt: v.expiresAt, noindex: v.noindex === true };
 	} catch {
 		return null;
 	}
+}
+
+type Miss = Extract<CacheRecord, { kind: 'miss' }>;
+
+function missRecord(expiresAt: number, noindex: boolean): Miss {
+	return noindex ? { kind: 'miss', expiresAt, noindex: true } : { kind: 'miss', expiresAt };
+}
+
+function missAnswer(record: Miss): { miss: true; noindex?: true } {
+	return record.noindex ? { miss: true, noindex: true } : { miss: true };
 }
 
 export function createPageCache(opts: {
@@ -73,8 +94,8 @@ export function createPageCache(opts: {
 	const max = Math.max(1, opts.maxPages);
 	const store = opts.store;
 	// Map iteration order is insertion order: re-inserting on use keeps it LRU, oldest first.
-	const pages = new Map<string, Extract<CacheRecord, { kind: 'page' }>>();
-	const misses = new Map<string, Extract<CacheRecord, { kind: 'miss' }>>();
+	const pages = new Map<string, CacheRecord>();
+	const misses = new Map<string, Miss>();
 
 	function lru<V>(map: Map<string, V>, route: string, value: V): void {
 		map.delete(route);
@@ -83,7 +104,7 @@ export function createPageCache(opts: {
 	}
 
 	function put(route: string, record: CacheRecord): void {
-		if (record.kind === 'page') {
+		if (record.kind === 'page' || record.noindex) {
 			misses.delete(route);
 			lru(pages, route, record);
 		} else {
@@ -126,8 +147,9 @@ export function createPageCache(opts: {
 				}
 				if (record.expiresAt > now()) {
 					put(route, record);
-					return { miss: true };
+					return missAnswer(record);
 				}
+				pages.delete(route);
 				misses.delete(route);
 			}
 			if (!store) return null;
@@ -140,8 +162,9 @@ export function createPageCache(opts: {
 			const miss = parseMiss(missRaw);
 			const missLive = miss !== null && miss.expiresAt > now();
 			if (missLive && (!entry || miss.at > entry.fetchedAt)) {
-				put(route, { kind: 'miss', expiresAt: miss.expiresAt });
-				return { miss: true };
+				const record = missRecord(miss.expiresAt, miss.noindex);
+				put(route, record);
+				return missAnswer(record);
 			}
 			if (entry && entry.route === route) {
 				put(route, { kind: 'page', entry });
@@ -160,6 +183,18 @@ export function createPageCache(opts: {
 			const expiresAt = at + missSeconds * 1000;
 			put(route, { kind: 'miss', expiresAt });
 			if (store) await storeSet(MISS_PREFIX + route, JSON.stringify({ at, expiresAt }), missSeconds);
+		},
+
+		async setNoindex(route) {
+			const at = now();
+			const expiresAt = at + ttlMs;
+			put(route, { kind: 'miss', expiresAt, noindex: true });
+			if (!store) return;
+			await Promise.all([
+				storeSet(MISS_PREFIX + route, JSON.stringify({ at, expiresAt, noindex: true }), opts.ttlSeconds),
+				// The store has no delete: an empty value is no entry, and it is soon gone.
+				storeSet(PAGE_PREFIX + route, '', missSeconds)
+			]);
 		},
 
 		size() {

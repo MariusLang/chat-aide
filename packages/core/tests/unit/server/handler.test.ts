@@ -484,6 +484,80 @@ describe('createChatHandler: chatting from an excluded page', () => {
 	});
 });
 
+describe('createChatHandler: a page that says noindex', () => {
+	const SECRET = 'SECRET-TEXT of a page that is not to be indexed. ' + LONG;
+	const noindexHtml = htmlPage({ title: 'Secret', body: SECRET }).replace(
+		'</head>',
+		'<meta name="robots" content="noindex"></head>'
+	);
+	const byMeta: FakePage = { body: noindexHtml };
+	const byHeader: FakePage = { body: htmlPage({ title: 'Secret', body: SECRET }), headers: { 'X-Robots-Tag': 'noindex' } };
+	const pagesWith = (secret: FakePage): Record<string, FakePage> => ({
+		'/': { body: htmlPage({ title: 'Home', body: LONG, links: ['/about', '/secret'] }) },
+		'/about': { body: htmlPage({ title: 'About', body: 'About us. ' + LONG }) },
+		'/secret': secret
+	});
+	const cases: [string, FakePage][] = [
+		['meta tag', byMeta],
+		['X-Robots-Tag header', byHeader]
+	];
+
+	it.each(cases)('%s: the warm-up asks for no DOM text and says the page is not mapped', async (_, secret) => {
+		const { site, handler, settle } = setup({ pages: pagesWith(secret), config: { pageContext: 'dom' } });
+		const res = await handler(makeEvent(site, { method: 'GET', url: `${ORIGIN}/api/chat?route=/secret` }));
+		expect(res.status).toBe(200);
+		expect(await res.json()).toMatchObject({ pageSource: 'server', mapped: false });
+		await settle();
+		expect(site.violations).toEqual([]);
+	});
+
+	it.each(cases)('%s: a message from the page is answered without the page or its DOM text', async (_, secret) => {
+		const { site, handler, model, settle } = setup({ pages: pagesWith(secret), config: { pageContext: 'dom' } });
+		const res = await handler(
+			makeEvent(site, { body: chatBody('What is this?', { route: '/secret', dom: 'DOM-SECRET of the page' }) })
+		);
+		expect(res.status).toBe(200);
+		expect(await res.text()).toContain('Hello from the mock.');
+		await settle();
+		expect(model.doStreamCalls).toHaveLength(1);
+		const prompt = promptText(model);
+		expect(prompt).not.toContain('DOM-SECRET');
+		expect(prompt).not.toContain('SECRET-TEXT');
+		expect(prompt).not.toContain('/secret)');
+		expect(prompt).toContain('a page you cannot read');
+		// The rest of the site is still there to answer from.
+		expect(prompt).toContain('(/about)');
+	});
+
+	it.each(cases)('%s: read_page gives the model none of its text, from any page', async (_, secret) => {
+		const model = toolThenTextModel('/secret');
+		const { site, handler, settle } = setup({ model, pages: pagesWith(secret) });
+		await (await handler(makeEvent(site, { body: chatBody() }))).text();
+		await settle();
+		expect(model.doStreamCalls).toHaveLength(2);
+		expect(promptText(model, 1)).toContain('No readable page at /secret.');
+		expect(promptText(model, 1)).not.toContain('SECRET-TEXT');
+		for (const route of handler.cache.routes()) {
+			expect(JSON.stringify(handler.cache.peek(route))).not.toContain('SECRET-TEXT');
+		}
+	});
+
+	it('pages.respectNoindex: false reads the page into the prompt as before', async () => {
+		const model = toolThenTextModel('/secret');
+		const config = { pages: { respectNoindex: false } };
+		const { site, handler, settle } = setup({ model, pages: pagesWith(byMeta), config });
+		await (await handler(makeEvent(site, { body: chatBody('hi', { route: '/secret' }) }))).text();
+		await settle();
+		expect(promptText(model, 0)).toContain('SECRET-TEXT');
+		expect(promptText(model, 0)).toContain('(/secret)');
+		expect(promptText(model, 0)).not.toContain('a page you cannot read');
+		expect(promptText(model, 1)).toContain('<page route=\\"/secret\\"');
+
+		const warm = await handler(makeEvent(site, { method: 'GET', url: `${ORIGIN}/api/chat?route=/secret` }));
+		expect(await warm.json()).toMatchObject({ mapped: true });
+	});
+});
+
 describe('createChatHandler: refusals', () => {
 	it('refuses another origin with 403 origin_refused and fires onRefused', async () => {
 		const { site, handler, cb } = setup();

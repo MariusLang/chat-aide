@@ -108,6 +108,35 @@ describe('@chat-aide/next', () => {
 		expect(text).toContain('[Pricing](/pricing)');
 	});
 
+	it('leaves a noindex page out of llms.txt, unless pages.respectNoindex is false', async () => {
+		const page = (title: string, head = '', links = '') =>
+			`<html><head><title>${title}</title>${head}</head><body><main><h1>${title}</h1><p>Text of ${title}.</p>${links}</main></body></html>`;
+		const pages: Record<string, { body: string; headers?: Record<string, string> }> = {
+			'/': { body: page('Home', '', '<a href="/pricing">Pricing</a> <a href="/meta">Meta</a> <a href="/header">Header</a>') },
+			'/pricing': { body: page('Pricing') },
+			'/meta': { body: page('Meta', '<meta name="robots" content="noindex">') },
+			'/header': { body: page('Header'), headers: { 'X-Robots-Tag': 'noindex' } }
+		};
+		vi.stubGlobal('fetch', (async (input: RequestInfo | URL) => {
+			const found = pages[new URL(String(input)).pathname];
+			return found
+				? new Response(found.body, { headers: { 'content-type': 'text/html; charset=utf-8', ...found.headers } })
+				: new Response('Not found', { status: 404 });
+		}) as typeof fetch);
+		const provider = { name: 'custom', model: 'm', instance: model('x') };
+		const request = () => new Request(`${ORIGIN}/llms.txt`, { headers: { 'x-real-ip': '203.0.113.7' } });
+
+		const text = await (await createAide({ provider, origin: ORIGIN }).llmsTxt.GET(request())).text();
+		expect(text).toContain('[Pricing](/pricing)');
+		expect(text).not.toContain('/meta');
+		expect(text).not.toContain('/header');
+
+		const open = createAide({ provider, origin: ORIGIN, pages: { respectNoindex: false } });
+		const all = await (await open.llmsTxt.GET(request())).text();
+		expect(all).toContain('[Meta](/meta)');
+		expect(all).toContain('[Header](/header)');
+	});
+
 	it("answers the library's own reads of llms.txt with 404, so it never reads itself", async () => {
 		const aide = createAide({ provider: { name: 'custom', model: 'm', instance: model('x') }, origin: ORIGIN });
 		const res = await aide.llmsTxt.GET(new Request(`${ORIGIN}/llms.txt`, { headers: { 'x-aide-internal': '1' } }));

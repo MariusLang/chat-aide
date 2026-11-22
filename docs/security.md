@@ -61,6 +61,11 @@ exception for excludes: on an excluded page the chat still answers, but that pag
 its DOM text is dropped and the model is told it cannot read it. The route that results from resolving dot segments must still
 start with exactly one `/`, so `/.//evil.example` is refused too.
 
+A page that says `noindex`, in a robots meta tag or an `X-Robots-Tag` header, is treated like an
+excluded one: not mapped, not served, not given to `read_page`, and the chat on it works without
+its text or its DOM text. It is requested, though, since the directive is on the page.
+`pages.respectNoindex: false` turns this off ([llms.txt](llms-txt.md#pages-that-say-noindex)).
+
 Default excludes: `/api/**`, any last segment with a file extension, and last segments `logout`,
 `logoff`, `signout`, `sign-out`, `unsubscribe`, `delete`, `remove` (a GET there may act). The
 defaults match in any letter case (`/API/x` is excluded too); your own excludes match as written.
@@ -73,7 +78,8 @@ No cookie or header of the visitor's request is forwarded, so nothing personalis
 login enters a cache other visitors read from. Redirects are followed only when the target passes
 the route rule, at most 3 hops. A read is abandoned after 10 seconds, and a body over 2 MB is
 treated as unreadable. Only a `200` HTML page, or a `200` markdown answer from its `.md` twin, is
-cached as a page; anything else is a miss, remembered for 60 seconds without its body.
+cached as a page; anything else is a miss, remembered for 60 seconds without its body. A page that
+says `noindex` is not cached either: only that it said so is remembered, for `cache.ttlSeconds`.
 
 The origin reads go to is `config.origin`, never the request's `Host`. See
 [Deployment → origin](deployment.md#origin).
@@ -81,7 +87,8 @@ The origin reads go to is `config.origin`, never the request's `Host`. See
 Reads come from your server, so what your edge or network hides from the public is not hidden
 from them: a route behind edge authentication (Vercel deployment protection, Cloudflare Access),
 an IP allowlist or a VPN answers a read from inside as it would answer you. `read_page` takes any
-route of the site, linked or not. **Put every such route in `pages.exclude`.**
+route of the site, linked or not. **Put every such route in `pages.exclude`.** `noindex` on such a
+page keeps its text out, but the page is still requested.
 
 ## Prompt injection
 

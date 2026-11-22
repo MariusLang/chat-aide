@@ -130,7 +130,8 @@ const configSchema = z
 			.strictObject({
 				include: z.array(z.string()).optional(),
 				exclude: z.array(z.string()).optional(),
-				source: fn<() => Promise<Page[]>>().optional()
+				source: fn<() => Promise<Page[]>>().optional(),
+				respectNoindex: z.boolean().optional()
 			})
 			.optional(),
 		llms: z
@@ -244,7 +245,8 @@ export function resolveConfig(input: unknown): ResolvedConfig {
 		pages: {
 			include: c.pages?.include ?? [],
 			exclude: c.pages?.exclude ?? [],
-			...(c.pages?.source ? { source: c.pages.source } : {})
+			...(c.pages?.source ? { source: c.pages.source } : {}),
+			respectNoindex: c.pages?.respectNoindex ?? true
 		},
 		llms: {
 			read: c.llms?.read ?? true,

@@ -36,7 +36,7 @@ describe('resolveConfig', () => {
 		expect(c.rateLimit).toEqual({ requests: 20, windowSeconds: 600, warmups: 60 });
 		expect(c.budget).toEqual({ tokensPerDay: 200_000, siteTokensPerDay: 5_000_000 });
 		expect(c.limits).toEqual(LIMIT_DEFAULTS);
-		expect(c.pages).toEqual({ include: [], exclude: [] });
+		expect(c.pages).toEqual({ include: [], exclude: [], respectNoindex: true });
 		expect(c.allowedOrigins).toEqual([]);
 		expect(c.facts).toEqual([]);
 		expect(c.origin).toBeUndefined();
@@ -57,6 +57,13 @@ describe('resolveConfig', () => {
 			tokensPerDay: false,
 			siteTokensPerDay: 5_000_000
 		});
+	});
+
+	it('pages.respectNoindex is true unless set to false, and must be a boolean', () => {
+		expect(resolveConfig({ provider, pages: { exclude: ['/a'] } }).pages.respectNoindex).toBe(true);
+		expect(resolveConfig({ provider, pages: { respectNoindex: true } }).pages.respectNoindex).toBe(true);
+		expect(resolveConfig({ provider, pages: { respectNoindex: false } }).pages.respectNoindex).toBe(false);
+		expect(failure({ provider, pages: { respectNoindex: 'no' } }).path).toBe('pages.respectNoindex');
 	});
 
 	// 5

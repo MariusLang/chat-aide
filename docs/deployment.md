@@ -93,7 +93,8 @@ the difference.
 
 What the library keeps in it: rate-limit counters (`aide:rl:*`, one window), day token counters
 (`aide:tok:*`, a UTC day plus a minute), pages (`aide:page:*`, kept `2 × cache.ttlSeconds`) and
-misses (`aide:miss:*`, 60 s).
+misses (`aide:miss:*`, 60 s). A page that says `noindex` is kept as a miss for `cache.ttlSeconds`,
+without its text.
 
 The interface has no delete, so the store cannot evict: the per-instance cache is an LRU of
 `maxPages` pages and `maxPages` misses, but entries in a shared store live until their TTL.
@@ -137,7 +138,8 @@ start on serverless). To bring it down:
 - a longer `cache.ttlSeconds`;
 - a shared `Store`, so the pages are read once and shared by every instance;
 - your own `/llms.txt` (and `.md` twins or `/llms-full.txt`), which give a complete outline before
-  any page is rendered ([llms.txt](llms-txt.md));
+  any page is rendered ([llms.txt](llms-txt.md)). A page with a `.md` twin is still rendered once
+  per `cache.ttlSeconds` to see whether it says `noindex`, unless `pages.respectNoindex` is `false`;
 - `pages.source`, which replaces the crawl.
 
 The crawl starts only on a request to the chat endpoint or one of the `llms` paths (those count

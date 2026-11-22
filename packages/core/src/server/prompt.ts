@@ -23,7 +23,7 @@ export interface PromptInput {
 	outlinePartial: boolean;
 	ctx: PromptContext;
 	page: { route: string; title?: string; text: string } | null;
-	/** The current route is in `pages.exclude`: its text is never read, not even with read_page. */
+	/** The current route is in `pages.exclude` or asks not to be indexed: its text is never used, not even with read_page. */
 	pageExcluded?: boolean;
 	/** Already windowed; the last message is the visitor's. */
 	history: ModelMessage[];

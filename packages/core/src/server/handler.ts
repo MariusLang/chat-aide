@@ -327,7 +327,14 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 		store: config.store,
 		now
 	});
-	const reader = createReader({ transport, cache, limits, preferMarkdown: config.llms.preferMarkdown, now });
+	const reader = createReader({
+		transport,
+		cache,
+		limits,
+		preferMarkdown: config.llms.preferMarkdown,
+		respectNoindex: config.pages.respectNoindex,
+		now
+	});
 	const siteMap = createSiteMap({ reader, transport, cache, config: plain, now });
 	// The DOM text may be up to the pageChars ceiling; it is truncated to pageChars below.
 	const bodySchema = createBodySchema(limits, config.limitCeilings);
@@ -403,17 +410,30 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 		return config.pageContext === 'dom' || (config.pageContext === 'auto' && (!entry || entry.thin));
 	}
 
+	/**
+	 * The visitor's own page. `hidden`: the chat works on it without it. An excluded page is never
+	 * read; one that asks not to be indexed is read to find that out, and its text is dropped.
+	 */
+	async function visitorPage(
+		visitor: { route: string; excluded: boolean },
+		waitUntil: WaitUntil
+	): Promise<{ entry: PageEntry | null; hidden: boolean }> {
+		if (visitor.excluded) return { entry: null, hidden: true };
+		const { entry, noindex } = await reader.read(visitor.route, { waitUntil });
+		return { entry, hidden: noindex };
+	}
+
 	async function warmup(event: E, waitUntil: WaitUntil): Promise<Response> {
 		const visitor = visitorRoute(event.url.searchParams.get('route'), { origin, exclude });
 		if (visitor === null) return refuse('invalid_request', waitUntil, null, { path: 'route' });
-		const { route, excluded } = visitor;
+		const { route } = visitor;
 		siteMap.ensureStarted(waitUntil);
-		// An excluded page is never read, and its DOM text is not asked for either.
-		const entry = excluded ? null : await reader.readPage(route, { waitUntil });
+		// The DOM text of a hidden page is not asked for either.
+		const { entry, hidden } = await visitorPage(visitor, waitUntil);
 		const body: WarmupResponse = {
-			pageSource: !excluded && wantsDom(entry) ? 'dom' : 'server',
+			pageSource: !hidden && wantsDom(entry) ? 'dom' : 'server',
 			suggestions: suggestionsFor(plain, route),
-			mapped: !excluded && siteMap.isMapped(route),
+			mapped: !hidden && siteMap.isMapped(route),
 			provider,
 			limits: { messages: limits.messages, messageChars: limits.messageChars, pageChars: limits.pageChars }
 		};
@@ -439,7 +459,7 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 		const sessionId = body.aide.sessionId;
 		const visitor = visitorRoute(body.aide.route, { origin, exclude });
 		if (visitor === null) return refuse('invalid_request', waitUntil, sessionId, { path: 'aide.route' });
-		const { route, excluded } = visitor;
+		const { route } = visitor;
 
 		const windowed = windowHistory(textOnly(body.messages), limits);
 		if (windowed.length === 0 || windowed[windowed.length - 1]!.role !== 'user') {
@@ -461,10 +481,10 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 
 		siteMap.ensureStarted(waitUntil);
 		await siteMap.waitFor(limits.crawlBudgetMs);
-		// The chat works on an excluded page, without that page: no read, and its DOM text is dropped.
-		const entry = excluded ? null : await reader.readPage(route, { waitUntil });
-		const dom = excluded || body.aide.dom === null ? null : body.aide.dom.slice(0, limits.pageChars);
-		const page = excluded ? null : currentPage(route, entry, dom);
+		// The chat works on a hidden page, without that page: its DOM text is dropped too.
+		const { entry, hidden } = await visitorPage(visitor, waitUntil);
+		const dom = hidden || body.aide.dom === null ? null : body.aide.dom.slice(0, limits.pageChars);
+		const page = hidden ? null : currentPage(route, entry, dom);
 
 		let history;
 		try {
@@ -483,7 +503,7 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 			outlinePartial: outline.partial,
 			ctx,
 			page,
-			pageExcluded: excluded,
+			pageExcluded: hidden,
 			history,
 			cache: model.row.cache,
 			caching: config.caching,

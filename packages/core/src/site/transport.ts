@@ -32,6 +32,8 @@ export interface ReadResult {
 	contentType: 'html' | 'markdown' | 'text' | 'xml';
 	body: string;
 	finalRoute: string;
+	/** The answer's `X-Robots-Tag`, repeated lines joined by commas; absent when it has none. */
+	robotsTag?: string;
 }
 
 export interface ReadMiss {
@@ -57,6 +59,7 @@ export const READ_TIMEOUT_MS = 10_000;
 /** A body larger than this is a `status` miss. */
 export const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const ACCEPT_LANGUAGE = '*';
+const ROBOTS_HEADER = 'x-robots-tag';
 
 const CONTENT_TYPES: Record<string, ReadResult['contentType']> = {
 	'text/html': 'html',
@@ -268,7 +271,10 @@ export function createTransport(opts: {
 				return networkMiss;
 			}
 			if (body === null) return { ok: false, status: res.status, reason: 'status' };
-			return { ok: true, status: 200, contentType, body, finalRoute: current };
+			const result: ReadResult = { ok: true, status: 200, contentType, body, finalRoute: current };
+			const robotsTag = res.headers.get(ROBOTS_HEADER);
+			if (robotsTag !== null) result.robotsTag = robotsTag;
+			return result;
 		}
 	}
 }

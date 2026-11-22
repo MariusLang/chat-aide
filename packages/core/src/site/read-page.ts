@@ -2,6 +2,9 @@
  * Reading one page (spec §3.4 "Reading one page", "What is cached", "llms.txt, read"). Server
  * only: HTML is parsed with linkedom. Every read goes through the transport, so it is anonymous
  * and carries the internal marker.
+ *
+ * A page that asks not to be indexed (`site/robots.ts`) is read to find that out and then
+ * dropped: no entry, no cached text, only a `noindex` mark in the cache.
  */
 import { parseHTML } from 'linkedom';
 import type { Limits } from '../shared/limits.js';
@@ -10,20 +13,30 @@ import type { WaitUntil } from '../server/background.js';
 import type { PageCache } from './cache.js';
 import { extract, hashText, isThin, type Extracted } from './extract.js';
 import { atxHeading, linkTextEnd, markdownPathFor, routeForMarkdownPath, skipSpace } from './llms.js';
+import { pageRobots, type Robots } from './robots.js';
 import { IN_PROCESS_ORIGIN } from './route.js';
 import type { Transport } from './transport.js';
+
+/** One read: the entry, or none. `noindex` says the page was there and asked not to be indexed. */
+export interface PageRead {
+	entry: PageEntry | null;
+	noindex: boolean;
+}
 
 export interface Reader {
 	/**
 	 * Cache hit fresh → entry; stale → entry + background refresh via `waitUntil`; miss cached →
-	 * null; else the `.md` twin (when `preferMarkdown`), then the HTML. Concurrent reads of one
+	 * none; else the `.md` twin (when `preferMarkdown`), then the HTML. Concurrent reads of one
 	 * route share one promise. Text is truncated to `limits.pageChars`.
 	 */
+	read(route: string, opts?: { waitUntil?: WaitUntil }): Promise<PageRead>;
+	/** The entry of `read`: null for an unreadable page and for a `noindex` one alike. */
 	readPage(route: string, opts?: { waitUntil?: WaitUntil }): Promise<PageEntry | null>;
 	/**
 	 * Links found in the last read of a route (HTML `a[href]` not `rel~=nofollow`, or markdown
-	 * links), for the crawler. Relative hrefs are made root-relative against the page; absolute
-	 * ones are returned as written. Nothing is filtered here: the crawler applies `acceptHref`.
+	 * links), for the crawler: none when the page says `nofollow`, and a `noindex` page still has
+	 * its own. Relative hrefs are made root-relative against the page; absolute ones are returned
+	 * as written. Nothing is filtered here: the crawler applies `acceptHref`.
 	 */
 	links(route: string): string[];
 }
@@ -32,6 +45,9 @@ const HTML_ACCEPT = 'text/html';
 const MARKDOWN_ACCEPT = 'text/markdown';
 const FENCE_RE = /^\s*(```|~~~)/;
 const HREF_CHARS_RE = /[^)\s>]*/y;
+const MISS: PageRead = { entry: null, noindex: false };
+const NOINDEX: PageRead = { entry: null, noindex: true };
+const ALLOWED: Robots = { noindex: false, nofollow: false };
 
 /** Title, description (a `>` line right after the H1), H1–H3 and the text of a markdown page. */
 export function pageFromMarkdown(markdown: string, fallbackTitle = ''): Extracted {
@@ -210,11 +226,14 @@ export function createReader(opts: {
 	cache: PageCache;
 	limits: Limits;
 	preferMarkdown: boolean;
+	/** `pages.respectNoindex` (default true). */
+	respectNoindex?: boolean;
 	now?: () => number;
 }): Reader {
 	const { transport, cache, limits } = opts;
+	const respect = opts.respectNoindex ?? true;
 	const now = opts.now ?? Date.now;
-	const inflight = new Map<string, Promise<PageEntry | null>>();
+	const inflight = new Map<string, Promise<PageRead>>();
 	const linkMap = new Map<string, string[]>();
 
 	function remember(route: string, links: string[]): void {
@@ -224,54 +243,79 @@ export function createReader(opts: {
 		while (linkMap.size > Math.max(1, limits.maxPages)) linkMap.delete(linkMap.keys().next().value as string);
 	}
 
-	/** One read from the site. `refresh`: a network failure keeps the stale entry. */
-	async function load(route: string, refresh: boolean): Promise<PageEntry | null> {
-		if (opts.preferMarkdown) {
-			const md = await transport.read(markdownPathFor(route), MARKDOWN_ACCEPT);
-			if (md.ok && md.contentType === 'markdown') {
-				const entry = toEntry(route, pageFromMarkdown(md.body), 'markdown', limits, now());
-				remember(route, markdownLinks(md.body, route));
-				await cache.set(route, entry);
-				return entry;
-			}
-		}
-		const res = await transport.read(route, HTML_ACCEPT);
-		if (!res.ok || res.contentType !== 'html') {
-			if (refresh && !res.ok && res.reason === 'network') return null;
-			await cache.setMiss(route);
-			return null;
-		}
-		const { document } = parseHTML(res.body);
-		const doc = document as unknown as Document;
-		const entry = toEntry(route, extract(doc), 'render', limits, now());
-		remember(route, htmlLinks(doc, res.finalRoute));
+	async function keep(route: string, entry: PageEntry, links: string[]): Promise<PageRead> {
+		remember(route, links);
 		await cache.set(route, entry);
-		return entry;
+		return { entry, noindex: false };
 	}
 
-	function shared(route: string, refresh: boolean): Promise<PageEntry | null> {
+	/** One read from the site. `refresh`: a network failure keeps the stale entry. */
+	async function load(route: string, refresh: boolean): Promise<PageRead> {
+		let twin: string | null = null;
+		if (opts.preferMarkdown) {
+			const md = await transport.read(markdownPathFor(route), MARKDOWN_ACCEPT);
+			if (md.ok && md.contentType === 'markdown') twin = md.body;
+		}
+		const twinEntry = (body: string) => toEntry(route, pageFromMarkdown(body), 'markdown', limits, now());
+		if (twin !== null && !respect) return keep(route, twinEntry(twin), markdownLinks(twin, route));
+
+		// A twin has no robots meta, and a `noindex` header on it is about the `.md` file, so the
+		// page itself is still asked what it says to robots.
+		const res = await transport.read(route, HTML_ACCEPT);
+		const html = res.ok && res.contentType === 'html' ? res : null;
+		if (!html) {
+			const network = !res.ok && res.reason === 'network';
+			// A twin whose page is not HTML stands alone; one whose page could not be reached waits.
+			if (twin !== null && !network) return keep(route, twinEntry(twin), markdownLinks(twin, route));
+			if (refresh && network) return MISS;
+			await cache.setMiss(route);
+			return MISS;
+		}
+		const { document } = parseHTML(html.body);
+		const doc = document as unknown as Document;
+		const robots = respect ? pageRobots(doc, html.robotsTag) : ALLOWED;
+		const links = robots.nofollow ? [] : twin !== null ? markdownLinks(twin, route) : htmlLinks(doc, html.finalRoute);
+		if (robots.noindex) {
+			// Its links stay for the crawl; its text is dropped and only the mark is cached.
+			remember(route, links);
+			await cache.setNoindex(route);
+			return NOINDEX;
+		}
+		const entry = twin !== null ? twinEntry(twin) : toEntry(route, extract(doc), 'render', limits, now());
+		return keep(route, entry, links);
+	}
+
+	function shared(route: string, refresh: boolean): Promise<PageRead> {
 		let p = inflight.get(route);
 		if (!p) {
 			p = load(route, refresh)
-				.catch(() => null)
+				.catch(() => MISS)
 				.finally(() => inflight.delete(route));
 			inflight.set(route, p);
 		}
 		return p;
 	}
 
-	return {
-		async readPage(route, readOpts) {
-			const hit = await cache.get(route);
-			if (hit && 'entry' in hit) {
-				if (hit.stale && !inflight.has(route)) {
-					const refresh = shared(route, true);
-					if (readOpts?.waitUntil) readOpts.waitUntil(refresh);
-				}
-				return hit.entry;
+	async function read(route: string, readOpts?: { waitUntil?: WaitUntil }): Promise<PageRead> {
+		const hit = await cache.get(route);
+		if (hit && 'entry' in hit) {
+			if (hit.stale && !inflight.has(route)) {
+				const refresh = shared(route, true);
+				if (readOpts?.waitUntil) readOpts.waitUntil(refresh);
 			}
-			if (hit) return null;
-			return shared(route, false);
+			return { entry: hit.entry, noindex: false };
+		}
+		if (hit?.noindex && respect) return NOINDEX;
+		// A `noindex` mark is for a reader that respects it; any other reads the page again.
+		if (hit && !hit.noindex) return MISS;
+		return shared(route, false);
+	}
+
+	return {
+		read,
+
+		async readPage(route, readOpts) {
+			return (await read(route, readOpts)).entry;
 		},
 
 		links(route) {
