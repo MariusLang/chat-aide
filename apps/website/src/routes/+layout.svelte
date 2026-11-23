@@ -1,6 +1,6 @@
 <script lang="ts">
 	import './layout.css';
-	import { dev } from '$app/environment';
+	import { dev } from '$app/env';
 	import { injectAnalytics } from '@vercel/analytics/sveltekit';
 	import { ModeWatcher } from 'mode-watcher';
 	import { ChatWidget } from '@chat-aide/sveltekit';

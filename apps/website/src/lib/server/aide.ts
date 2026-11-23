@@ -8,8 +8,8 @@
  * The pages come from the markdown bundled with the site instead of a crawl: every instance knows
  * every page from its first request, and no read can fail. The crawl is what the demo apps test.
  */
-import { env } from '$env/dynamic/private';
-import type { Handle } from '@sveltejs/kit';
+import * as env from '$app/env/private';
+import type { Handle } from '@sveltejs/kit/hooks';
 import { aide, fromEnv, type AideHandle } from '@chat-aide/sveltekit/server';
 import { chatPages } from './doc-sources';
 import { previewModel } from './preview-model';
