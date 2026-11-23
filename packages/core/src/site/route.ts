@@ -66,6 +66,9 @@ export function normalizeRoute(input: unknown, origin?: string): string | null {
 	if (url.origin !== base) return null;
 	// Dot segments can leave a protocol-relative pathname behind: `/.//evil.example` → `//evil.example`.
 	if (url.pathname.startsWith('//')) return null;
+	// An empty segment (`/logout//`) slips past the last-segment rules, and a proxy that merges
+	// slashes would still serve the page behind it.
+	if (url.pathname.includes('//')) return null;
 	const decoded = decodeSveltePathname(url.pathname);
 	if (decoded === null || CONTROL_CHAR.test(decoded) || decoded.includes('\\')) return null;
 	return url.pathname;

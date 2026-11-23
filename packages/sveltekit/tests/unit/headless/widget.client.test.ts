@@ -178,6 +178,27 @@ describe.each(THEMES)('ChatWidget before the chat is used (%s)', (_name, Widget)
 		expect(sessionStorage.getItem('aide:session')).toBeNull();
 	});
 
+	it('a store that is already open stays open when the widget mounts without an open prop', async () => {
+		const f = fakeFetch();
+		const onclose = vi.fn();
+		const chat = createChat({ fetch: f.fetch, onclose });
+		chat.open();
+		show(Widget, { chat });
+		await settle();
+
+		expect(chat.isOpen).toBe(true);
+		expect(onclose).not.toHaveBeenCalled();
+	});
+
+	it('open={false} still closes a store that is open', async () => {
+		const chat = createChat({ fetch: fakeFetch().fetch });
+		chat.open();
+		show(Widget, { chat, open: false });
+		await settle();
+
+		expect(chat.isOpen).toBe(false);
+	});
+
 	it('a store passed as chat= is left alone while enabled is false', async () => {
 		sessionStorage.setItem('aide:thread', JSON.stringify(THREAD));
 		const storage = watchStorage();

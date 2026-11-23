@@ -711,6 +711,70 @@ describe('createChatHandler: token budgets', () => {
 		});
 	}
 
+	it('charges a step whose provider reports no usage at the estimate, so the budgets still bound it', async () => {
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const silent = {
+			inputTokens: { total: undefined, noCache: undefined, cacheRead: undefined, cacheWrite: undefined },
+			outputTokens: { total: undefined, text: undefined, reasoning: undefined }
+		};
+		const { site, handler, settle, siteTokens, visitorTokens } = budgetSetup({
+			model: textModel('Answer.', silent as never),
+			config: {
+				budget: { tokensPerDay: 3_000, siteTokensPerDay: 1_000_000 },
+				limits: { maxOutputTokens: 256, maxSteps: 2 },
+				rateLimit: { requests: 100, windowSeconds: 600, warmups: 60 }
+			}
+		});
+		const first = await handler(makeEvent(site, { body: chatBody() }));
+		expect(first.status).toBe(200);
+		await first.text();
+		await settle();
+		const charged = await visitorTokens();
+		expect(charged).toBeGreaterThan(0);
+		expect(await siteTokens()).toBe(charged);
+
+		// A provider that never reports usage still runs into the day budget.
+		let last = first;
+		for (let i = 0; i < 40 && last.status === 200; i++) {
+			last = await handler(makeEvent(site, { body: chatBody() }));
+			await last.text();
+			await settle();
+		}
+		expect(last.status).toBe(429);
+	});
+
+	it('reserves for what is sent only: the prefix is not counted twice', async () => {
+		const held = async (factChars: number) => {
+			const store = memoryStore({ now: () => NOW });
+			let most = 0;
+			const counting = {
+				...store,
+				incr: async (key: string, by: number, ttl: number) => {
+					if (key.startsWith('aide:tok:') && by > most) most = by;
+					return store.incr(key, by, ttl);
+				}
+			};
+			const s = setup({
+				model: textModel('Answer.', usageOf(0, 0)),
+				now: () => NOW,
+				config: {
+					store: counting,
+					salt: SALT,
+					facts: ['F'.repeat(factChars)],
+					budget: { tokensPerDay: 10_000_000, siteTokensPerDay: false },
+					limits: { maxSteps: 1 }
+				}
+			});
+			await (await s.handler(makeEvent(s.site, { body: chatBody() }))).text();
+			await s.settle();
+			return most;
+		};
+		// 8,000 more ASCII characters are 2,000 more tokens; counted twice they would be 4,000.
+		const more = (await held(16_000)) - (await held(8_000));
+		expect(more).toBeGreaterThan(1_900);
+		expect(more).toBeLessThan(2_600);
+	});
+
 	it('keeps both day counters within their caps when turns start together', async () => {
 		// The provider reports far more input than four characters per token would count.
 		const TURN = 30_000 + 1_024;
@@ -1248,6 +1312,26 @@ describe('createChatHandler: serverless warnings', () => {
 		const messages = spy.mock.calls.map((c) => String(c[0]));
 		expect(messages.filter((m) => /waitUntil/.test(m))).toHaveLength(1);
 		expect(messages.filter((m) => /store/.test(m))).toHaveLength(1);
+	});
+
+	it('warns on Vercel when the request context has no usable waitUntil', async () => {
+		const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		vi.resetModules();
+		const key = Symbol.for('@vercel/request-context');
+		const globals = globalThis as Record<symbol, unknown>;
+		globals[key] = { get: () => ({}) };
+		try {
+			const fresh = await import('../../../src/server/handler');
+			const site = createFakeSite(defaultPages());
+			const handler = fresh.createChatHandler(
+				{ provider: { name: 'custom', model: 'm', instance: textModel() }, origin: ORIGIN },
+				{ fetch: site.fetch }
+			);
+			await (await handler(makeEvent(site, { method: 'GET', url: `${ORIGIN}/api/chat?route=/` }))).text();
+		} finally {
+			delete globals[key];
+		}
+		expect(spy.mock.calls.map((c) => String(c[0])).filter((m) => /waitUntil/.test(m))).toHaveLength(1);
 	});
 
 	it('does not warn on a plain long-lived process', async () => {

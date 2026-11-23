@@ -15,7 +15,7 @@ export interface AideEvent {
 	fetch: typeof fetch;
 	/** The visitor's address, as the framework or its proxy reports it. */
 	getClientAddress(): string;
-	/** Platform context (Cloudflare, Netlify): `platform.context.waitUntil` is used when present. */
+	/** Platform context (Cloudflare, Netlify): `platform.context.waitUntil` or `platform.ctx.waitUntil` is used when present. */
 	platform?: unknown;
 	/** True for a request the app made to itself (SvelteKit `event.fetch`). */
 	isSubRequest?: boolean;
@@ -47,6 +47,8 @@ export interface PageEntry extends Page {
 	thin: boolean;
 	source: 'render' | 'markdown' | 'llms-full' | 'source';
 	fetchedAt: number;
+	/** The page's links as read, kept with a cached page so the crawl can go on from a cache hit. */
+	links?: string[];
 }
 
 export type ProviderConfig = {

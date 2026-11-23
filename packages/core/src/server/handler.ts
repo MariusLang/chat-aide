@@ -32,7 +32,7 @@ import { createReader, type Reader } from '../site/read-page.js';
 import { visitorRoute } from '../site/route.js';
 import { createSiteMap, type SiteMap } from '../site/site-map.js';
 import { createTransport, type FetchLike, type Transport } from '../site/transport.js';
-import { resolveWaitUntil, runCallback, VERCEL_CONTEXT, type WaitUntil } from './background.js';
+import { fireAndForget, resolveWaitUntil, runCallback, VERCEL_CONTEXT, type WaitUntil } from './background.js';
 import { estimateTurn } from './estimate.js';
 import { checkOrigin, clientId, createGuards } from './guards.js';
 import { buildPrompt } from './prompt.js';
@@ -265,8 +265,12 @@ function pickUsage(u: LanguageModelUsage | undefined): Usage {
 	};
 }
 
-/** The tokens a budget counts for one step. */
-function stepTokens(usage: LanguageModelUsage): number {
+/**
+ * The tokens a budget counts for one step. A step whose provider reported no usage at all is
+ * counted at `fallback` (the turn's estimate per step), so a silent provider cannot run for free.
+ */
+function stepTokens(usage: LanguageModelUsage | undefined, fallback: number): number {
+	if (usage?.inputTokens === undefined && usage?.outputTokens === undefined) return fallback;
 	return (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
 }
 
@@ -274,8 +278,8 @@ function stepTokens(usage: LanguageModelUsage): number {
  * Stops a turn before its next step once its finished steps have used the tokens held for it.
  * The step that passes them has run by then, so a turn overshoots by less than one step.
  */
-function hasSpent(held: number): StopCondition<ToolSet> {
-	return ({ steps }) => steps.reduce((sum, step) => sum + stepTokens(step.usage), 0) >= held;
+function hasSpent(held: number, fallback: number): StopCondition<ToolSet> {
+	return ({ steps }) => steps.reduce((sum, step) => sum + stepTokens(step.usage, fallback), 0) >= held;
 }
 
 /** Platforms that announce themselves on the request, not through the environment. */
@@ -283,14 +287,8 @@ function platformDetected(event: AideEvent): boolean {
 	const platform = (event as { platform?: unknown }).platform;
 	if (platform && typeof platform === 'object') {
 		const p = platform as Record<string, unknown>;
-		if ('context' in p || 'env' in p || 'caches' in p) return true;
+		if ('context' in p || 'ctx' in p || 'env' in p || 'caches' in p) return true;
 	}
-	return (globalThis as Record<symbol, unknown>)[VERCEL_CONTEXT] !== undefined;
-}
-
-function platformWaitUntil(event: AideEvent): boolean {
-	const context = (event as { platform?: { context?: { waitUntil?: unknown } } }).platform?.context;
-	if (typeof context?.waitUntil === 'function') return true;
 	return (globalThis as Record<symbol, unknown>)[VERCEL_CONTEXT] !== undefined;
 }
 
@@ -343,16 +341,17 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 	const provider = displayName(plain, row);
 
 	let checkedPlatform = false;
+	let warnedUsage = false;
 	/**
 	 * Deferred to the first request, since only a request shows the platform. The library reads no
 	 * environment variable, so the signal is the request's `platform` (Cloudflare, Netlify) or a live
 	 * Vercel request context.
 	 */
-	function platformWarnings(event: AideEvent): void {
+	function platformWarnings(event: AideEvent, waitUntil: WaitUntil): void {
 		if (checkedPlatform) return;
 		checkedPlatform = true;
 		if (!platformDetected(event)) return;
-		if (!platformWaitUntil(event) && !config.waitUntil) {
+		if (waitUntil === fireAndForget) {
 			warn(
 				'this looks like a serverless platform, but no waitUntil was found on event.platform and none is ' +
 					'configured: the crawl, cache refreshes and callbacks may be cut short when the response ends. ' +
@@ -516,8 +515,11 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 		};
 
 		// Held before the call, so turns started together cannot all pass one budget check.
-		const reservation = await guards.reserve(id, estimateTurn(prompt, limits));
+		// Only what is sent is estimated: `prompt.prefixText` repeats the first instruction.
+		const estimate = estimateTurn({ instructions: prompt.instructions, messages: prompt.messages }, limits);
+		const reservation = await guards.reserve(id, estimate);
 		if (typeof reservation === 'string') return refuse('budget_exhausted', waitUntil, sessionId);
+		const perStep = Math.ceil(estimate / Math.max(1, limits.maxSteps));
 
 		let spent = 0;
 		const result = streamText({
@@ -525,14 +527,21 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 			instructions: prompt.instructions,
 			messages: prompt.messages,
 			tools,
-			stopWhen: [isStepCount(limits.maxSteps), hasSpent(reservation.tokens)],
+			stopWhen: [isStepCount(limits.maxSteps), hasSpent(reservation.tokens, perStep)],
 			maxOutputTokens: limits.maxOutputTokens,
 			telemetry: { isEnabled: false },
 			onError: ({ error }) => reportError(error),
 			// Usage is summed per finished step, so a turn that fails in a later step still pays for
 			// the steps it ran; the sum is charged once the stream has settled, however it ended.
 			onStepEnd: (step) => {
-				spent += stepTokens(step.usage);
+				if (step.usage?.inputTokens === undefined && step.usage?.outputTokens === undefined && !warnedUsage) {
+					warnedUsage = true;
+					warn(
+						'the provider reported no token usage for a step, so the budgets count it at the estimate. ' +
+							'Check that the endpoint sends usage in streamed responses.'
+					);
+				}
+				spent += stepTokens(step.usage, perStep);
 			},
 			onEnd: (e) => {
 				runCallback(
@@ -615,7 +624,7 @@ export function createChatHandler<E extends AideEvent = AideEvent>(
 		const started = now();
 		adoptFetch(event);
 		const waitUntil = await resolveWaitUntil(event, config.waitUntil);
-		platformWarnings(event);
+		platformWarnings(event, waitUntil);
 
 		const method = event.request.method.toUpperCase();
 		if (method !== 'GET' && method !== 'POST') {

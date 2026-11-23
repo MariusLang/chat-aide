@@ -34,7 +34,7 @@ Unknown keys are refused.
 | `budget` | `{ tokensPerDay: 200_000, siteTokensPerDay: 5_000_000 }` | each field may be `false`; `false` turns both off |
 | `store` | in-memory | shared state, see [Deployment](deployment.md#shared-store); requires `salt` |
 | `salt` | random per process | HMAC salt for visitor keys; required with `store`, refused without it |
-| `allowedOrigins` | `[]` | extra origins whose `Origin` header the endpoint accepts |
+| `allowedOrigins` | `[]` | extra origins whose `Origin` header the endpoint accepts. The library sends no CORS headers and answers `OPTIONS` with `405`: a widget on another origin also needs your app to answer the preflight and add `access-control-allow-origin` |
 | `authorize` | none | `(event) => boolean \| Response \| Promise<…>`; `false` → `403 unauthorized`, a `Response` is returned as is |
 | `clientKey` | client address | `(event) => string`, the visitor's rate-limit identity (read [this](deployment.md#behind-a-proxy) first) |
 | `caching` | `true` | provider prompt-cache markers |
@@ -100,6 +100,10 @@ finished step. So:
 
 `budget.siteTokensPerDay` is the number that bounds your bill: a per-visitor key is an address
 (an IPv6 /64), and addresses are cheap to rotate. Day counters are per UTC day.
+
+A step for which the provider reports no usage at all is counted at the estimate for one step,
+so an endpoint that streams no usage cannot run outside the budgets. OpenAI-compatible endpoints
+are asked for usage (`includeUsage`); a warning is printed once when a step still comes without it.
 
 ## The prompt, and when it caches
 

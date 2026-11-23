@@ -36,7 +36,7 @@ it has used them ([Budgets and their overshoot](configuration.md#budgets-and-the
 
 The rate limit and the per-visitor budget are keyed by an HMAC of `event.getClientAddress()`
 under a salt; no address is stored. An IPv6 address counts by its /64, since one connection
-usually has a whole /64 to pick addresses from. The library reads no forwarded header by itself. Behind a proxy or CDN that SvelteKit's
+usually has a whole /64 to pick addresses from. With SvelteKit the library reads no forwarded header by itself (the Next.js and web-standard adapters do, see [Next.js](nextjs.md#rate-limits-behind-a-proxy)). Behind a proxy or CDN that SvelteKit's
 adapter is not configured for, every visitor has the proxy's address, shares one bucket, and one
 client can use it up for everybody. Handler creation cannot detect this. Either configure your
 adapter's address header (e.g. `ADDRESS_HEADER` on adapter-node), or pass `clientKey`:

@@ -67,7 +67,8 @@ function createApp(handle: Handle, routes: Record<string, Route> = defaultRoutes
 			request: req,
 			url,
 			params: {},
-			route: { id: null },
+			// As SvelteKit: a route id only when the manifest matched the path.
+			route: { id: routes[url.pathname] ? url.pathname : null },
 			fetch: (i: string | URL, o?: RequestInit) => request(i, o, depth + 1),
 			getClientAddress: () => '203.0.113.7',
 			isSubRequest: depth > 0,
@@ -259,9 +260,10 @@ describe('aide() hook', () => {
 
 		const internal = app.invocations.filter((i) => i.internal);
 		expect(internal.length).toBeGreaterThan(0);
-		// every internal read resolved exactly once, one level deep, and was never answered by the hook
+		// every internal read is one level deep and never answered by the llms handlers: a matched
+		// route resolves exactly once, an unmatched one is refused before resolve
 		for (const inv of internal) {
-			expect(inv.resolves).toBe(1);
+			expect(inv.resolves).toBe(defaultRoutes()[inv.path] ? 1 : 0);
 			expect(inv.depth).toBe(1);
 		}
 		const llmsReads = internal.filter(
@@ -271,6 +273,31 @@ describe('aide() hook', () => {
 		expect(llmsReads.some((i) => i.path.endsWith('.md'))).toBe(true);
 		for (const inv of llmsReads) expect(inv.status).toBe(404);
 		expect(Math.max(...app.invocations.map((i) => i.depth))).toBe(1);
+	});
+
+	it('never resolves an unmatched sub-request: SvelteKit would fetch it from the request’s Host', async () => {
+		// SvelteKit answers a sub-request no route matches with a network fetch against the
+		// request's own origin. The fake app does the same, from a host the visitor chose.
+		const network = vi.fn(async () => new Response(htmlPage({ title: 'Forged', body: 'FORGED-TEXT ' + LONG }), {
+			headers: { 'content-type': 'text/html; charset=utf-8' }
+		}));
+		const handle = aide(config());
+		const seen: { status: number; served: boolean }[] = [];
+		const routes = defaultRoutes();
+		const app = createApp(async ({ event, resolve }) => {
+			if (event.url.pathname === '/probe') {
+				const r = await event.fetch('/not-a-route', { headers: { [INTERNAL_HEADER]: INTERNAL_MARKER } });
+				seen.push({ status: r.status, served: r.headers.has(SERVED_HEADER) });
+				return new Response('ok');
+			}
+			return handle({
+				event,
+				resolve: async (e) => (routes[e.url.pathname] ? resolve(e) : network())
+			});
+		}, routes);
+		await app.request('/probe');
+		expect(seen).toEqual([{ status: 404, served: false }]);
+		expect(network).not.toHaveBeenCalled();
 	});
 
 	it('forged Host: the event’s fetch is not adopted, reads go to the configured origin', async () => {

@@ -33,10 +33,12 @@ function notFound(): Response {
 	return new Response('Not found', { status: 404, headers: { 'content-type': TEXT, 'cache-control': 'no-store' } });
 }
 
-function document(handler: ChatHandler<never>, body: string, type: string, head: boolean): Response {
+/** `partial`: the crawl is still running, so a shared cache must not keep this answer. */
+function document(handler: ChatHandler<never>, body: string, type: string, head: boolean, partial = false): Response {
+	const cache = partial ? 'no-store' : `public, max-age=${handler.config.cache.ttlSeconds}`;
 	return new Response(head ? null : body, {
 		status: 200,
-		headers: { 'content-type': type, 'cache-control': `public, max-age=${handler.config.cache.ttlSeconds}` }
+		headers: { 'content-type': type, 'cache-control': cache, 'x-content-type-options': 'nosniff' }
 	});
 }
 
@@ -75,7 +77,7 @@ export function llmsTxt<E extends AideEvent>(handler: ChatHandler<E>): EventHand
 		const ready = await prepare(handler, event);
 		if ('limited' in ready) return ready.limited;
 		const body = renderLlmsTxt(handler.siteMap.servedSite(), handler.siteMap.pages(), serveOptions(handler));
-		return document(handler, body, TEXT, event.request.method.toUpperCase() === 'HEAD');
+		return document(handler, body, TEXT, event.request.method.toUpperCase() === 'HEAD', !handler.siteMap.settled());
 	};
 }
 
@@ -85,7 +87,7 @@ export function llmsFullTxt<E extends AideEvent>(handler: ChatHandler<E>): Event
 		const ready = await prepare(handler, event);
 		if ('limited' in ready) return ready.limited;
 		const body = renderLlmsFull(handler.siteMap.servedSite(), handler.siteMap.pages(), serveOptions(handler));
-		return document(handler, body, MARKDOWN, event.request.method.toUpperCase() === 'HEAD');
+		return document(handler, body, MARKDOWN, event.request.method.toUpperCase() === 'HEAD', !handler.siteMap.settled());
 	};
 }
 

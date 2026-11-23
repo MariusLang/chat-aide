@@ -176,6 +176,27 @@ describe('provider registry', () => {
 		expect(calls[2]!.args).toEqual(['m', { provider: { data_collection: 'deny' } }]);
 	});
 
+	it('asks every OpenAI-compatible endpoint for usage, which the budgets count', async () => {
+		const seen: Record<string, unknown>[] = [];
+		const importer = async (): Promise<Record<string, unknown>> => ({
+			createOpenAICompatible: (settings: Record<string, unknown>) => {
+				seen.push(settings);
+				return { chatModel: (id: unknown) => ({ provider: 'fake', modelId: id }) };
+			}
+		});
+		for (const name of ['kimi', 'ollama', 'lmstudio', 'nvidia-nim']) {
+			await loadProvider({ name, model: 'm', apiKey: 'k' }, importer);
+		}
+		await loadProvider({ name: 'openai-compatible', model: 'm', baseURL: 'https://llm.test/v1' }, importer);
+		expect(seen).toHaveLength(5);
+		for (const settings of seen) expect(settings.includeUsage).toBe(true);
+		await loadProvider(
+			{ name: 'openai-compatible', model: 'm', baseURL: 'https://llm.test/v1', options: { includeUsage: false } },
+			importer
+		);
+		expect(seen[5]!.includeUsage).toBe(false);
+	});
+
 	// 4
 	it('marks caching per row', () => {
 		for (const row of PROVIDERS) {

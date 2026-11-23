@@ -246,6 +246,8 @@ function settingsFor(row: ProviderRow, cfg: ProviderConfig): Record<string, unkn
 	} else if (row.credentials === 'openai-compatible') {
 		base.name = row.name;
 	}
+	// Without it an OpenAI-compatible stream carries no usage, and the token budgets count nothing.
+	if (row.pkg === '@ai-sdk/openai-compatible') base.includeUsage = true;
 	return defined({ ...base, ...cfg.options });
 }
 

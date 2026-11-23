@@ -24,8 +24,8 @@ aide.fetch;       // all four by pathname, 404 for anything else
 ```
 
 Each handler is `(request, ctx?) => Promise<Response>`. `ctx.clientAddress` is the visitor's
-address for the rate limit: pass it when your framework knows it. Otherwise `x-real-ip`, else the
-last `x-forwarded-for` entry is used; see [Next.js → rate limits](nextjs.md#rate-limits-behind-a-proxy)
+address for the rate limit: pass it when your framework knows it. Otherwise the last
+`x-forwarded-for` entry, else `x-real-ip` is used; see [Next.js → rate limits](nextjs.md#rate-limits-behind-a-proxy)
 for when those can be trusted.
 
 Create the handler once per server process, not per request, so there is one site map and one

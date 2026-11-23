@@ -43,8 +43,8 @@ export interface NextAide {
 
 export interface NextAideOptions {
 	/**
-	 * The visitor's address for the rate limit and budgets. Default: `x-real-ip`, else the last
-	 * `x-forwarded-for` entry, which Vercel and most proxies set. Self-hosted without a proxy,
+	 * The visitor's address for the rate limit and budgets. Default: the last `x-forwarded-for`
+	 * entry, else `x-real-ip`, which Vercel and most proxies set. Self-hosted without a proxy,
 	 * those headers are the client's to forge: pass your own, or set `config.clientKey`.
 	 */
 	clientAddress?: WebContext['clientAddress'];

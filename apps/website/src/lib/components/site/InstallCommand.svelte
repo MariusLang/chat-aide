@@ -5,7 +5,12 @@
 	let copied = $state(false);
 
 	async function copy() {
-		await navigator.clipboard.writeText(command);
+		try {
+			await navigator.clipboard.writeText(command);
+		} catch {
+			// Refused, or no Clipboard API outside a secure context.
+			return;
+		}
 		copied = true;
 		setTimeout(() => (copied = false), 1600);
 	}

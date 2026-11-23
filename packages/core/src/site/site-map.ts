@@ -27,6 +27,8 @@ export interface SiteMap {
 	waitFor(ms: number): Promise<void>;
 	/** True once the outline is whole: the first crawl finished, or the site's llms.txt was read and has at least one usable link. */
 	complete(): boolean;
+	/** True once a crawl has run to its end, so every mapped page has been read. */
+	settled(): boolean;
 	site(): SiteInfo;
 	/** `site()` for the llms paths: a `pages.source` root gives it nothing unless `llms.serveSource`. */
 	servedSite(): SiteInfo;
@@ -40,7 +42,8 @@ export interface SiteMap {
 
 const LLMS_ACCEPT = 'text/plain, text/markdown';
 const SITEMAP_ACCEPT = 'application/xml, text/xml';
-const LOC_RE = /<loc>\s*([^<]*?)\s*<\/loc>/gi;
+// No lazy quantifier next to `\s*`: the body is up to 2 MB and must be scanned in linear time.
+const LOC_RE = /<loc>([^<]*)<\/loc>/gi;
 const noop = () => {};
 
 /** Per-crawl state; the first crawl is published live, a revisit is swapped in when it ends. */
@@ -223,7 +226,7 @@ export function createSiteMap(opts: {
 		if (!res.ok || res.contentType !== 'xml') return [];
 		const out: string[] = [];
 		for (const m of res.body.matchAll(LOC_RE)) {
-			const route = href(decodeXml(m[1] ?? ''));
+			const route = href(decodeXml((m[1] ?? '').trim()));
 			if (route !== null) out.push(route);
 		}
 		return out;
@@ -234,12 +237,13 @@ export function createSiteMap(opts: {
 		// A site with its own usable llms.txt has a whole outline before any page is rendered.
 		if (first && usableLlms(state)) markComplete();
 
-		const seeds = ['/', ...(await readSitemap())];
+		// `pages.include` first: a long sitemap must not use up `maxPages` before the routes asked for.
+		const seeds = ['/'];
 		for (const r of config.pages.include) {
 			const route = acceptRoute(r, { origin, exclude });
 			if (route !== null) seeds.push(route);
 		}
-		seeds.push(...llmsSeeds);
+		seeds.push(...(await readSitemap()), ...llmsSeeds);
 
 		const queue: string[] = [];
 		const seen = new Set<string>();
@@ -357,6 +361,8 @@ export function createSiteMap(opts: {
 		},
 
 		complete: () => isComplete,
+
+		settled: () => finishedAt !== null,
 
 		site: () => siteInfo(),
 

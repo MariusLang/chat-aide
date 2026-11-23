@@ -154,6 +154,30 @@ describe('ChatWidget (React)', () => {
 		expect(onOpenChange).toHaveBeenLastCalledWith(false);
 	});
 
+	it('warms up an inline chat when it is shown, as nothing ever opens it', async () => {
+		const f = fakeFetch();
+		render(<ChatWidget mode="inline" fetch={f.fetch} />);
+		await waitFor(() => expect(f.calls.filter((c) => (c.init?.method ?? 'GET') === 'GET')).toHaveLength(1));
+		expect(f.calls[0]!.url).toContain('route=%2Fdocs%2Finstall');
+		await screen.findByRole('button', { name: 'What is this?' });
+	});
+
+	it('the copy button does nothing where there is no Clipboard API', async () => {
+		const f = fakeFetch({ post: () => streamResponse('```js\nconst a = 1;\n```') });
+		render(<ChatWidget open fetch={f.fetch} />);
+		fireEvent.click(await screen.findByRole('button', { name: 'What is this?' }));
+		const copy = await screen.findByRole('button', { name: 'Copy' });
+		const had = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+		Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+		try {
+			expect(() => fireEvent.click(copy)).not.toThrow();
+		} finally {
+			if (had) Object.defineProperty(navigator, 'clipboard', had);
+			else delete (navigator as { clipboard?: unknown }).clipboard;
+		}
+		expect(copy.textContent).toBe('Copy');
+	});
+
 	it('renders nothing when disabled', () => {
 		const { container } = render(<ChatWidget enabled={false} />);
 		expect(container.innerHTML).toBe('');

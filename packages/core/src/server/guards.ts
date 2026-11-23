@@ -40,8 +40,6 @@ export function addressKey(address: string): string {
 	if (a.startsWith('[') && a.endsWith(']')) a = a.slice(1, -1);
 	a = a.split('%')[0]!; // zone index
 	if (!a.includes(':')) return address;
-	const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(a);
-	if (mapped) return mapped[1]!;
 	const v4 = /^(.*:)(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(a);
 	if (v4) {
 		const [b0, b1, b2, b3] = v4.slice(2).map(Number) as [number, number, number, number];
@@ -55,6 +53,11 @@ export function addressKey(address: string): string {
 	if (halves.length === 2 ? fill < 1 : fill !== 0) return address;
 	const groups = [...head, ...Array<string>(halves.length === 2 ? fill : 0).fill('0'), ...tail];
 	if (!groups.every((g) => /^[0-9a-f]{1,4}$/.test(g))) return address;
+	const n = groups.map((g) => parseInt(g, 16));
+	// IPv4-mapped (`::ffff:a.b.c.d`), however it was spelled.
+	if (n.slice(0, 5).every((g) => g === 0) && n[5] === 0xffff) {
+		return `${n[6]! >> 8}.${n[6]! & 255}.${n[7]! >> 8}.${n[7]! & 255}`;
+	}
 	return `${groups
 		.slice(0, 4)
 		.map((g) => parseInt(g, 16).toString(16))

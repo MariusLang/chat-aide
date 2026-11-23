@@ -28,11 +28,15 @@ export interface Doc {
 const LANGS = ['ts', 'tsx', 'js', 'svelte', 'sh', 'css', 'json', 'html'];
 const highlighter = await createHighlighter({ themes: ['github-light', 'github-dark'], langs: LANGS });
 
+/** For a value written into a double-quoted attribute of the rendered HTML. */
+function escapeAttr(value: string): string {
+	return value.replace(/&(?!#?\w+;)/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 /** GitHub's heading anchors, so `deployment.md#without-origin` links keep working. */
 export function slugify(text: string): string {
 	return text
 		.toLowerCase()
-		.replace(/<[^>]+>/g, '')
 		.replace(/[^\p{L}\p{N}\s_-]/gu, '')
 		.trim()
 		.replace(/\s/g, '-');
@@ -82,7 +86,7 @@ function render(slug: string, source: string): Doc {
 				const inner = this.parser.parseInline(tokens);
 				const to = rewriteHref(href);
 				const external = /^https?:/.test(to);
-				return `<a href="${to}"${t ? ` title="${t}"` : ''}${external ? ' rel="noopener" target="_blank"' : ''}>${inner}</a>`;
+				return `<a href="${escapeAttr(to)}"${t ? ` title="${escapeAttr(t)}"` : ''}${external ? ' rel="noopener" target="_blank"' : ''}>${inner}</a>`;
 			},
 			code({ text, lang }: Tokens.Code) {
 				const l = (lang ?? '').trim().split(/\s/)[0];
@@ -92,7 +96,7 @@ function render(slug: string, source: string): Doc {
 					themes: { light: 'github-light', dark: 'github-dark' },
 					defaultColor: false
 				});
-				return `<div class="code-block" data-lang="${l || 'text'}">${html}</div>\n`;
+				return `<div class="code-block" data-lang="${escapeAttr(l || 'text')}">${html}</div>\n`;
 			},
 			table(token: Tokens.Table) {
 				const cell = (c: Tokens.TableCell, tag: 'th' | 'td') =>
