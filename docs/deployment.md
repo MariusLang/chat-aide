@@ -51,7 +51,7 @@ Without `origin` such a handler warns once and cannot read the site.
 The crawl, stale-while-revalidate refreshes and your callbacks outlive the response. Each is handed
 to a `waitUntil`, found per request in this order:
 
-1. `event.platform.context.waitUntil` (Cloudflare, Netlify);
+1. `event.platform.context.waitUntil` or `event.platform.ctx.waitUntil` (Netlify, Cloudflare);
 2. `waitUntil` from `@vercel/functions`, when that optional peer is installed and a Vercel request
    context is live (`pnpm add @vercel/functions` on Vercel);
 3. `config.waitUntil`;

@@ -144,9 +144,11 @@ export function DocsChat() {
 
 ## Rate limits behind a proxy
 
-The per-visitor rate limit and budget need the visitor's address. The adapter reads `x-real-ip`,
-else the last `x-forwarded-for` entry, which Vercel and most proxies set. Without such a proxy
-those headers are the client's to forge: pass your own with
+The per-visitor rate limit and budget need the visitor's address. The adapter reads the last
+`x-forwarded-for` entry (the one your nearest proxy appended), else `x-real-ip`, which Vercel and
+most proxies set. A client-sent `x-real-ip` never wins over the hop a proxy appended. Behind two
+proxies (a CDN in front of your own), the last hop is the CDN's address: pass the header your
+outer proxy sets instead. Without a proxy those headers are the client's to forge: pass your own with
 `createAide(config, { clientAddress: (request) => … })`, or set `config.clientKey`. The site-wide
 budget bounds your bill either way ([Security](security.md#it-is-callable-by-scripts)).
 

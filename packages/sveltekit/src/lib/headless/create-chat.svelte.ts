@@ -76,7 +76,7 @@ export function createChat(options: ChatOptions = {}): ChatStore {
 	const endpoint = options.endpoint ?? DEFAULT_ENDPOINT;
 	const persist = options.persistThread ?? true;
 	const answerLinks: AnswerLinks = options.answerLinks ?? 'same-origin';
-	const strings = mergeStrings(options.strings);
+	const strings = $derived(mergeStrings(options.strings));
 	const baseFetch: typeof fetch = (...args) => (options.fetch ?? globalThis.fetch)(...args);
 	let sessionId = '';
 	let restored = false;

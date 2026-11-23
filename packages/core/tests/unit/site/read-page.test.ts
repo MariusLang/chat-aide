@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createReader, markdownHrefs, pageFromMarkdown } from '../../../src/site/read-page';
 import { createTransport } from '../../../src/site/transport';
 import { createPageCache } from '../../../src/site/cache';
+import { memoryStore } from '../../../src/server/store';
 import { acceptHref } from '../../../src/site/route';
 import { LIMIT_DEFAULTS, type Limits } from '../../../src/shared/limits';
 import { createFakeSite, htmlPage, type FakePage } from '../../fixtures/site';
@@ -371,6 +372,28 @@ describe('pageFromMarkdown: headings', () => {
 	});
 });
 
+describe('readPage: links of a page read from a shared store', () => {
+	it('gives another instance the links, so its crawl goes on from a cache hit', async () => {
+		const store = memoryStore();
+		const instance = () => {
+			const site = createFakeSite({ '/': { body: htmlPage({ title: 'Home', body: 'x'.repeat(300), links: ['/a', '/b'] }) } });
+			const transport = createTransport({ exclude: [] });
+			transport.setInProcessFetch(site.fetch);
+			const cache = createPageCache({ maxPages: 10, ttlSeconds: 3600, store });
+			const reader = createReader({ transport, cache, limits: LIMIT_DEFAULTS, preferMarkdown: false });
+			return { site, reader };
+		};
+		const a = instance();
+		await a.reader.readPage('/');
+		expect(a.reader.links('/')).toEqual(['/a', '/b']);
+
+		const b = instance();
+		expect(await b.reader.readPage('/')).not.toBeNull();
+		expect(b.site.paths()).toEqual([]);
+		expect(b.reader.links('/')).toEqual(['/a', '/b']);
+	});
+});
+
 describe('markdownHrefs', () => {
 	it.each([
 		['[a](/x)', ['/x']],
@@ -380,7 +403,10 @@ describe('markdownHrefs', () => {
 		['[a](x y) [b](/z) [c](', ['/z']],
 		['[a](xx[yy zz](c)', ['c']],
 		['[a\\\nb](/x) [c](/y)', ['/y']],
-		['[a](/x "t) [b](/y "u") [c](/z)', ['/y', '/z']]
+		['[a](/x "t) [b](/y "u") [c](/z)', ['/y', '/z']],
+		['[![Logo](/logo.png)](/about) [b](/c)', ['/logo.png', '/about', '/c']],
+		['[![Logo](/logo.png "t")](</about> "T")', ['/logo.png', '/about']],
+		['[a](/x)](', ['/x']]
 	])('reads %j', (markdown, hrefs) => {
 		expect(markdownHrefs(markdown)).toEqual(hrefs);
 	});

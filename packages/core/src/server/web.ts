@@ -15,9 +15,10 @@ import { warn } from './warn.js';
 export interface WebContext {
 	/**
 	 * The visitor's address, for the per-visitor rate limit and budget. A string, or a function of
-	 * the request. By default `x-real-ip`, else the last `x-forwarded-for` entry (the one your
-	 * nearest proxy added). Both headers are the client's to forge when no proxy sets them: behind
-	 * no proxy, pass the address your server reports, or set `config.clientKey`.
+	 * the request. By default the last `x-forwarded-for` entry (the one your nearest proxy added),
+	 * else `x-real-ip`. A proxy that appends to `x-forwarded-for` passes a client-sent `x-real-ip`
+	 * through, so the appended hop wins. Both headers are the client's to forge when no proxy sets
+	 * them: behind no proxy, pass the address your server reports, or set `config.clientKey`.
 	 */
 	clientAddress?: string | ((request: Request) => string);
 	/** Platform context, e.g. `{ context: { waitUntil } }` on Cloudflare or Netlify. */
@@ -26,15 +27,13 @@ export interface WebContext {
 
 /** The visitor's address from the usual proxy headers, or `''` when there is none. */
 export function headerAddress(request: Request): string {
-	const real = request.headers.get('x-real-ip')?.trim();
-	if (real) return real;
-	const forwarded = request.headers.get('x-forwarded-for');
-	if (!forwarded) return '';
-	const hops = forwarded
+	const hops = (request.headers.get('x-forwarded-for') ?? '')
 		.split(',')
 		.map((s) => s.trim())
 		.filter(Boolean);
-	return hops.at(-1) ?? '';
+	const last = hops.at(-1);
+	if (last) return last;
+	return request.headers.get('x-real-ip')?.trim() ?? '';
 }
 
 let warnedAddress = false;

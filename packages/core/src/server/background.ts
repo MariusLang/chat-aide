@@ -41,7 +41,8 @@ function safe(fn: (p: Promise<unknown>) => unknown): WaitUntil {
 	};
 }
 
-const fireAndForget: WaitUntil = (p) => {
+/** What `resolveWaitUntil` returns when neither the platform nor the config has a `waitUntil`. */
+export const fireAndForget: WaitUntil = (p) => {
 	handled(p);
 };
 
@@ -71,9 +72,11 @@ export async function resolveWaitUntil(
 	event: { platform?: any } | null,
 	configured?: WaitUntil
 ): Promise<WaitUntil> {
-	const context = event?.platform?.context;
-	if (context && typeof context.waitUntil === 'function') {
-		return safe((p) => context.waitUntil(p));
+	// `platform.context` (Netlify, older Cloudflare adapters) or `platform.ctx` (Cloudflare).
+	for (const context of [event?.platform?.context, event?.platform?.ctx]) {
+		if (context && typeof context.waitUntil === 'function') {
+			return safe((p) => context.waitUntil(p));
+		}
 	}
 	if (vercelContextLive()) {
 		const vercel = await loadVercelWaitUntil();

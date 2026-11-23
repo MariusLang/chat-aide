@@ -18,7 +18,7 @@
 		position = 'bottom-right',
 		offset,
 		mode = 'floating',
-		open = $bindable(false),
+		open = $bindable(),
 		enabled = true,
 		suggestions,
 		strings,
@@ -66,9 +66,16 @@
 				endpoint,
 				persistThread,
 				answerLinks,
-				strings,
-				suggestions,
-				fetch: fetchImpl,
+				// Getters, so a later change of these props reaches the store.
+				get strings() {
+					return strings;
+				},
+				get suggestions() {
+					return suggestions;
+				},
+				get fetch() {
+					return fetchImpl;
+				},
 				onopen: () => onopen?.(),
 				onclose: () => onclose?.(),
 				onsend: (text) => onsend?.(text),
@@ -85,8 +92,11 @@
 	// open prop -> store
 	$effect(() => {
 		const want = open;
+		// Tracked: an `open` asked for while disabled is applied once the widget is enabled.
+		const on = enabled;
 		untrack(() => {
-			if (!enabled) return;
+			// Not passed: the store keeps the state it has (it may be shared and already open).
+			if (!on || want === undefined) return;
 			if (want && !chat.isOpen) chat.open();
 			else if (!want && chat.isOpen) chat.close();
 		});
@@ -94,6 +104,8 @@
 	// store -> open prop
 	$effect(() => {
 		const isOpen = chat.isOpen;
+		// While disabled the requested `open` is left as it is, to be applied on enable.
+		if (!enabled) return;
 		untrack(() => {
 			if (open !== isOpen) open = isOpen;
 		});

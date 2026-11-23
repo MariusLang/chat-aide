@@ -32,6 +32,22 @@ describe('resolveWaitUntil', () => {
 		expect(configured).not.toHaveBeenCalled();
 	});
 
+	it('uses platform.ctx.waitUntil (Cloudflare), bound to its context', async () => {
+		const seen: Promise<unknown>[] = [];
+		const ctx = {
+			waitUntil(this: unknown, p: Promise<unknown>) {
+				if (this !== ctx) throw new Error('unbound');
+				seen.push(p);
+			}
+		};
+		const configured = vi.fn();
+		const wu = await resolveWaitUntil({ platform: { ctx, context: {} } }, configured);
+		const p = Promise.resolve(1);
+		wu(p);
+		expect(seen).toEqual([p]);
+		expect(configured).not.toHaveBeenCalled();
+	});
+
 	it('uses config.waitUntil when the platform has none', async () => {
 		const configured = vi.fn();
 		for (const event of [null, {}, { platform: {} }, { platform: { context: {} } }]) {

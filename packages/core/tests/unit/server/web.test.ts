@@ -31,8 +31,11 @@ afterEach(() => {
 });
 
 describe('headerAddress', () => {
-	it('prefers x-real-ip, then the last x-forwarded-for hop', () => {
-		expect(headerAddress(new Request(ORIGIN, { headers: { 'x-real-ip': '1.1.1.1', 'x-forwarded-for': '2.2.2.2' } }))).toBe('1.1.1.1');
+	it('prefers the last x-forwarded-for hop, then x-real-ip', () => {
+		// A proxy that appends to x-forwarded-for passes a client-sent x-real-ip through.
+		expect(headerAddress(new Request(ORIGIN, { headers: { 'x-real-ip': '1.1.1.1', 'x-forwarded-for': '2.2.2.2' } }))).toBe('2.2.2.2');
+		expect(headerAddress(new Request(ORIGIN, { headers: { 'x-real-ip': '1.1.1.1' } }))).toBe('1.1.1.1');
+		expect(headerAddress(new Request(ORIGIN, { headers: { 'x-real-ip': '1.1.1.1', 'x-forwarded-for': ' , ' } }))).toBe('1.1.1.1');
 		expect(headerAddress(new Request(ORIGIN, { headers: { 'x-forwarded-for': '9.9.9.9, 2.2.2.2' } }))).toBe('2.2.2.2');
 		expect(headerAddress(new Request(ORIGIN))).toBe('');
 	});
@@ -105,6 +108,27 @@ describe('createAide: cache-control on the llms documents', () => {
 			}
 		}
 		expect(read).not.toHaveBeenCalled();
+	});
+
+	it('answers no-store while the crawl is still running, so a CDN keeps no partial document', async () => {
+		const read = vi.fn(async (input: RequestInfo | URL) => {
+			const { pathname } = new URL(String(input));
+			if (pathname === '/') return new Response(htmlPage({ title: 'Home', links: ['/about'] }), { headers: HTML });
+			if (pathname === '/about') {
+				await new Promise((r) => setTimeout(r, 300));
+				return new Response(htmlPage({ title: 'About' }), { headers: HTML });
+			}
+			return new Response('Not found', { status: 404 });
+		});
+		vi.stubGlobal('fetch', read);
+		const aide = createAide({ provider, origin: ORIGIN, limits: { crawlBudgetMs: 20 } });
+		const headers = { 'x-real-ip': '5.5.5.5' };
+		const partial = await aide.fetch(new Request(`${ORIGIN}/llms.txt`, { headers }));
+		expect(partial.status).toBe(200);
+		expect(partial.headers.get('cache-control')).toBe('no-store');
+		await new Promise((r) => setTimeout(r, 500));
+		const whole = await aide.fetch(new Request(`${ORIGIN}/llms.txt`, { headers }));
+		expect(whole.headers.get('cache-control')).toMatch(/^public, max-age=/);
 	});
 
 	it('keeps public, max-age on normal answers', async () => {

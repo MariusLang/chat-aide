@@ -11,7 +11,7 @@
 	type HeadlessProps = ComponentProps<typeof HeadlessChatWidget>;
 
 	let {
-		open = $bindable(false),
+		open = $bindable(),
 		nonce,
 		theme,
 		stylesheet = true,

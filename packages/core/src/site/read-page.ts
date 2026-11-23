@@ -147,6 +147,26 @@ function htmlLinks(doc: Document, pageRoute: string): string[] {
 	return out;
 }
 
+/** The href whose `(` is just before `from`, with the index of its `)`; null when it is not one. */
+function hrefAt(markdown: string, from: number): { href: string; end: number } | null {
+	const start = skipSpace(markdown, from);
+	HREF_CHARS_RE.lastIndex = start;
+	HREF_CHARS_RE.test(markdown);
+	const hrefEnd = HREF_CHARS_RE.lastIndex;
+	if (hrefEnd === start) return null;
+	const afterHref = markdown[hrefEnd] === '>' ? hrefEnd + 1 : hrefEnd;
+	let end = skipSpace(markdown, afterHref);
+	if (end > afterHref && markdown[end] === '"') {
+		const quote = markdown.indexOf('"', end + 1);
+		// Bounded: a title may not run past the line, so this never rescans the body.
+		if (quote < 0 || quote - end > 512) return null;
+		end = skipSpace(markdown, quote + 1);
+	}
+	if (markdown[end] !== ')') return null;
+	const hrefStart = markdown[start] === '<' && hrefEnd > start + 1 ? start + 1 : start;
+	return { href: markdown.slice(hrefStart, hrefEnd), end };
+}
+
 /**
  * The hrefs of `[text](href)`, `[text](<href>)` and `[text](href "title")`, in one linear pass:
  * link text and hrefs may span the whole body, so nothing may be rescanned per `[`. All `[` before
@@ -186,6 +206,15 @@ export function markdownHrefs(markdown: string): string[] {
 		const hrefStart = markdown[start] === '<' && hrefEnd > start + 1 ? start + 1 : start;
 		out.push(markdown.slice(hrefStart, hrefEnd));
 		pos = end + 1;
+		// `[![alt](image)](href)`: the outer link's text closed at the image's `]`, so its href
+		// follows right here. Reading it as a link text start keeps the pass linear.
+		if (markdown[pos] === ']' && markdown[pos + 1] === '(') {
+			const outer = hrefAt(markdown, pos + 2);
+			if (outer) {
+				out.push(outer.href);
+				pos = outer.end + 1;
+			}
+		}
 	}
 }
 
@@ -245,8 +274,11 @@ export function createReader(opts: {
 
 	async function keep(route: string, entry: PageEntry, links: string[]): Promise<PageRead> {
 		remember(route, links);
-		await cache.set(route, entry);
-		return { entry, noindex: false };
+		// The links go into the cache with the page, so an instance that reads it from a shared
+		// store can still crawl on from it.
+		const kept: PageEntry = { ...entry, links };
+		await cache.set(route, kept);
+		return { entry: kept, noindex: false };
 	}
 
 	/** One read from the site. `refresh`: a network failure keeps the stale entry. */
@@ -302,6 +334,12 @@ export function createReader(opts: {
 			if (hit.stale && !inflight.has(route)) {
 				const refresh = shared(route, true);
 				if (readOpts?.waitUntil) readOpts.waitUntil(refresh);
+			}
+			if (!linkMap.has(route) && Array.isArray(hit.entry.links)) {
+				remember(
+					route,
+					hit.entry.links.filter((l): l is string => typeof l === 'string')
+				);
 			}
 			return { entry: hit.entry, noindex: false };
 		}

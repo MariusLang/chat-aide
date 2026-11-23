@@ -66,6 +66,12 @@ describe('route rule', () => {
 			expect(normalizeRoute(r)).toBeNull();
 	});
 
+	it('refuses an empty segment, which the last-segment rules would not see', () => {
+		for (const r of ['/logout//', '/account/delete//', '/data.json//', '/a//b', '/a/.//b'])
+			expect(normalizeRoute(r, 'https://site.dev')).toBeNull();
+		expect(normalizeRoute('/a/b/', 'https://site.dev')).toBe('/a/b/');
+	});
+
 	it('refuses a protocol-relative pathname left by dot segments', () => {
 		for (const r of ['/.//evil.example/x', '/a/..//evil.example', '/././/evil.example'])
 			expect(normalizeRoute(r, 'https://site.dev')).toBeNull();

@@ -10,12 +10,31 @@
  */
 import * as env from '$app/env/private';
 import type { Handle } from '@sveltejs/kit/hooks';
-import { aide, fromEnv, type AideHandle } from '@chat-aide/sveltekit/server';
+import { aide, fromEnv, type AideHandle, type ProviderConfig } from '@chat-aide/sveltekit/server';
 import { chatPages } from './doc-sources';
 import { previewModel } from './preview-model';
 import { redisStore } from './store';
 
 const preview = (): boolean => env.AIDE_PREVIEW === '1';
+
+let provider: ProviderConfig | null | undefined;
+
+/**
+ * The provider from the CHAT_AIDE_* variables, read once, or null when they do not make one (no
+ * model, no key, an unknown name). Without it the chat is hidden like with any other missing
+ * variable: the hook must not throw on every request of the site.
+ */
+function providerConfig(): ProviderConfig | null {
+	if (provider === undefined) {
+		try {
+			provider = fromEnv(env);
+		} catch (error) {
+			console.error('chat-aide: the chat is off, the provider variables are incomplete.', error);
+			provider = null;
+		}
+	}
+	return provider;
+}
 
 const live = (): boolean =>
 	Boolean(
@@ -23,7 +42,8 @@ const live = (): boolean =>
 			env.ORIGIN &&
 			env.KV_REST_API_URL &&
 			env.KV_REST_API_TOKEN &&
-			env.AIDE_SALT
+			env.AIDE_SALT &&
+			providerConfig()
 	);
 
 export const chatConfigured = (): boolean => preview() || live();
@@ -45,7 +65,7 @@ let instance: AideHandle | undefined;
 /** Created on the first request: the build analyses server modules without the environment. */
 function aideHandle(): AideHandle {
 	instance ??= aide({
-		provider: preview() ? { name: 'custom', model: 'preview', instance: previewModel() } : fromEnv(env),
+		provider: preview() ? { name: 'custom', model: 'preview', instance: previewModel() } : providerConfig()!,
 		origin: env.ORIGIN || undefined,
 		...(preview() ? {} : { store: redisStore(env.KV_REST_API_URL!, env.KV_REST_API_TOKEN!), salt: env.AIDE_SALT }),
 		// What the key may spend per UTC day, well under the library's defaults: anyone can script the endpoint.

@@ -6,8 +6,6 @@ on:
 
 permissions:
   contents: read
-  # npm trusted publishing: a short-lived token instead of a stored NPM_TOKEN.
-  id-token: write
 
 concurrency:
   group: release
@@ -17,6 +15,10 @@ jobs:
   publish:
     name: Publish to npm
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # npm trusted publishing: a short-lived token instead of a stored NPM_TOKEN.
+      id-token: write
     env:
       TAG: ${{ github.event.release.tag_name }}
       PRERELEASE: ${{ github.event.release.prerelease }}
@@ -24,6 +26,8 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          # Later steps run dependency code: the token is not left in .git/config for them.
+          persist-credentials: false
 
       # The pnpm version comes from package.json's packageManager (pnpm 10).
       - uses: pnpm/action-setup@v4
@@ -32,7 +36,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-          cache: pnpm
+          # No cache: a release is built from the lockfile alone, not from another run's store.
 
       - name: Read the version from the tag
         run: |
@@ -65,10 +69,11 @@ jobs:
       - name: Set the version
         run: pnpm -r --filter './packages/**' exec npm pkg set version="$VERSION"
 
-      # A prerelease goes to the `next` dist-tag, so `pnpm add` does not pick it up. A re-run skips
+      # A prerelease goes to the `next` dist-tag, so `pnpm add` does not pick it up: one marked as
+      # such on the release, or one whose version says so (v1.2.3-beta.1). A re-run skips
       # versions already on npm. The git checks would refuse the detached tag and the version change.
       - name: Publish
         run: |
           DIST_TAG=latest
-          if [ "$PRERELEASE" = "true" ]; then DIST_TAG=next; fi
+          if [ "$PRERELEASE" = "true" ] || [[ "$VERSION" == *-* ]]; then DIST_TAG=next; fi
           pnpm -r --filter './packages/**' publish --access public --no-git-checks --tag "$DIST_TAG"

@@ -5,6 +5,7 @@
  * Answers render through `parseAnswer`: a safe node tree, never an HTML string, never an image.
  */
 import {
+	currentPath,
 	DEFAULT_STRINGS,
 	focusInWindow,
 	LIMIT_DEFAULTS,
@@ -112,7 +113,8 @@ function CodeBlock({ lang, value, strings }: { lang?: string; value: string; str
 				type="button"
 				data-part="copy"
 				onClick={() => {
-					navigator.clipboard.writeText(value).then(
+					// No Clipboard API outside a secure context: the button then does nothing.
+					navigator.clipboard?.writeText(value).then(
 						() => setCopied(true),
 						() => {}
 					);
@@ -520,6 +522,11 @@ export function ChatWidget(props: ChatWidgetProps) {
 		const c = latest.current.chat;
 		if (props.pathname && enabled && (c.isOpen || inline)) void c.warmup(props.pathname);
 	}, [props.pathname]);
+
+	// An inline chat is never opened, so it is warmed up once it is shown.
+	useEffect(() => {
+		if (enabled && inline) void latest.current.chat.warmup(props.pathname ?? currentPath());
+	}, [enabled, inline]);
 
 	if (!enabled) return null;
 

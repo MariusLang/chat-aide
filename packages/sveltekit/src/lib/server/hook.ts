@@ -68,6 +68,12 @@ export function aide(config: AideConfig, deps?: ChatHandlerDeps): AideHandle {
 
 	const handle = (async ({ event, resolve }) => {
 		if (event.request.headers.get(INTERNAL_HEADER) === INTERNAL_MARKER) {
+			// A sub-request no route matches is answered by SvelteKit with a network fetch against the
+			// request's own (Host-derived) origin. That answer is not the app's: it must neither be
+			// stamped as served in process nor carry the marker off the machine.
+			if (event.isSubRequest && event.route.id === null) {
+				return new Response('Not found', { status: 404, headers: { 'cache-control': 'no-store' } });
+			}
 			const res = await resolve(event);
 			// Only a sub-request's answer goes back to the library; a visitor never sees the stamp.
 			return event.isSubRequest ? stamp(res) : res;

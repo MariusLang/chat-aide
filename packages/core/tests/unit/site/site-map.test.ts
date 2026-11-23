@@ -146,6 +146,36 @@ describe('site map: seeds', () => {
 		expect(site.paths()).toContain('/a&b');
 	});
 
+	it('seeds pages.include before a sitemap that would fill maxPages', async () => {
+		const locs = Array.from({ length: 5 }, (_, i) => `<url><loc>https://site.example/s${i}</loc></url>`).join('');
+		const pages: Record<string, FakePage> = {
+			'/': { body: htmlPage({ title: 'Home' }) },
+			'/hidden': { body: htmlPage({ title: 'Hidden' }) },
+			'/sitemap.xml': xml(`<urlset>${locs}</urlset>`)
+		};
+		for (let i = 0; i < 5; i++) pages[`/s${i}`] = { body: htmlPage({ title: `S${i}` }) };
+		const { map, crawl } = setup(pages, {
+			origin: 'https://site.example',
+			pages: { include: ['/hidden'] },
+			limits: { maxPages: 3 }
+		});
+		await crawl();
+		expect(map.isMapped('/hidden')).toBe(true);
+	});
+
+	it('reads a sitemap loc padded with whitespace', async () => {
+		const { map, crawl } = setup(
+			{
+				'/': { body: htmlPage({ title: 'Home' }) },
+				'/padded': { body: htmlPage({ title: 'Padded' }) },
+				'/sitemap.xml': xml('<urlset><url><loc>\n   https://site.example/padded \n</loc></url></urlset>')
+			},
+			{ origin: 'https://site.example' }
+		);
+		await crawl();
+		expect(map.isMapped('/padded')).toBe(true);
+	});
+
 	it('seeds pages.include', async () => {
 		const { map, crawl } = setup(
 			{ '/': { body: htmlPage({ title: 'Home' }) }, '/hidden': { body: htmlPage({ title: 'Hidden' }) } },
