@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import type { Handle, RequestEvent } from '@sveltejs/kit';
-import { sequence } from '@sveltejs/kit/hooks';
+import type { RequestEvent } from '@sveltejs/kit';
+import { sequence, type Handle } from '@sveltejs/kit/hooks';
 // What SvelteKit's server sets up around `handle`; `sequence()` reads it.
 // @ts-expect-error -- internal entry; its `types` field points at a file that declares no module.
 import { with_request_store } from '@sveltejs/kit/internal/server';
